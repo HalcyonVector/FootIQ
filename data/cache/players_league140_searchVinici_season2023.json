@@ -1,1 +1,0 @@
-{"ts": "2026-04-03T23:24:24.080353", "data": {"get": "players", "parameters": {"search": "Vinici", "league": "140", "season": "2023"}, "errors": {"requests": "You have reached the request limit for the day, Go to https://dashboard.api-football.com to upgrade your plan."}, "results": 0, "paging": {"current": 1, "total": 1}, "response": []}}

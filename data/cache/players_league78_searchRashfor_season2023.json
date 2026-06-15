@@ -1,1 +1,0 @@
-{"ts": "2026-04-03T21:57:58.434920", "data": {"get": "players", "parameters": {"search": "Rashfor", "league": "78", "season": "2023"}, "errors": {"rateLimit": "Too many requests. Your rate limit is 10 requests per minute."}, "results": 0, "paging": {"current": 1, "total": 1}, "response": []}}

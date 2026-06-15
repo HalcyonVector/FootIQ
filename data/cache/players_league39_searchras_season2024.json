@@ -1,1 +1,0 @@
-{"ts": "2026-04-03T21:37:00.468957", "data": {"get": "players", "parameters": {"search": "ras", "league": "39", "season": "2024"}, "errors": {"search": "The Search field must be at least 4 characters in length."}, "results": 0, "paging": {"current": 1, "total": 1}, "response": []}}

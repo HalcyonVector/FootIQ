@@ -1,1 +1,0 @@
-{"ts": "2026-04-03T22:59:09.976492", "data": {"get": "players", "parameters": {"search": "Marcus Rashford", "season": "2023"}, "errors": {"requests": "You have reached the request limit for the day, Go to https://dashboard.api-football.com to upgrade your plan."}, "results": 0, "paging": {"current": 1, "total": 1}, "response": []}}

@@ -10,6 +10,8 @@ build/
 
 # Environment
 .env
+.env.local
+.env.*.local
 venv/
 env/
 .venv/
@@ -20,9 +22,31 @@ env/
 # Data cache (large, regenerated at runtime)
 data/cache/
 
-# Debug files
+# Debug / scratch
 debug_stats.json
+tmp/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Flask
+instance/
+
+# Tool caches
+.mypy_cache/
+.ruff_cache/
+
+# IDE (optional)
+.idea/
+.vscode/
 
 # OS
 .DS_Store
 Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+logs/

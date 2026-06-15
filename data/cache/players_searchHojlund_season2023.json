@@ -1,1 +1,0 @@
-{"ts": "2026-04-03T21:57:09.795038", "data": {"get": "players", "parameters": {"search": "Hojlund", "season": "2023"}, "errors": {"team": "The League or Team field is required with the Search field.", "league": "The League or Team field is required with the Search field."}, "results": 0, "paging": {"current": 1, "total": 1}, "response": []}}
