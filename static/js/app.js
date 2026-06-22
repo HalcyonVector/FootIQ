@@ -379,7 +379,15 @@ function renderSoloStats(data) {
   const arche = document.getElementById("solo-archetype");
   if (pizza) pizza.src = `data:image/png;base64,${charts.pizza}`;
   if (arche) arche.src = `data:image/png;base64,${charts.archetype}`;
-  
+
+  // Efficiency chart (3rd, full-width)
+  const effImg = document.getElementById("solo-efficiency");
+  const effRow = document.getElementById("charts-row-eff");
+  if (effImg && charts.efficiency) {
+    effImg.src = `data:image/png;base64,${charts.efficiency}`;
+    if (effRow) effRow.style.display = "flex";
+  }
+
   chartsRow.style.display = "flex";
   compareStrip.style.display = "flex";
 }

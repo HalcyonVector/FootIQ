@@ -7,7 +7,7 @@ import unicodedata
 from typing import List, Dict, Optional
 from core import cache
 
-CSV_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "football_master.csv")
+CSV_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "football_master_with_xg.csv")
 
 # Global dataframe to keep data in memory
 _DF: Optional[pd.DataFrame] = None
@@ -389,6 +389,11 @@ def get_player_stats(player_id: int, league: str, season: str) -> Optional[Dict]
         "yellow_cards":       val('CrdY'),
         "red_cards":          val('CrdR'),
         "team_color":         get_team_color(row.get('Squad', '')),
+        # Understat xG chain metrics
+        "xg_chain":           val('xGChain'),
+        "xg_buildup":         val('xGBuildup'),
+        "npxg":               val('npxG'),
+        "xa":                 xag,
     }
 
 def _format_results(results_df: pd.DataFrame) -> List[Dict]:

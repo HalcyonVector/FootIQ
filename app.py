@@ -22,10 +22,15 @@ from visuals.bar import generate_bar
 from visuals.percentile import generate_percentile
 from visuals.pizza import generate_pizza
 from visuals.lollipop import generate_lollipop
-from visuals.solo import generate_solo_radar, generate_archetype_radar
+from visuals.solo import generate_solo_radar, generate_archetype_radar, generate_efficiency_chart
 
 app = Flask(__name__)
 CORS(app)
+
+# In-memory chart cache: key = (player_id, league, season, adjusted, c1)
+# Stores pre-rendered base64 chart PNGs so repeat searches are instant
+_chart_cache: dict = {}
+_CACHE_MAX = 200   # evict oldest when this is exceeded
 
 LEAGUES = [
     {"id": "Premier League", "name": "Premier League", "country": "England", "logo": "https://media.api-sports.io/football/leagues/39.png"},
@@ -304,6 +309,21 @@ def api_player_stats():
         archetype = classify(archetype_scores)
         insights  = generate_insights(norm, league, season, raw.get("position", ""))
 
+        # Chart cache lookup
+        cache_key = (str(player_id), league, season, adjusted, color1)
+        if cache_key not in _chart_cache:
+            charts = {
+                "archetype":  generate_archetype_radar(norm, raw["name"], color_override=color1),
+                "pizza":      generate_pizza(norm, raw["name"], color_override=color1),
+                "efficiency": generate_efficiency_chart(norm, raw["name"]),
+            }
+            if len(_chart_cache) >= _CACHE_MAX:
+                # Evict oldest entry
+                _chart_cache.pop(next(iter(_chart_cache)))
+            _chart_cache[cache_key] = charts
+        else:
+            charts = _chart_cache[cache_key]
+
         return jsonify({
             "player":            _player_summary(raw, score),
             "stat_rows":         stat_rows,
@@ -311,11 +331,7 @@ def api_player_stats():
             "archetype_scores":  archetype_scores,
             "archetype":         archetype,
             "insights":          insights,
-            "charts": {
-                "solo_radar":    generate_solo_radar(norm, raw["name"], color_override=color1),
-                "archetype":     generate_archetype_radar(norm, raw["name"], color_override=color1),
-                "pizza":         generate_pizza(norm, raw["name"], color_override=color1),
-            },
+            "charts":            charts,
         })
     except Exception as e:
         traceback.print_exc()
@@ -591,4 +607,4 @@ def api_scout():
 
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    app.run(debug=True, port=5000, use_reloader=False)

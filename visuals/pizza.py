@@ -19,7 +19,7 @@ BG_PANEL = "#111827"
 def _fig_to_b64(fig) -> str:
     buf = io.BytesIO()
     fig.savefig(buf, format="png", bbox_inches="tight",
-                facecolor=fig.get_facecolor(), dpi=140)
+                facecolor=fig.get_facecolor(), dpi=110)
     buf.seek(0)
     encoded = base64.b64encode(buf.read()).decode("utf-8")
     plt.close(fig)

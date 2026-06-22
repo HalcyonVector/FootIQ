@@ -17,9 +17,11 @@
 </head>
 <body>
 
+  <canvas id="particle-canvas"></canvas>
   <div class="bg-orb orb-1"></div>
   <div class="bg-orb orb-2"></div>
   <div class="bg-orb orb-3"></div>
+  <div class="bg-orb orb-4"></div>
   <div class="grid-overlay"></div>
 
   <!-- ══ NAVBAR ══ -->
@@ -63,15 +65,15 @@
   </footer>
 
   <script>
-    // Theme initialization
+    // ── Theme ──
     const savedTheme = localStorage.getItem('theme') || 'dark';
     if(savedTheme === 'light') {
-       document.body.setAttribute('data-theme', 'light');
-       const btn = document.getElementById('theme-toggle');
-       if(btn) btn.textContent = '☀️';
+      document.body.setAttribute('data-theme', 'light');
+      const btn = document.getElementById('theme-toggle');
+      if(btn) btn.textContent = '☀️';
     }
 
-    // Navbar scroll effect
+    // ── Navbar scroll effect ──
     const navbar = document.querySelector('.navbar');
     if (navbar) {
       window.addEventListener('scroll', () => {
@@ -79,17 +81,146 @@
       }, { passive: true });
     }
 
-    // Scroll-animate observer
-    const scrollObserver = new IntersectionObserver((entries) => {
+    // ── Particle canvas ──
+    (function() {
+      const canvas = document.getElementById('particle-canvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      let W, H, particles = [];
+
+      const COLORS = ['rgba(0,212,255,', 'rgba(191,95,255,', 'rgba(255,45,120,', 'rgba(0,255,136,'];
+
+      function resize() {
+        W = canvas.width  = window.innerWidth;
+        H = canvas.height = window.innerHeight;
+      }
+
+      function mkParticle() {
+        return {
+          x: Math.random() * W,
+          y: Math.random() * H,
+          r: Math.random() * 1.5 + 0.3,
+          dx: (Math.random() - 0.5) * 0.25,
+          dy: (Math.random() - 0.5) * 0.25,
+          col: COLORS[Math.floor(Math.random() * COLORS.length)],
+          alpha: Math.random() * 0.5 + 0.1,
+          pulse: Math.random() * Math.PI * 2,
+          pulseSpeed: 0.01 + Math.random() * 0.02,
+        };
+      }
+
+      function init() {
+        resize();
+        particles = Array.from({ length: 120 }, mkParticle);
+      }
+
+      function draw() {
+        ctx.clearRect(0, 0, W, H);
+        particles.forEach(p => {
+          p.pulse += p.pulseSpeed;
+          const a = p.alpha * (0.6 + 0.4 * Math.sin(p.pulse));
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+          ctx.fillStyle = p.col + a + ')';
+          ctx.shadowBlur = 8;
+          ctx.shadowColor = p.col + '0.8)';
+          ctx.fill();
+          p.x += p.dx; p.y += p.dy;
+          if (p.x < 0 || p.x > W) p.dx *= -1;
+          if (p.y < 0 || p.y > H) p.dy *= -1;
+        });
+        requestAnimationFrame(draw);
+      }
+
+      window.addEventListener('resize', resize, { passive: true });
+      init();
+      draw();
+    })();
+
+    // ── Scroll reveal ──
+    const revealObs = new IntersectionObserver((entries) => {
       entries.forEach(e => {
         if (e.isIntersecting) {
-          e.target.classList.add('scroll-animate-visible');
-          scrollObserver.unobserve(e.target);
+          const delay = parseInt(e.target.dataset.delay || 0);
+          setTimeout(() => e.target.classList.add('in-view', 'scroll-animate-visible'), delay);
+          revealObs.unobserve(e.target);
         }
       });
     }, { threshold: 0.08, rootMargin: '0px 0px -40px 0px' });
 
-    document.querySelectorAll('.scroll-animate').forEach(el => scrollObserver.observe(el));
+    function obs(el, cls, delay) {
+      if (el.dataset.scrollInit) return;
+      el.dataset.scrollInit = '1';
+      el.classList.add(cls);
+      el.dataset.delay = delay;
+      revealObs.observe(el);
+    }
+
+    function initScrollAnimations() {
+      // Feature cards: alternating left/right
+      document.querySelectorAll('.feature-card').forEach((el, i) =>
+        obs(el, i % 2 === 0 ? 'scroll-from-left' : 'scroll-from-right', i * 90));
+
+      // League badges: scale pop
+      document.querySelectorAll('.league-badge').forEach((el, i) =>
+        obs(el, 'scroll-scale-in', i * 65));
+
+      // Steps: outer ones slide in, middle rises
+      document.querySelectorAll('.step').forEach((el, i) => {
+        const cls = i === 0 ? 'scroll-from-left' : i === 2 ? 'scroll-from-right' : 'scroll-from-bottom';
+        obs(el, cls, i * 130);
+      });
+
+      // Section headings
+      document.querySelectorAll('.section-intro').forEach(el =>
+        obs(el, 'scroll-from-bottom', 0));
+
+      // Stats strip
+      document.querySelectorAll('.stat-item').forEach((el, i) =>
+        obs(el, 'scroll-from-bottom', i * 70));
+
+      // Generic remaining glass cards
+      document.querySelectorAll(
+        '.glass-card:not(.feature-card):not(.search-card)' +
+        ':not(.scroll-from-left):not(.scroll-from-right):not(.scroll-from-bottom):not(.scroll-scale-in)'
+      ).forEach((el, i) => obs(el, 'scroll-from-bottom', Math.min(i * 60, 280)));
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initScrollAnimations);
+    } else {
+      initScrollAnimations();
+    }
+
+    // ── Animated number counters ──
+    function animateCounter(el) {
+      const target = parseFloat(el.dataset.target || el.textContent);
+      if (isNaN(target)) return;
+      const decimals = (String(target).split('.')[1] || '').length;
+      const duration = 1200;
+      const start = performance.now();
+      function step(now) {
+        const progress = Math.min((now - start) / duration, 1);
+        const ease = 1 - Math.pow(1 - progress, 3);
+        el.textContent = (target * ease).toFixed(decimals);
+        if (progress < 1) requestAnimationFrame(step);
+      }
+      requestAnimationFrame(step);
+    }
+
+    const counterObs = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          animateCounter(e.target);
+          counterObs.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.5 });
+
+    document.querySelectorAll('.count-up').forEach(el => {
+      el.dataset.target = el.textContent;
+      counterObs.observe(el);
+    });
   </script>
   {% block extra_js %}{% endblock %}
 </body>

@@ -171,7 +171,7 @@ body{background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif;min-
 .custom-dd{position:relative;user-select:none}
 .dd-selected{
   display:flex;align-items:center;gap:8px;
-  background:rgba(255,255,255,.06);border:1px solid var(--border);
+  background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);
   border-radius:10px;padding:11px 14px;cursor:pointer;
   font-size:13px;font-weight:500;color:var(--text);
   height:44px;   /* fixed height */
@@ -185,27 +185,28 @@ body{background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif;min-
 
 .dd-menu{
   position:absolute;top:calc(100% + 5px);left:0;right:0;z-index:9999;
-  background:#0d1526;border:1px solid rgba(255,255,255,.12);
+  background:#0f1829;border:1px solid rgba(255,255,255,.2);
   border-radius:12px;overflow:hidden;max-height:260px;overflow-y:auto;
   box-shadow:0 20px 60px rgba(0,0,0,.75);display:none;
 }
 .custom-dd.open .dd-menu{display:block}
 .dd-item{
   display:flex;align-items:center;gap:10px;
-  padding:11px 14px;cursor:pointer;font-size:13px;font-weight:500;
-  border-bottom:1px solid rgba(255,255,255,.04);
+  padding:11px 14px;cursor:pointer;font-size:13px;font-weight:600;
+  color:var(--text);
+  border-bottom:1px solid rgba(255,255,255,.1);
   transition:background .12s;
 }
 .dd-item:last-child{border-bottom:none}
-.dd-item:hover{background:rgba(255,255,255,.07)}
-.dd-item.active{color:var(--c0)}
+.dd-item:hover{background:rgba(255,255,255,.1);color:#fff}
+.dd-item.active{color:var(--c0);background:rgba(59,130,246,.08)}
 
 /* Season select — EXACT SAME HEIGHT as custom dd */
 .filter-select{
   width:100%;
   height:44px;   /* matches .dd-selected */
-  background:rgba(255,255,255,.06);
-  border:1px solid var(--border);border-radius:10px;
+  background:rgba(255,255,255,.08);
+  border:1px solid rgba(255,255,255,.18);border-radius:10px;
   color:var(--text);font-family:'Outfit',sans-serif;
   font-size:13px;font-weight:500;
   padding:0 30px 0 14px;
@@ -223,8 +224,8 @@ body{background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif;min-
 .main-search-icon{position:absolute;left:18px;top:50%;transform:translateY(-50%);font-size:18px;pointer-events:none;z-index:1;transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)}
 .main-search-box input{
   width:100%;
-  background:rgba(255,255,255,.05);
-  border:2px solid rgba(255,255,255,.1);
+  background:rgba(255,255,255,.07);
+  border:1px solid rgba(255,255,255,.2);
   border-radius:12px;color:var(--text);
   font-family:'Outfit',sans-serif;font-size:16px;font-weight:500;
   padding:16px 20px 16px 52px;
@@ -612,7 +613,7 @@ input::placeholder{color:var(--muted)}
 .chart-wide{margin-bottom:18px}
 .chart-card{text-align:center;overflow:hidden}
 .chart-label{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:12px}
-.chart-img{width:100%;border-radius:8px;display:block}
+.chart-img{width:100%;border-radius:8px;display:block;background:#0a0e1a}
 
 /* Compare strip */
 .compare-strip{
@@ -1138,3 +1139,309 @@ footer{
 footer {
   transition: background .3s, border-color .3s;
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   FUTURISTIC UPGRADE — Neon, Particles, Animations
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Upgraded neon color tokens ── */
+:root {
+  --neon-blue:   #00d4ff;
+  --neon-purple: #bf5fff;
+  --neon-pink:   #ff2d78;
+  --neon-green:  #00ff88;
+  --neon-amber:  #ffb800;
+  --glow-blue:   rgba(0,212,255,.18);
+  --glow-purple: rgba(191,95,255,.15);
+  --glow-pink:   rgba(255,45,120,.14);
+}
+
+/* ── Particle canvas (injected by JS) ── */
+#particle-canvas {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: .55;
+}
+
+/* ── Scanline overlay on glass cards ── */
+.glass-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(255,255,255,.008) 2px,
+    rgba(255,255,255,.008) 4px
+  );
+  pointer-events: none;
+  z-index: -1;
+}
+.glass-card { position: relative; overflow: visible; }
+
+/* ── Animated neon border on card hover ── */
+.glass-card::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background: conic-gradient(
+    from var(--angle, 0deg),
+    var(--neon-blue), var(--neon-purple), var(--neon-pink), var(--neon-blue)
+  );
+  z-index: -1;
+  opacity: 0;
+  transition: opacity .35s;
+}
+.glass-card:hover::before { opacity: 1; animation: rotateBorder 3s linear infinite; }
+@property --angle { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
+@keyframes rotateBorder { to { --angle: 360deg; } }
+
+/* ── Neon glow text variants ── */
+.neon-blue   { color: var(--neon-blue);   text-shadow: 0 0 20px var(--neon-blue),   0 0 40px rgba(0,212,255,.4); }
+.neon-purple { color: var(--neon-purple); text-shadow: 0 0 20px var(--neon-purple), 0 0 40px rgba(191,95,255,.4); }
+.neon-pink   { color: var(--neon-pink);   text-shadow: 0 0 20px var(--neon-pink),   0 0 40px rgba(255,45,120,.4); }
+.neon-green  { color: var(--neon-green);  text-shadow: 0 0 20px var(--neon-green),  0 0 40px rgba(0,255,136,.4); }
+
+/* ── Upgraded gradient text (more vivid) ── */
+.gradient-text {
+  background: linear-gradient(135deg, var(--neon-blue) 0%, var(--neon-purple) 50%, var(--neon-pink) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  background-size: 200% 200%;
+  animation: gradShift 4s ease infinite;
+  filter: drop-shadow(0 0 12px rgba(0,212,255,.3));
+}
+
+/* ── Scroll animations — directional variants ── */
+.scroll-from-left  { opacity:0; transform: translateX(-40px); filter: blur(3px);
+  transition: opacity .7s cubic-bezier(.16,1,.3,1), transform .7s cubic-bezier(.16,1,.3,1), filter .6s; }
+.scroll-from-right { opacity:0; transform: translateX(40px);  filter: blur(3px);
+  transition: opacity .7s cubic-bezier(.16,1,.3,1), transform .7s cubic-bezier(.16,1,.3,1), filter .6s; }
+.scroll-from-bottom { opacity:0; transform: translateY(40px); filter: blur(3px);
+  transition: opacity .7s cubic-bezier(.16,1,.3,1), transform .7s cubic-bezier(.16,1,.3,1), filter .6s; }
+.scroll-scale-in { opacity:0; transform: scale(.92); filter: blur(4px);
+  transition: opacity .65s cubic-bezier(.16,1,.3,1), transform .65s cubic-bezier(.16,1,.3,1), filter .55s; }
+
+.scroll-from-left.in-view,
+.scroll-from-right.in-view,
+.scroll-from-bottom.in-view,
+.scroll-scale-in.in-view,
+.scroll-animate.in-view { opacity:1; transform: none; filter: blur(0); }
+
+/* Stagger delays */
+.delay-1 { transition-delay: .1s !important; }
+.delay-2 { transition-delay: .2s !important; }
+.delay-3 { transition-delay: .3s !important; }
+.delay-4 { transition-delay: .4s !important; }
+.delay-5 { transition-delay: .5s !important; }
+
+/* ── Neon orb upgrades (more vivid) ── */
+.orb-1 { background: radial-gradient(circle, rgba(0,212,255,.22) 0%, transparent 70%); }
+.orb-2 { background: radial-gradient(circle, rgba(255,45,120,.18) 0%, transparent 70%); }
+.orb-3 { background: radial-gradient(circle, rgba(191,95,255,.16) 0%, transparent 70%); }
+
+/* Extra orbs for more depth */
+.orb-4 {
+  width: 400px; height: 400px;
+  background: radial-gradient(circle, rgba(0,255,136,.1) 0%, transparent 70%);
+  bottom: 30%; right: 10%;
+  animation-delay: -3s;
+  position: fixed; border-radius: 50%; filter: blur(120px);
+  pointer-events: none; z-index: 0; animation: float 18s ease-in-out infinite;
+}
+
+/* ── Neon card variant ── */
+.neon-card {
+  border-color: rgba(0,212,255,.25) !important;
+  box-shadow: 0 0 30px rgba(0,212,255,.08), inset 0 0 30px rgba(0,212,255,.03);
+}
+.neon-card:hover {
+  border-color: rgba(0,212,255,.5) !important;
+  box-shadow: 0 0 60px rgba(0,212,255,.18), 0 8px 40px rgba(0,0,0,.2), inset 0 0 40px rgba(0,212,255,.05);
+}
+
+/* ── Stat number glow ── */
+.stat-glow {
+  text-shadow: 0 0 16px var(--neon-blue), 0 0 32px rgba(0,212,255,.3);
+  color: var(--neon-blue);
+}
+
+/* ── Hub card neon upgrade ── */
+.hub-card {
+  transition: all 0.4s cubic-bezier(0.4,0,0.2,1);
+}
+.hub-card:hover {
+  border-color: rgba(0,212,255,.4) !important;
+  box-shadow: 0 0 40px rgba(0,212,255,.15), 0 20px 60px rgba(0,0,0,.3) !important;
+  transform: translateY(-4px) !important;
+}
+
+/* ── Navbar neon glow on scroll ── */
+.navbar.scrolled {
+  border-color: rgba(0,212,255,.15) !important;
+  box-shadow: 0 4px 40px rgba(0,0,0,.4), 0 0 80px rgba(0,212,255,.06);
+}
+
+/* ── Logo pulse glow ── */
+.logo-text {
+  background: linear-gradient(135deg, var(--neon-blue), var(--neon-purple), var(--neon-pink));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  background-size: 200%;
+  animation: gradShift 4s ease infinite;
+  filter: drop-shadow(0 0 8px rgba(0,212,255,.4));
+}
+
+/* ── Pulsing neon dot ── */
+.pulse-dot {
+  background: var(--neon-green);
+  box-shadow: 0 0 0 0 rgba(0,255,136,.5);
+}
+@keyframes pulse {
+  0%  { box-shadow: 0 0 0 0 rgba(0,255,136,.5); }
+  70% { box-shadow: 0 0 0 8px rgba(0,255,136,0); }
+  100%{ box-shadow: 0 0 0 0 rgba(0,255,136,0); }
+}
+
+/* ── Button neon glow ── */
+.btn-primary, button[type=submit] {
+  position: relative; overflow: hidden;
+}
+.btn-primary::after, button[type=submit]::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(135deg, rgba(0,212,255,.15), rgba(191,95,255,.15));
+  opacity: 0; transition: opacity .3s;
+}
+.btn-primary:hover::after, button[type=submit]:hover::after { opacity: 1; }
+
+/* ── Animated grid overlay (subtle movement) ── */
+.grid-overlay {
+  animation: gridDrift 30s linear infinite;
+  background-size: 60px 60px;
+}
+@keyframes gridDrift {
+  0%   { background-position: 0 0; }
+  100% { background-position: 60px 60px; }
+}
+
+/* ── Number counter animation ── */
+.count-up { display: inline-block; transition: all .3s; }
+
+/* ── Hover shimmer on cards ── */
+@keyframes shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+.glass-card:hover {
+  background: linear-gradient(
+    105deg,
+    var(--glass) 40%,
+    rgba(255,255,255,.06) 50%,
+    var(--glass) 60%
+  ) !important;
+  background-size: 200% auto !important;
+  animation: shimmer 1.5s linear;
+}
+
+/* ── Futuristic scrollbar ── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: rgba(0,212,255,.02); }
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, var(--neon-blue), var(--neon-purple));
+  border-radius: 4px;
+  box-shadow: 0 0 6px rgba(0,212,255,.4);
+}
+
+/* ── Data readout style for stats ── */
+.cyber-label {
+  font-family: 'Outfit', monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: var(--neon-blue);
+  opacity: .7;
+}
+
+/* ── Floating particle twinkle (CSS-only fallback) ── */
+@keyframes twinkle {
+  0%, 100% { opacity: .2; transform: scale(1); }
+  50% { opacity: .8; transform: scale(1.4); }
+}
+
+/* ── Search card: fully opaque, no orb bleed ── */
+.search-card,
+.search-card:hover,
+.search-card.glass-card,
+.search-card.glass-card:hover {
+  background: #0b1120 !important;
+  backdrop-filter: blur(0px) !important;
+  border: 1px solid rgba(255,255,255,.14) !important;
+  box-shadow: 0 0 0 1px rgba(0,212,255,.08), 0 24px 60px rgba(0,0,0,.7) !important;
+  animation: none !important;
+}
+
+/* ── Kill the broken hover shimmer globally ── */
+.glass-card:hover {
+  background: rgba(255,255,255,.04) !important;
+  background-size: unset !important;
+  animation: none !important;
+}
+
+/* ── Charts: consistent square sizing for pizza + archetype ── */
+.visuals-row .chart-img {
+  aspect-ratio: 1 / 1;
+  object-fit: contain;
+  width: 100%;
+}
+
+/* ── Efficiency chart: wide landscape ── */
+.visuals-row-wide {
+  margin-top: 16px;
+}
+.visuals-row-wide .chart-card {
+  flex: 1;
+}
+.visuals-row-wide .chart-img {
+  aspect-ratio: 5 / 2;
+  object-fit: contain;
+  width: 100%;
+}
+
+/* ── Scroll animations: kill immediate CSS animations on feature cards ── */
+/* (JS IntersectionObserver handles them instead) */
+.feature-card { animation: none !important; }
+.league-badge { animation: none !important; }
+.step         { animation: none !important; }
+
+/* ── Scroll reveal — improved distances ── */
+.scroll-from-left  {
+  opacity: 0; transform: translateX(-50px) translateY(10px);
+  transition: opacity .65s cubic-bezier(.16,1,.3,1),
+              transform .65s cubic-bezier(.16,1,.3,1);
+}
+.scroll-from-right {
+  opacity: 0; transform: translateX(50px) translateY(10px);
+  transition: opacity .65s cubic-bezier(.16,1,.3,1),
+              transform .65s cubic-bezier(.16,1,.3,1);
+}
+.scroll-from-bottom {
+  opacity: 0; transform: translateY(50px);
+  transition: opacity .6s cubic-bezier(.16,1,.3,1),
+              transform .6s cubic-bezier(.16,1,.3,1);
+}
+.scroll-scale-in {
+  opacity: 0; transform: scale(.85) translateY(20px);
+  transition: opacity .55s cubic-bezier(.16,1,.3,1),
+              transform .55s cubic-bezier(.34,1.4,.64,1);
+}
+.scroll-from-left.in-view,
+.scroll-from-right.in-view,
+.scroll-from-bottom.in-view,
+.scroll-scale-in.in-view { opacity: 1; transform: none; filter: none; }
+

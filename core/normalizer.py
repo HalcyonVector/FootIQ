@@ -61,4 +61,8 @@ def normalize_stats(raw: dict) -> dict:
     norm["att_pen_touches_p90"] = per_90(raw.get("att_pen_touches", 0), mins)
     norm["tkl_pct"]             = raw.get("tkl_pct", 0) or 0
 
+    # --- Understat xG chain metrics (now available 2021-22 onwards) ---
+    norm["xg_chain_p90"]   = per_90(raw.get("xg_chain", 0), mins)
+    norm["xg_buildup_p90"] = per_90(raw.get("xg_buildup", 0), mins)
+
     return norm

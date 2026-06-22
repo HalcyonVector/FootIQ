@@ -105,7 +105,8 @@ def get_season_metric_set(season: str, position: str = "attacker", norm: dict = 
             "max_vals": list(max_vals), "weights": list(weights)}
 
 
-_XG_SEASONS = {"2022-23", "2023-24", "2024-25"}
+# xG now available 2021-22 onwards (Understat merge filled the gaps)
+_XG_SEASONS = {"2021-22", "2022-23", "2023-24", "2024-25"}
 
 
 def get_comparison_metric_set(seasons: list, position: str = "attacker", norms: list = None) -> tuple:
