@@ -22,6 +22,11 @@ env/
 # Data cache (large, regenerated at runtime)
 data/cache/
 
+# Data scripts output (intermediate files)
+downloaded_files/
+understat_players.csv
+football_master.csv
+
 # Debug / scratch
 debug_stats.json
 tmp/
