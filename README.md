@@ -136,4 +136,5 @@ app.run(port=5001, use_reloader=False)
 
 ## Author
 
-**Naveen** · [GitHub](https://github.com/HalcyonVector)
+**Vector** · 
+[GitHub](https://github.com/HalcyonVector)
