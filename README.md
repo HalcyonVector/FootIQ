@@ -136,6 +136,6 @@ app.run(port=5001, use_reloader=False)
 
 ## Author
 
-**Sagnik** · 
+**Sagnik**
 
-[GitHub](https://github.com/HalcyonVector)
+GitHub: [@HalcyonVector](https://github.com/HalcyonVector)
