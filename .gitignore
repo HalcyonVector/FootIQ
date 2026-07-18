@@ -19,6 +19,9 @@ env/
 # Kiro spec files
 .kiro/
 
+# Claude Code local config
+.claude/
+
 # Data cache (large, regenerated at runtime)
 data/cache/
 

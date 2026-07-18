@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>FootIQ — Football Player Analytics</title>
-  <meta name="description" content="Instant football player stats, per-90 analytics, pizza charts, and cross-league comparison." />
+  <title>FootIQ — Event-Level Football Analytics</title>
+  <meta name="description" content="Event-derived football player stats — passing, carrying, duels, and combination play, built from match event data." />
   <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
@@ -33,8 +33,7 @@
       <span class="logo-text">FootIQ</span>
     </div>
     <div class="nav-links" style="display:flex; gap: 24px;">
-      <a href="/player" id="nav-player">Player Compare</a>
-      <a href="/scout" id="nav-scout">Scout Matcher</a>
+      <a href="/player" id="nav-player">Player Stats</a>
     </div>
     <div class="nav-right" style="display:flex;align-items:center;gap:12px">
       <button id="theme-toggle" style="background:transparent;border:1px solid var(--border);color:var(--text);font-size:16px;padding:6px;border-radius:50%;cursor:pointer;width:34px;height:34px;display:flex;align-items:center;justify-content:center;transition:background 0.2s">🌙</button>
@@ -160,16 +159,16 @@
     function initScrollAnimations() {
       // Feature cards: alternating left/right
       document.querySelectorAll('.feature-card').forEach((el, i) =>
-        obs(el, i % 2 === 0 ? 'scroll-from-left' : 'scroll-from-right', i * 90));
+        obs(el, i % 2 === 0 ? 'scroll-from-left' : 'scroll-from-right', i * 260));
 
       // League badges: scale pop
       document.querySelectorAll('.league-badge').forEach((el, i) =>
-        obs(el, 'scroll-scale-in', i * 65));
+        obs(el, 'scroll-scale-in', i * 180));
 
       // Steps: outer ones slide in, middle rises
       document.querySelectorAll('.step').forEach((el, i) => {
         const cls = i === 0 ? 'scroll-from-left' : i === 2 ? 'scroll-from-right' : 'scroll-from-bottom';
-        obs(el, cls, i * 130);
+        obs(el, cls, i * 320);
       });
 
       // Section headings
@@ -178,13 +177,13 @@
 
       // Stats strip
       document.querySelectorAll('.stat-item').forEach((el, i) =>
-        obs(el, 'scroll-from-bottom', i * 70));
+        obs(el, 'scroll-from-bottom', i * 190));
 
       // Generic remaining glass cards
       document.querySelectorAll(
         '.glass-card:not(.feature-card):not(.search-card)' +
         ':not(.scroll-from-left):not(.scroll-from-right):not(.scroll-from-bottom):not(.scroll-scale-in)'
-      ).forEach((el, i) => obs(el, 'scroll-from-bottom', Math.min(i * 60, 280)));
+      ).forEach((el, i) => obs(el, 'scroll-from-bottom', Math.min(i * 160, 700)));
     }
 
     if (document.readyState === 'loading') {

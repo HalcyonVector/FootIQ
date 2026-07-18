@@ -8,27 +8,27 @@
 
       <div class="hero-eyebrow">
         <span class="eyebrow-dot"></span>
-        <span>Football Analytics Platform</span>
+        <span>Event-Level Football Analytics</span>
         <span class="eyebrow-dot"></span>
       </div>
 
       <h1 class="hero-title">
-        Every Stat.<br/>
-        <span class="gradient-text">Every Player.</span><br/>
-        <span class="hero-title-sub">Any League.</span>
+        Every Touch.<br/>
+        <span class="gradient-text">Every Duel.</span><br/>
+        <span class="hero-title-sub">Every Player.</span>
       </h1>
 
       <p class="hero-desc">
-        Search any player across Europe's top 5 leagues. Get instant per-90 stats,<br/>
-        position-aware percentile rankings, and professional-grade charts.
+        Search any player across Europe's top 5 leagues. Built directly from<br/>
+        match event data — passes, carries, duels, and pressure, not just box scores.
       </p>
 
       <!-- Capability chips -->
       <div class="capability-chips">
-        <span class="cap-chip">⚖️ League-Adjusted Stats</span>
-        <span class="cap-chip">🧠 Playstyle Archetypes</span>
-        <span class="cap-chip">💡 Smart Insights</span>
-        <span class="cap-chip">🔄 Cross-Season Compare</span>
+        <span class="cap-chip">🎯 12 Metric Categories</span>
+        <span class="cap-chip">🔗 Combination Play</span>
+        <span class="cap-chip">📐 Half-Space Mapping</span>
+        <span class="cap-chip">🧠 Decision-Making</span>
       </div>
 
       <!-- ── Search Card ── -->
@@ -55,7 +55,7 @@
             <label>Season</label>
             <select class="filter-select" id="main-season">
               {% for s in seasons %}
-              <option value="{{ s }}" {% if s == "2024-25" %}selected{% endif %}>{{ s }}</option>
+              <option value="{{ s }}" {% if s == seasons[0] %}selected{% endif %}>{{ s }}</option>
               {% endfor %}
             </select>
           </div>
@@ -73,9 +73,9 @@
           <span>Try:</span>
           <button class="hint-btn" data-name="Salah">M. Salah</button>
           <button class="hint-btn" data-name="Haaland">Haaland</button>
-          <button class="hint-btn" data-name="Mbappe">Mbappé</button>
+          <button class="hint-btn" data-name="Bruno Fernandes">Bruno Fernandes</button>
           <button class="hint-btn" data-name="Bellingham">Bellingham</button>
-          <button class="hint-btn" data-name="Vinicius">Vinicius Jr.</button>
+          <button class="hint-btn" data-name="Van Dijk">Van Dijk</button>
         </div>
       </div>
     </section>
@@ -90,23 +90,23 @@
       </div>
       <div class="stat-divider"></div>
       <div class="stat-item">
-        <span class="stat-num">4</span>
+        <span class="stat-num">3</span>
         <span class="stat-lbl">Seasons</span>
       </div>
       <div class="stat-divider"></div>
       <div class="stat-item">
-        <span class="stat-num">7</span>
-        <span class="stat-lbl">Archetypes</span>
+        <span class="stat-num">11</span>
+        <span class="stat-lbl">Metric Categories</span>
       </div>
       <div class="stat-divider"></div>
       <div class="stat-item">
-        <span class="stat-num">P90</span>
-        <span class="stat-lbl">League-Adjusted</span>
+        <span class="stat-num">5K+</span>
+        <span class="stat-lbl">Matches Parsed</span>
       </div>
       <div class="stat-divider"></div>
       <div class="stat-item">
-        <span class="stat-num">4</span>
-        <span class="stat-lbl">Players Compared</span>
+        <span class="stat-num">100+</span>
+        <span class="stat-lbl">Metrics per Player</span>
       </div>
     </div>
 
@@ -135,38 +135,38 @@
     <section class="features-section">
       <div class="section-intro">
         <span class="section-eyebrow">What you get</span>
-        <h2 class="section-heading">Professional-Grade Analytics</h2>
+        <h2 class="section-heading">Event-Derived Analytics</h2>
       </div>
       <div class="features-grid">
         <div class="feature-card glass-card">
-          <div class="fc-icon">⚖️</div>
-          <div class="fc-title">League Difficulty Adjustment</div>
-          <div class="fc-desc">Stats normalized by league strength. PL=1.0, La Liga=0.96, Bundesliga=0.93, Serie A=0.91, Ligue 1=0.85. Toggle on/off.</div>
+          <div class="fc-icon">🎯</div>
+          <div class="fc-title">Passing & Carrying Profiles</div>
+          <div class="fc-desc">Progressive passes and carries measured from real ball movement, not FBref's box-score approximation — plus half-space activity and tempo control.</div>
+        </div>
+        <div class="feature-card glass-card">
+          <div class="fc-icon">🦅</div>
+          <div class="fc-title">Aerial Duels & Hold-Up Play</div>
+          <div class="fc-desc">Traces what happens after a header is won or a ball is held up — who keeps it, who loses it, and what it leads to.</div>
         </div>
         <div class="feature-card glass-card">
           <div class="fc-icon">🧠</div>
-          <div class="fc-title">Playstyle Archetypes</div>
-          <div class="fc-desc">7 archetypes auto-classified per player: Finisher, Playmaker, Ball Carrier, Defensive MF, Defender, Complete Forward, Box-to-Box.</div>
+          <div class="fc-title">Decision Making</div>
+          <div class="fc-desc">Space-finding, press resistance, and shot creation — judged by what a pass buys the receiver, not just whether it was completed.</div>
         </div>
         <div class="feature-card glass-card">
-          <div class="fc-icon">💡</div>
-          <div class="fc-title">Smart Insights</div>
-          <div class="fc-desc">Natural-language insights comparing each player to their position-group average. "Scores 2.3x the goals of an average attacker."</div>
+          <div class="fc-icon">📐</div>
+          <div class="fc-title">Final Third Composite</div>
+          <div class="fc-desc">Completeness and Impact scores — a geometric-mean floor across four pillars, plus a per-touch score from a player's two strongest.</div>
         </div>
         <div class="feature-card glass-card">
-          <div class="fc-icon">📡</div>
-          <div class="fc-title">Radar & Pizza Charts</div>
-          <div class="fc-desc">Overlay up to 4 players on a radar. FBRef-style pizza charts showing each metric as a percentile slice.</div>
+          <div class="fc-icon">🔗</div>
+          <div class="fc-title">Combination Play</div>
+          <div class="fc-desc">See a player's most-found teammates, and a pitch chart of exactly what that teammate does after receiving from them.</div>
         </div>
         <div class="feature-card glass-card">
-          <div class="fc-icon">📊</div>
-          <div class="fc-title">Season-Aware Dashboards</div>
-          <div class="fc-desc">Metrics adapt per season — only stats that actually exist in the data are shown. No empty cells, no misleading zeros.</div>
-        </div>
-        <div class="feature-card glass-card">
-          <div class="fc-icon">🎯</div>
-          <div class="fc-title">Scout Matcher</div>
-          <div class="fc-desc">Find statistical twins across all 5 leagues using Euclidean distance on position-specific stat vectors.</div>
+          <div class="fc-icon">🛡️</div>
+          <div class="fc-title">Zone-Based Defending</div>
+          <div class="fc-desc">Box, channel, and flank actions kept separate — a center-back's job isn't a full-back's job, and the numbers shouldn't be blended together.</div>
         </div>
       </div>
     </section>
@@ -190,15 +190,15 @@
         <div class="step">
           <div class="step-num">02</div>
           <div class="step-icon">📊</div>
-          <div class="step-title">View Full Stats</div>
-          <div class="step-desc">Percentile table, pizza chart, radar, and benchmark bars load automatically.</div>
+          <div class="step-title">Browse the Tabs</div>
+          <div class="step-desc">11 metric categories, percentile-ranked against same-position peers.</div>
         </div>
         <div class="step-arrow">→</div>
         <div class="step">
           <div class="step-num">03</div>
-          <div class="step-icon">⚔️</div>
-          <div class="step-title">Compare (Optional)</div>
-          <div class="step-desc">Add up to 3 more players from any league for a full head-to-head breakdown.</div>
+          <div class="step-icon">🔗</div>
+          <div class="step-title">Explore Combinations</div>
+          <div class="step-desc">See who they link up with, and what happens after the pass.</div>
         </div>
       </div>
     </section>
@@ -215,172 +215,30 @@
         <span>Fetching stats…</span>
       </div>
 
-      <!-- 1. Top Section: Data Dashboard Table -->
-      <div class="pct-wrapper glass-card" id="pct-wrapper" style="display:none">
+      <!-- Advanced Metrics (Opta/WhoScored event data) -->
+      <section id="advanced-section" class="glass-card" style="display:none; padding:20px 24px; margin-top:18px">
         <div class="pct-title-row">
-          <span class="section-label">📊 Tactical Data Dashboard</span>
-          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-            <label class="adj-toggle" style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;color:var(--muted)">
-              <input type="checkbox" id="league-adj-toggle" checked style="accent-color:#3b82f6;width:15px;height:15px;" />
-              ⚖️ League-adjusted
-            </label>
-            <span class="pct-legend">
-              <span class="pct-dot" style="background:#ef4444"></span>Low
-              <span class="pct-dot" style="background:#eab308"></span>Mid
-              <span class="pct-dot" style="background:#3b82f6"></span>Elite
-            </span>
-          </div>
+          <span class="section-label">📊 Advanced Metrics <span style="color:var(--muted);font-weight:500">— event-level detail from match data</span></span>
         </div>
-        <div id="adj-badge" style="display:none;margin-bottom:8px;padding:5px 12px;background:rgba(59,130,246,0.12);border:1px solid rgba(59,130,246,0.35);border-radius:20px;color:#93c5fd;font-size:12px;width:fit-content;">⚖️ League-adjusted</div>
-        <div class="pct-note">Percentiles based on position-specific elite benchmarks. Higher bars = better performance.</div>
-        <div class="pct-scroll" id="pct-solo-table"></div>
-      </div>
+        <div class="adv-tabs" id="adv-tabs"></div>
+        <div class="adv-panels" id="adv-panels"></div>
+      </section>
 
-      <!-- Insights section -->
-      <div id="insights-section" style="display:none;margin-bottom:16px"></div>
-
-      <!-- 2. Bottom Section: Visual Duo (Side-by-Side) -->
-      <div class="visuals-row" id="charts-row" style="display:none">
-        <div class="chart-card glass-card" id="card-pizza">
-          <img id="solo-pizza" class="chart-img" alt="Pizza chart" />
+      <!-- Combination Play (pairwise pass network) -->
+      <section id="linkup-section" class="glass-card" style="display:none; padding:20px 24px; margin-top:18px">
+        <div class="pct-title-row">
+          <span class="section-label">🔗 Combination Play <span style="color:var(--muted);font-weight:500">— who they link up with, and what happens next</span></span>
         </div>
-        <div class="chart-card glass-card" id="card-archetype">
-          <img id="solo-archetype" class="chart-img" alt="Archetype radar" />
+        <div class="linkup-teammates-row">
+          <span class="similar-lbl">Most linked-up with</span>
+          <div id="linkup-chips" class="linkup-chips"></div>
         </div>
-      </div>
-
-      <!-- 3. Efficiency Chart (full width) -->
-      <div class="visuals-row visuals-row-wide" id="charts-row-eff" style="display:none">
-        <div class="chart-card glass-card" id="card-efficiency">
-          <img id="solo-efficiency" class="chart-img" alt="Efficiency chart" />
+        <div id="linkup-stats-row" class="profile-season-stats" style="margin:14px 0"></div>
+        <div class="linkup-chart-wrap">
+          <img id="linkup-chart-img" class="chart-img" alt="Combination play chart" />
         </div>
-      </div>
+      </section>
 
-      <!-- Shared Tooltip for both charts -->
-      <div id="chart-tooltip" class="chart-tooltip">
-        <div class="ct-label" id="ct-label">Stat Name</div>
-        <div class="ct-val">
-          <span id="ct-val">0.00</span>
-          <span class="ct-pct" id="ct-pct">99th Pct</span>
-        </div>
-      </div>
-
-      <!-- Compare strip -->
-      <div class="compare-strip" id="compare-strip" style="display:none">
-        <div class="compare-strip-left">
-          <span class="compare-icon">⚔️</span>
-          <div>
-            <div class="compare-strip-title">Want to compare this player?</div>
-            <div class="compare-strip-sub">Add players from any league or season — up to 4 total</div>
-          </div>
-        </div>
-        <button class="add-compare-btn" id="add-compare-btn">+ Add Player to Compare</button>
-      </div>
-
-    </section>
-
-    <!-- ══════════════════════════════════════
-         COMPARISON SECTION
-    ══════════════════════════════════════ -->
-    <section id="compare-section" style="display:none">
-
-      <div class="compare-header">
-        <span class="section-label">⚔️ Player Comparison</span>
-        <button class="close-compare-btn" id="close-compare-btn">✕ Exit Compare Mode</button>
-      </div>
-
-      <div class="compare-players-row" id="compare-players-row">
-        <div class="compare-slot primary-slot" id="compare-slot-primary"></div>
-      </div>
-
-      <div class="add-more-row" id="add-more-row">
-        <button class="add-more-btn" id="add-more-btn">+ Add Another Player</button>
-        <span class="add-more-hint" id="add-more-hint">2 of 4 players</span>
-      </div>
-
-      <div class="compare-action-row">
-        <button class="compare-go-btn" id="compare-go-btn" disabled>
-          Generate Comparison →
-        </button>
-      </div>
-
-      <div id="comparison-results" style="display:none">
-
-        <div class="score-cards-row" id="score-cards-row"></div>
-
-        <div id="comparison-mode-label"></div>
-
-        <div class="pct-wrapper glass-card">
-          <div class="pct-title-row">
-            <span class="section-label">📊 Percentile Rankings — All Players</span>
-            <span class="pct-legend">
-              <span class="pct-dot" style="background:#ef4444"></span>Low
-              <span class="pct-dot" style="background:#eab308"></span>Mid
-              <span class="pct-dot" style="background:#3b82f6"></span>Elite
-            </span>
-          </div>
-          <div class="pct-note">Percentiles based on position-specific elite benchmarks per 90 minutes.</div>
-          <div class="pct-scroll" id="pct-compare-table"></div>
-        </div>
-
-        <div class="charts-row">
-          <div class="chart-card glass-card">
-            <div class="chart-label">📡 Radar Comparison</div>
-            <img id="cmp-radar" class="chart-img" alt="Radar comparison" />
-          </div>
-          <div class="chart-card glass-card">
-            <div class="chart-label">📊 Bar Comparison</div>
-            <img id="cmp-bar" class="chart-img" alt="Bar comparison" />
-          </div>
-        </div>
-        <div class="charts-row">
-          <div class="chart-card glass-card">
-            <div class="chart-label">🎯 Lollipop Percentile</div>
-            <img id="cmp-lollipop" class="chart-img" alt="Lollipop chart" />
-          </div>
-          <div class="chart-card glass-card">
-            <div class="chart-label">📏 Benchmark Bars</div>
-            <img id="cmp-percentile" class="chart-img" alt="Percentile bars" />
-          </div>
-        </div>
-
-        <div class="stat-table-wrapper glass-card">
-          <div class="pct-title-row" style="margin-bottom:16px">
-            <span class="section-label">🆚 Head to Head Stats</span>
-          </div>
-          <div class="table-scroll">
-            <table class="stat-table">
-              <thead><tr id="stat-thead"></tr></thead>
-              <tbody id="stat-tbody"></tbody>
-            </table>
-          </div>
-        </div>
-
-        <div class="custom-branding-row glass-card" style="display:flex;align-items:center;justify-content:center;gap:20px;padding:16px;margin-bottom:16px;text-align:center;">
-          <div style="font-size:14px;color:var(--dim)">🎨 Brand Customizer</div>
-          <div style="display:flex;align-items:center;gap:8px;">
-            <label style="font-size:12px;color:var(--muted)">Color 1:</label>
-            <input type="color" id="export-color-1" value="#3b82f6" style="cursor:pointer;background:none;border:none;height:24px;width:24px;padding:0;">
-          </div>
-          <div style="display:flex;align-items:center;gap:8px;">
-            <label style="font-size:12px;color:var(--muted)">Color 2:</label>
-            <input type="color" id="export-color-2" value="#f43f5e" style="cursor:pointer;background:none;border:none;height:24px;width:24px;padding:0;">
-          </div>
-          <div style="display:flex;align-items:center;gap:8px;">
-            <label style="font-size:12px;color:var(--muted)">Color 3:</label>
-            <input type="color" id="export-color-3" value="#10b981" style="cursor:pointer;background:none;border:none;height:24px;width:24px;padding:0;">
-          </div>
-          <div style="display:flex;align-items:center;gap:8px;">
-            <label style="font-size:12px;color:var(--muted)">Color 4:</label>
-            <input type="color" id="export-color-4" value="#f59e0b" style="cursor:pointer;background:none;border:none;height:24px;width:24px;padding:0;">
-          </div>
-          <button id="recolor-btn" style="background:rgba(255,255,255,.05);border:1px solid var(--border);color:var(--text);padding:6px 12px;border-radius:6px;font-size:12px;cursor:pointer;transition:background 0.2s">Apply Colors</button>
-        </div>
-
-        <div class="export-row">
-          <button class="export-btn" id="export-btn">💾 Save Charts as PNG</button>
-        </div>
-      </div>
     </section>
 
 {% endblock %}

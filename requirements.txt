@@ -5,3 +5,5 @@ pandas
 requests
 matplotlib
 numpy
+pyarrow
+mplsoccer
