@@ -13,9 +13,22 @@ import requests
 from core import cache
 
 
+# Letters with no NFD decomposition (they're distinct base characters, not a
+# base letter + combining accent) — NFD+ascii-ignore alone silently DROPS
+# these instead of transliterating them, breaking search for e.g. "Odegaard"
+# (Ø doesn't decompose to "O" + a combining mark, so it just disappears,
+# leaving "degaard").
+_MANUAL_TRANSLATE = str.maketrans({
+    "Ø": "O", "ø": "o", "Æ": "AE", "æ": "ae", "Œ": "OE", "œ": "oe",
+    "Đ": "D", "đ": "d", "Ł": "L", "ł": "l", "Þ": "TH", "þ": "th",
+    "ß": "ss", "Ð": "D", "ð": "d",
+})
+
+
 def _normalize_str(s: str) -> str:
     """Strip all diacritics/accents and lowercase. Ødegaard->odegaard, Šeško->sesko."""
-    return unicodedata.normalize("NFD", s or "").encode("ascii", "ignore").decode("ascii").lower()
+    s = (s or "").translate(_MANUAL_TRANSLATE)
+    return unicodedata.normalize("NFD", s).encode("ascii", "ignore").decode("ascii").lower()
 
 
 def get_wikimedia_image(name: str, team: str = None) -> str:

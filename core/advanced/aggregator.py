@@ -8,7 +8,7 @@ once) — the ~6GB raw cache is far too large for that.
 
 from collections import Counter
 
-from core.advanced import raw_loader as rl, minutes as mn
+from core.advanced import raw_loader as rl, minutes as mn, chart_events as ce
 from core.advanced.accumulate import merge_into
 from core.advanced.carries import derive_carries
 from core.advanced.categories import (
@@ -18,6 +18,35 @@ from core.advanced.categories import (
 )
 from core.advanced.linkup import compute_linkup
 from core.advanced.per90 import per_90
+
+# Wave 5: per-category chart-event fields, flattened into parallel list-columns
+# (evt_<category>_<field>) in data/advanced/player_chart_events.parquet — the
+# same shape linkup_pairs.parquet already proved out. A fixed field tuple per
+# category (rather than inferring from dict keys) keeps the parquet schema
+# stable even for a player-season with zero records in some category.
+CHART_FIELDS = {
+    "passing": ("x", "y", "end_x", "end_y", "completed", "progressive", "into_box", "release_s"),
+    "shooting": ("x", "y", "outcome", "body_part"),
+    "carrying": ("start_x", "start_y", "end_x", "end_y", "progressive", "followup"),
+    "takeons": ("x", "y", "outcome"),
+    "aerial": ("x", "y", "won", "phase"),
+    "holdup": ("x", "y", "zone", "outcome"),
+    "half_space_off": ("x", "y", "end_x", "end_y", "kind"),
+    "half_space_def": ("x", "y", "kind"),
+    "tempo": ("x", "y", "end_x", "end_y", "kind", "release_s"),
+    "defending": ("x", "y", "action", "outcome"),
+    "post_recovery": ("x", "y", "end_x", "end_y", "outcome"),
+    "goalkeeping": ("x", "y", "outcome"),
+}
+
+
+def _merge_chart_events(chart_totals: dict, category: str, records_by_pid: dict) -> None:
+    for pid, records in records_by_pid.items():
+        chart_totals.setdefault(pid, {}).setdefault(category, []).extend(records)
+
+
+def _flatten_chart_records(prefix: str, records: list, fields: tuple) -> dict:
+    return {f"evt_{prefix}_{field}": [r.get(field) for r in records] for field in fields}
 
 # Categories needing only (events, rosters) — no carries/minutes.
 SIMPLE_CATEGORY_MODULES = [
@@ -43,10 +72,11 @@ ALL_P90_KEYS = (
 )
 
 
-def build_player_season_table(league: str, season: str, collect_linkup: bool = True):
+def build_player_season_table(league: str, season: str, collect_linkup: bool = True, collect_chart_events: bool = True):
     totals: dict = {}
     meta: dict = {}  # player_id -> {name, team_name, positions: Counter, total_minutes}
     linkup_totals: dict = {}  # (passer_id, receiver_id) -> list of reception records
+    chart_totals: dict = {}  # player_id -> {category: [event records]}
 
     n_matches = 0
     n_skipped = 0
@@ -68,9 +98,11 @@ def build_player_season_table(league: str, season: str, collect_linkup: bool = T
                 continue
             m = meta.setdefault(pid, {
                 "name": r["player_name"], "team_name": r["team_name"],
-                "positions": Counter(), "total_minutes": 0.0,
+                "positions": Counter(), "total_minutes": 0.0, "age": None,
             })
             m["team_name"] = r["team_name"]  # last team seen wins (mid-season transfers)
+            if r.get("age"):
+                m["age"] = r["age"]  # last match seen wins -> age as of their most recent appearance
             # WhoScored tags EVERY substitute "Sub" regardless of their real
             # position (a CB coming off the bench shows "Sub", not "DC") — only
             # count starts, where the real formation slot is recorded, so a
@@ -98,6 +130,21 @@ def build_player_season_table(league: str, season: str, collect_linkup: bool = T
             for pair, receptions in compute_linkup(events).items():
                 linkup_totals.setdefault(pair, []).extend(receptions)
 
+        if collect_chart_events:
+            _merge_chart_events(chart_totals, "passing", ce.extract_passing(events))
+            _merge_chart_events(chart_totals, "shooting", ce.extract_shooting(events))
+            _merge_chart_events(chart_totals, "carrying", ce.extract_carrying(events))
+            _merge_chart_events(chart_totals, "takeons", ce.extract_takeons(events))
+            _merge_chart_events(chart_totals, "aerial", ce.extract_aerial(events))
+            _merge_chart_events(chart_totals, "holdup", ce.extract_holdup(events))
+            hs_off, hs_def = ce.extract_half_spaces(events, carries)
+            _merge_chart_events(chart_totals, "half_space_off", hs_off)
+            _merge_chart_events(chart_totals, "half_space_def", hs_def)
+            _merge_chart_events(chart_totals, "tempo", ce.extract_tempo(events, carries))
+            _merge_chart_events(chart_totals, "defending", ce.extract_defending(events))
+            _merge_chart_events(chart_totals, "post_recovery", ce.extract_post_recovery(events))
+            _merge_chart_events(chart_totals, "goalkeeping", ce.extract_goalkeeping(events, rosters, match_minutes))
+
     rows = []
     finalized_by_category = [finalize_fn(totals) for finalize_fn in ALL_FINALIZERS]
 
@@ -111,6 +158,7 @@ def build_player_season_table(league: str, season: str, collect_linkup: bool = T
             "season": season,
             "position": m["positions"].most_common(1)[0][0] if m["positions"] else None,
             "total_minutes": round(total_min, 1),
+            "age": m["age"],
         }
         for cat_final in finalized_by_category:
             player_fields = cat_final.get(pid, {})
@@ -140,16 +188,28 @@ def build_player_season_table(league: str, season: str, collect_linkup: bool = T
             "end_y": [r["end_y"] for r in receptions],
         })
 
+    chart_rows = []
+    for pid, cats in chart_totals.items():
+        m = meta.get(pid)
+        if not m:
+            continue
+        row = {"whoscored_player_id": pid, "league": league, "season": season}
+        for cat_key, fields in CHART_FIELDS.items():
+            row.update(_flatten_chart_records(cat_key, cats.get(cat_key, []), fields))
+        chart_rows.append(row)
+
     skip_note = f", {n_skipped} skipped (corrupted)" if n_skipped else ""
-    print(f"[advanced] {league} {season}: {n_matches} matches{skip_note}, {len(rows)} player-seasons, {len(linkup_rows)} linkup pairs")
-    return rows, linkup_rows
+    print(f"[advanced] {league} {season}: {n_matches} matches{skip_note}, {len(rows)} player-seasons, "
+          f"{len(linkup_rows)} linkup pairs, {len(chart_rows)} chart-event rows")
+    return rows, linkup_rows, chart_rows
 
 
 def build_all(leagues: list[str], seasons: list[str]):
-    all_rows, all_linkup_rows = [], []
+    all_rows, all_linkup_rows, all_chart_rows = [], [], []
     for league in leagues:
         for season in seasons:
-            rows, linkup_rows = build_player_season_table(league, season)
+            rows, linkup_rows, chart_rows = build_player_season_table(league, season)
             all_rows.extend(rows)
             all_linkup_rows.extend(linkup_rows)
-    return all_rows, all_linkup_rows
+            all_chart_rows.extend(chart_rows)
+    return all_rows, all_linkup_rows, all_chart_rows

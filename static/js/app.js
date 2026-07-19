@@ -21,10 +21,6 @@ const chartsLoading   = document.getElementById("charts-loading");
 const advancedSection = document.getElementById("advanced-section");
 const advTabs         = document.getElementById("adv-tabs");
 const advPanels       = document.getElementById("adv-panels");
-const linkupSection   = document.getElementById("linkup-section");
-const linkupChips     = document.getElementById("linkup-chips");
-const linkupStatsRow  = document.getElementById("linkup-stats-row");
-const linkupChartImg  = document.getElementById("linkup-chart-img");
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Utilities
@@ -105,7 +101,7 @@ function initMainSearch() {
 
   const doSearch = debounce(async (isGlobal = false) => {
     const q = searchEl.value.trim();
-    if (q.length < 3) { resultsEl.innerHTML = ""; resultsEl.classList.remove("active"); return; }
+    if (q.length < 2) { resultsEl.innerHTML = ""; resultsEl.classList.remove("active"); return; }
     try {
       const url = `/api/search?name=${encodeURIComponent(q)}&league=${primaryLeague}&season=${primarySeason}${isGlobal === true ? '&all_leagues=1' : ''}`;
       const res  = await fetch(url);
@@ -119,7 +115,7 @@ function initMainSearch() {
       }
       resultsEl.innerHTML = data.map(p => `
         <div class="result-item" data-id="${p.id}" data-player='${JSON.stringify(p).replace(/'/g,"&#39;")}'>
-          <div class="result-item-icon">⚽</div>
+          <div class="result-item-icon">${p.name.charAt(0).toUpperCase()}</div>
           <div>
             <div class="result-name">${p.name}</div>
             <div class="result-meta">${p.league ? p.league + ' · ' : ''}${p.team} · ${p.position}</div>
@@ -141,23 +137,56 @@ function initMainSearch() {
   });
 }
 
+// A cross-league search (the "no results in the selected league, fall back
+// to searching every league" path in doSearch above) can return a player
+// whose real league/season differs from whatever the dropdowns still show —
+// e.g. searching "Bellingham" while the League dropdown is stuck on
+// "Premier League" finds him via the global fallback with league="La Liga".
+// Every downstream fetch (advanced-stats, category-chart, linkup) queries
+// using the primaryLeague/primarySeason globals, NOT the found player's own
+// league/season, so leaving them stale meant those requests silently looked
+// up the WRONG league and came back empty ("No advanced stats found") even
+// though the player genuinely has data. Sync the globals AND the visible
+// dropdowns to match whichever player was actually selected.
+function _syncPrimaryFilters(player) {
+  if (player.league && player.league !== primaryLeague) {
+    primaryLeague = player.league;
+    const lgItem = [...document.querySelectorAll("#dd-menu-main .dd-item")]
+      .find(i => i.dataset.value === player.league);
+    if (lgItem) {
+      document.getElementById("dd-sel-main").innerHTML =
+        `<img src="${lgItem.dataset.logo}" style="width:20px;height:20px;object-fit:contain;margin-right:8px;" /><span class="dd-name">${lgItem.dataset.name}</span><span class="dd-arrow">▾</span>`;
+      document.querySelectorAll("#dd-menu-main .dd-item").forEach(i => i.classList.remove("active"));
+      lgItem.classList.add("active");
+    }
+    const lgInput = document.getElementById("main-league");
+    if (lgInput) lgInput.value = primaryLeague;
+  }
+  if (player.season && player.season !== primarySeason) {
+    primarySeason = player.season;
+    const seasonSel = document.getElementById("main-season");
+    if (seasonSel) seasonSel.value = primarySeason;
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Select primary player → fetch Advanced Metrics + Combination Play
 // ─────────────────────────────────────────────────────────────────────────────
 async function selectPrimaryPlayer(player) {
   primaryPlayer = player;
+  _syncPrimaryFilters(player);
+  resetLinkupState();
 
   profileSection.style.display = "block";
   renderProfileHeader(player);
 
   chartsLoading.style.display = "flex";
   advancedSection.style.display = "none";
-  linkupSection.style.display = "none";
 
-  await Promise.allSettled([
-    fetchAdvancedStats(player),
-    fetchLinkupTeammates(player),
-  ]);
+  // Stats are precomputed (fast parquet lookup) — reveal them immediately.
+  // Charts (Combination Play now, per-category charts later) load lazily
+  // per-tab from activateTab(), so a slow chart never blocks the page.
+  await fetchAdvancedStats(player);
   chartsLoading.style.display = "none";
 
   setTimeout(() => {
@@ -195,7 +224,7 @@ function renderProfileHeader(player) {
         ${player.league ? `<span style="color:var(--muted)">&middot; ${player.league}</span>` : ""}
       </div>
       <div class="profile-season-stats" id="season-stats-row">
-        <span class="profile-stat-chip apps-chip">📅 ${player.minutes || "–"} min &middot; ${primarySeason}</span>
+        <span class="profile-stat-chip apps-chip">${player.minutes || "–"} min &middot; ${primarySeason}</span>
       </div>
     </div>
   `;
@@ -234,52 +263,36 @@ async function applyWikiImage(name, team, ...imgEls) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Generic percentile-table renderer (shared by every Advanced Metrics tab)
+// Stat card renderer — one compact vertical list of metric rows (label left,
+// value+bar+percentile right), shared by every Advanced Metrics tab. Sits in
+// the left column of .adv-panel-body next to that tab's chart card.
 // ─────────────────────────────────────────────────────────────────────────────
-function renderPctTable(rows, containerId) {
-  const el = document.getElementById(containerId);
-  if (!el || !rows.length) return;
-  const labels = rows[0].stats.map(s => s.label);
+const LEGEND_STOPS = [["Elite 80+", 90], ["Above 60+", 70], ["Average 40+", 50], ["Below 20+", 30], ["Poor", 10]];
 
+function renderStatCard(cat, containerId) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  const stats = (cat.rows && cat.rows[0] && cat.rows[0].stats) || [];
   el.innerHTML = `
-    <table class="pct-table">
-      <thead>
-        <tr>
-          <th>Player Profile</th>
-          ${labels.map(l=>`<th>${l}</th>`).join("")}
-        </tr>
-      </thead>
-      <tbody>
-        ${rows.map(row => `
-          <tr>
-            <td>
-              <div class="pct-player-cell">
-                <div>
-                  <div class="pct-player-name">${row.player_name}</div>
-                  <div class="pct-player-team">${row.team||""}</div>
-                </div>
-              </div>
-            </td>
-            ${row.stats.map(s => {
-              const color = percentileColor(s.percentile);
-              const noData = s.value === 0 || s.value === null;
-              return `
-                <td>
-                  <div class="pct-dashboard-cell">
-                    <div class="pct-val-row">
-                      <span class="pct-cell-val" style="color:${noData ? 'var(--muted)' : color}">${noData ? '—' : s.value}</span>
-                    </div>
-                    <div class="pct-bar-bg">
-                      <div class="pct-bar-fill" style="width:${noData ? 0 : Math.min(s.percentile,100)}%; background:${color}; box-shadow: 0 0 10px ${color}44;"></div>
-                    </div>
-                    <span class="pct-cell-label">${noData ? 'No data' : s.percentile + 'th Pct'}</span>
-                  </div>
-                </td>`;
-            }).join("")}
-          </tr>
-        `).join("")}
-      </tbody>
-    </table>
+    <div class="adv-stat-card-title">${cat.label}</div>
+    ${cat.desc ? `<div class="adv-stat-card-desc">${cat.desc}</div>` : ""}
+    <div class="stat-card-rows">
+      ${stats.map(s => {
+        const color = percentileColor(s.percentile);
+        const noData = s.no_data || s.value === null;
+        return `
+          <div class="stat-card-row">
+            <span class="scr-label">${s.label}</span>
+            <div class="scr-right">
+              <span class="scr-val" style="color:${noData ? 'var(--muted)' : color}">${noData ? '—' : s.value + (s.unit || '')}</span>
+              <div class="scr-bar-bg"><div class="scr-bar-fill" style="width:${noData ? 0 : Math.min(s.percentile, 100)}%; background:${color}; box-shadow: 0 0 10px ${color}44;"></div></div>
+            </div>
+          </div>`;
+      }).join("")}
+    </div>
+    <div class="stat-card-legend">
+      ${LEGEND_STOPS.map(([lbl, pct]) => `<span><i class="scl-dot" style="background:${percentileColor(pct)}"></i>${lbl}</span>`).join("")}
+    </div>
   `;
 }
 
@@ -303,65 +316,300 @@ async function fetchAdvancedStats(player) {
   } catch { showToast("Could not load advanced stats."); }
 }
 
+// Categories whose chart grid is wired up and ready to lazy-load on tab
+// activation via /api/category-chart. "linkup" has its own endpoints/flow,
+// handled separately.
+const CHART_CATEGORIES = new Set([
+  "passing", "shooting", "carrying", "aerial", "holdup", "half_spaces",
+  "tempo", "defending", "post_recovery", "goalkeeping", "decision_making", "final_third",
+]);
+
+// category -> filter control config (radio = pick one, checkbox = pick many).
+// Omitted from this map = no filter row for that category.
+const CHART_FILTERS = {
+  passing: { type: "radio", default: "progressive", options: [
+    ["progressive", "Progressive & into box"], ["all", "All passes"],
+  ]},
+  aerial: { type: "checkbox", default: ["open_play", "set_piece"], options: [
+    ["open_play", "Open play"], ["set_piece", "Set piece"],
+  ]},
+  half_spaces: { type: "radio", default: "offensive", options: [
+    ["offensive", "Offensive"], ["defensive", "Defensive"], ["both", "Both"],
+  ]},
+  carrying: { type: "checkbox", default: ["prog_pass", "takeon_won", "takeon_lost"], options: [
+    ["prog_pass", "Prog. pass after"], ["takeon_won", "Take-on won after"], ["takeon_lost", "Take-on lost after"],
+  ]},
+  holdup: { type: "radio", default: "final", options: [
+    ["final", "Final third"], ["middle", "Middle third"], ["whole", "Whole pitch"],
+  ]},
+};
+
+const _chartCache = {};        // "${catKey}:${filterStr}" -> {charts:[base64,...]}
+const _chartFilterState = {};  // catKey -> current filter value (string for radio, array for checkbox)
+
 function renderAdvancedStats(categories) {
   advTabs.innerHTML = categories.map((cat, i) =>
-    `<button class="adv-tab-btn${i === 0 ? " active" : ""}" data-cat="${cat.key}">${cat.icon} ${cat.label}</button>`
+    `<button class="adv-tab-btn${i === 0 ? " active" : ""}" data-cat="${cat.key}">${cat.label}</button>`
   ).join("");
 
-  advPanels.innerHTML = categories.map((cat, i) =>
-    `<div class="adv-panel" data-cat="${cat.key}" id="adv-panel-${cat.key}" style="display:${i === 0 ? "block" : "none"}"></div>`
-  ).join("");
+  advPanels.innerHTML = categories.map((cat, i) => `
+    <div class="adv-panel" data-cat="${cat.key}" id="adv-panel-${cat.key}" style="display:${i === 0 ? "block" : "none"}">
+      <div class="adv-panel-body">
+        <div class="adv-stat-card" id="adv-stat-${cat.key}"></div>
+        <div class="adv-chart-card" id="adv-chart-${cat.key}"></div>
+      </div>
+    </div>
+  `).join("");
 
-  categories.forEach(cat => renderPctTable(cat.rows, `adv-panel-${cat.key}`));
+  categories.forEach(cat => {
+    if (cat.key === "linkup") {
+      renderLinkupStatCard(cat, `adv-stat-${cat.key}`);
+      document.getElementById(`adv-chart-${cat.key}`).innerHTML = `
+        <div id="linkup-stats-row" class="profile-season-stats" style="margin-bottom:10px"></div>
+        <div class="linkup-chart-wrap">
+          <div class="mini-spinner" id="linkup-chart-spinner" style="display:none"></div>
+          <img id="linkup-chart-img" class="chart-img" alt="Combination play chart" />
+        </div>
+      `;
+    } else {
+      renderStatCard(cat, `adv-stat-${cat.key}`);
+      const chartEl = document.getElementById(`adv-chart-${cat.key}`);
+      if (chartEl && CHART_CATEGORIES.has(cat.key)) {
+        chartEl.innerHTML = renderChartCardShell(cat.key);
+      }
+    }
+  });
 
   advTabs.querySelectorAll(".adv-tab-btn").forEach(btn => {
     btn.addEventListener("click", () => {
       advTabs.querySelectorAll(".adv-tab-btn").forEach(b => b.classList.remove("active"));
       btn.classList.add("active");
+      // The strip scrolls horizontally instead of wrapping now, so a tab
+      // near either edge can be half-cut-off when clicked — bring it fully
+      // into view within the strip itself (not the whole page).
+      btn.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
       advPanels.querySelectorAll(".adv-panel").forEach(p => {
         p.style.display = p.dataset.cat === btn.dataset.cat ? "block" : "none";
       });
+      activateTab(btn.dataset.cat);
+    });
+  });
+
+  if (categories.length) activateTab(categories[0].key);
+}
+
+// Fires when a tab becomes active — lazily loads that category's chart
+// (never blocks the stat card, which is already rendered by this point).
+function activateTab(catKey) {
+  if (catKey === "linkup") {
+    loadLinkupTab();
+  } else if (CHART_CATEGORIES.has(catKey)) {
+    wireChartFilterControls(catKey);
+    loadCategoryChart(catKey);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Per-category charts (/api/category-chart) — lazy per-tab, spinner while
+// pending, client-side cached per (category, filter) so revisits are instant.
+// Each tab renders a GRID of 2-4 titled chart cards (an arbitrary-length
+// [{key,title,image}] list from the backend), not a fixed 1-or-2 slot layout.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Categories whose /api/category-chart response includes a `stats` dict —
+// rendered as an HTML chip row (stays legible at any width, unlike counts
+// baked into a chart image that gets squeezed into a half-width slot).
+const CHART_STATS_CATEGORIES = new Set(["carrying"]);
+
+function _chartGridSpinner() {
+  return `<div class="adv-chart-tile" style="grid-column:1/-1"><div class="adv-chart-tile-body"><div class="mini-spinner"></div></div></div>`;
+}
+
+function renderChartCardShell(catKey) {
+  const cfg = CHART_FILTERS[catKey];
+  const filterHtml = cfg ? `
+    <div class="adv-chart-filter" id="adv-chart-filter-${catKey}">
+      ${cfg.options.map(([val, label]) => {
+        const active = cfg.type === "radio" ? val === cfg.default : cfg.default.includes(val);
+        return `<button type="button" class="adv-chart-filter-btn${active ? " active" : ""}" data-val="${val}">${label}</button>`;
+      }).join("")}
+    </div>` : "";
+  const statsRowHtml = CHART_STATS_CATEGORIES.has(catKey)
+    ? `<div class="profile-season-stats" id="adv-chart-stats-${catKey}" style="margin-bottom:10px"></div>` : "";
+  return `${filterHtml}${statsRowHtml}<div class="adv-chart-grid" id="adv-chart-grid-${catKey}">${_chartGridSpinner()}</div>`;
+}
+
+function wireChartFilterControls(catKey) {
+  const el = document.getElementById(`adv-chart-filter-${catKey}`);
+  if (!el || el.dataset.wired) return;
+  el.dataset.wired = "1";
+  const cfg = CHART_FILTERS[catKey];
+  el.querySelectorAll(".adv-chart-filter-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      if (cfg.type === "radio") {
+        el.querySelectorAll(".adv-chart-filter-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        _chartFilterState[catKey] = btn.dataset.val;
+      } else {
+        btn.classList.toggle("active");
+        _chartFilterState[catKey] = [...el.querySelectorAll(".adv-chart-filter-btn.active")].map(b => b.dataset.val);
+      }
+      loadCategoryChart(catKey, true);
     });
   });
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Combination Play (pairwise pass network)
-// ─────────────────────────────────────────────────────────────────────────────
-let linkupPasserId = null;
+async function loadCategoryChart(catKey, forceReload = false) {
+  if (!primaryPlayer) return;
+  const cfg = CHART_FILTERS[catKey];
+  if (_chartFilterState[catKey] === undefined) {
+    _chartFilterState[catKey] = cfg ? cfg.default : null;
+  }
+  const filterVal = _chartFilterState[catKey];
+  const filterStr = Array.isArray(filterVal) ? filterVal.join(",") : (filterVal || "");
+  const cacheKey = `${catKey}:${filterStr}`;
 
-async function fetchLinkupTeammates(player) {
-  if (!linkupSection) return;
+  if (!forceReload && _chartCache[cacheKey]) {
+    renderChartImages(catKey, _chartCache[cacheKey]);
+    return;
+  }
+
+  const grid = document.getElementById(`adv-chart-grid-${catKey}`);
+  if (grid) grid.innerHTML = _chartGridSpinner();
+
+  try {
+    const res = await fetch("/api/category-chart", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        player_id: primaryPlayer.id, league: primaryLeague, season: primarySeason,
+        category: catKey, filter: filterStr,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.charts) { renderChartError(catKey); return; }
+    _chartCache[cacheKey] = data;
+    renderChartImages(catKey, data);
+  } catch {
+    renderChartError(catKey);
+  }
+}
+
+function renderChartImages(catKey, data) {
+  const grid = document.getElementById(`adv-chart-grid-${catKey}`);
+  if (grid) {
+    grid.innerHTML = (data.charts || []).map(c => `
+      <div class="adv-chart-tile">
+        <div class="adv-chart-tile-title">${c.title}</div>
+        <div class="adv-chart-tile-body"><img class="chart-img" src="data:image/png;base64,${c.image}" alt="${c.title}" /></div>
+      </div>
+    `).join("");
+  }
+  if (data.stats && catKey === "carrying") {
+    const s = data.stats;
+    const statsRow = document.getElementById(`adv-chart-stats-${catKey}`);
+    if (statsRow) statsRow.innerHTML = `
+      <span class="profile-stat-chip goal-chip">Prog. Carries: ${s.prog_carries}</span>
+      <span class="profile-stat-chip card-y-chip">Prog. pass after: ${s.prog_pass_after}</span>
+      <span class="profile-stat-chip assist-chip">Take-on won after: ${s.takeon_won_after}</span>
+      <span class="profile-stat-chip apps-chip">Take-on lost after: ${s.takeon_lost_after}</span>
+      <span class="profile-stat-chip">Angle Bias: ${s.abi >= 0 ? "+" : ""}${s.abi} (${s.abi_label})</span>
+    `;
+  }
+}
+
+function renderChartError(catKey) {
+  const grid = document.getElementById(`adv-chart-grid-${catKey}`);
+  if (grid) grid.innerHTML = `<div class="adv-chart-tile" style="grid-column:1/-1"><div class="adv-chart-tile-body" style="color:var(--muted);font-size:12px">No chart data for this player/season.</div></div>`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Combination Play (pairwise pass network) — now a normal tab. Left side is
+// a "most-found teammates" table + dropdown selector; right side is the
+// chart for whichever teammate is selected, loaded lazily per selection.
+// ─────────────────────────────────────────────────────────────────────────────
+let linkupTeammates = null;    // null = not fetched yet; [] = fetched, no data
+let linkupLoading = false;
+let linkupPasserId = null;
+let linkupActiveTeammateId = null;
+let _linkupDetailCache = {};   // teammateId -> {stats, chart}
+
+function resetLinkupState() {
+  linkupTeammates = null;
+  linkupLoading = false;
+  linkupPasserId = null;
+  linkupActiveTeammateId = null;
+  _linkupDetailCache = {};
+}
+
+function renderLinkupStatCard(cat, containerId) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  el.innerHTML = `
+    <div class="adv-stat-card-title">${cat.label}</div>
+    <div class="adv-stat-card-desc">${cat.desc || "Pick a teammate to see what they do with the ball after receiving it from this player."}</div>
+    <div class="linkup-select-label" style="font-weight:700;color:var(--text);font-size:12px;margin-top:2px">Most-found teammates</div>
+    <table class="linkup-table"><thead><tr><th>Receiver</th><th>Passes</th></tr></thead><tbody id="linkup-table-body"><tr><td colspan="2" style="color:var(--muted)">Loading…</td></tr></tbody></table>
+    <div class="linkup-select-label">Show what a teammate does after receiving</div>
+    <select class="linkup-select" id="linkup-select"></select>
+  `;
+  document.getElementById("linkup-select").addEventListener("change", e => selectLinkupTeammate(e.target.value));
+}
+
+async function loadLinkupTab() {
+  if (linkupTeammates !== null || linkupLoading || !primaryPlayer) return;
+  linkupLoading = true;
+  const body = document.getElementById("linkup-table-body");
   try {
     const res = await fetch("/api/linkup-teammates", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ player_id: player.id, league: primaryLeague, season: primarySeason }),
+      body: JSON.stringify({ player_id: primaryPlayer.id, league: primaryLeague, season: primarySeason }),
     });
     const data = await res.json();
-    if (!res.ok || !data.teammates || !data.teammates.length) return;  // some players (e.g. rarely-used subs) have too little data — hide gracefully
-
+    linkupTeammates = data.teammates || [];
     linkupPasserId = data.player_whoscored_id;
-    linkupChips.innerHTML = data.teammates.map((t, i) =>
-      `<div class="linkup-chip${i === 0 ? " active" : ""}" data-teammate-id="${t.teammate_id}" data-name="${t.name}">
-         <span>${t.name}</span><span class="lc-count">${t.pass_count}</span>
-       </div>`
+
+    if (!linkupTeammates.length) {
+      if (body) body.innerHTML = `<tr><td colspan="2" style="color:var(--muted)">Not enough data</td></tr>`;
+      return;
+    }
+
+    if (body) {
+      body.innerHTML = linkupTeammates.map((t, i) =>
+        `<tr data-id="${t.teammate_id}" class="${i === 0 ? "active" : ""}"><td>${t.name}</td><td>${t.pass_count}</td></tr>`
+      ).join("");
+      body.querySelectorAll("tr[data-id]").forEach(tr =>
+        tr.addEventListener("click", () => selectLinkupTeammate(tr.dataset.id)));
+    }
+    const select = document.getElementById("linkup-select");
+    if (select) select.innerHTML = linkupTeammates.map(t =>
+      `<option value="${t.teammate_id}">${t.name} (${t.pass_count} passes)</option>`
     ).join("");
 
-    linkupChips.querySelectorAll(".linkup-chip").forEach(chip => {
-      chip.addEventListener("click", () => {
-        linkupChips.querySelectorAll(".linkup-chip").forEach(c => c.classList.remove("active"));
-        chip.classList.add("active");
-        fetchLinkupDetail(chip.dataset.teammateId);
-      });
-    });
-
-    linkupSection.style.display = "block";
-    await fetchLinkupDetail(data.teammates[0].teammate_id);
-  } catch { /* silent — bonus section, not core flow */ }
+    await selectLinkupTeammate(linkupTeammates[0].teammate_id);
+  } catch {
+    if (body) body.innerHTML = `<tr><td colspan="2" style="color:var(--muted)">Could not load</td></tr>`;
+  } finally {
+    linkupLoading = false;
+  }
 }
 
-async function fetchLinkupDetail(teammateId) {
-  if (linkupPasserId == null) return;
+async function selectLinkupTeammate(teammateId) {
+  teammateId = String(teammateId);
+  linkupActiveTeammateId = teammateId;
+  document.querySelectorAll("#linkup-table-body tr[data-id]").forEach(tr =>
+    tr.classList.toggle("active", tr.dataset.id === teammateId));
+  const select = document.getElementById("linkup-select");
+  if (select) select.value = teammateId;
+
+  if (_linkupDetailCache[teammateId]) {
+    renderLinkupDetail(_linkupDetailCache[teammateId]);
+    return;
+  }
+
+  const spinner = document.getElementById("linkup-chart-spinner");
+  const img = document.getElementById("linkup-chart-img");
+  if (spinner) spinner.style.display = "block";
+  if (img) img.style.display = "none";
   try {
     const res = await fetch("/api/linkup-detail", {
       method: "POST", headers: { "Content-Type": "application/json" },
@@ -372,16 +620,23 @@ async function fetchLinkupDetail(teammateId) {
     });
     const data = await res.json();
     if (!res.ok || !data.chart) return;
-
-    const s = data.stats;
-    linkupStatsRow.innerHTML = `
-      <span class="profile-stat-chip goal-chip">Prog. Passes: ${s.prog_passes}</span>
-      <span class="profile-stat-chip card-y-chip">Prog. Carries: ${s.prog_carries}</span>
-      <span class="profile-stat-chip assist-chip">Take-Ons: ${s.take_ons_won}</span>
-      <span class="profile-stat-chip apps-chip">Shots: ${s.shots}</span>
-    `;
-    linkupChartImg.src = `data:image/png;base64,${data.chart}`;
+    _linkupDetailCache[teammateId] = data;
+    renderLinkupDetail(data);
   } catch { /* silent */ }
+  finally { if (spinner) spinner.style.display = "none"; }
+}
+
+function renderLinkupDetail(data) {
+  const s = data.stats;
+  const statsRow = document.getElementById("linkup-stats-row");
+  if (statsRow) statsRow.innerHTML = `
+    <span class="profile-stat-chip goal-chip">Prog. Passes: ${s.prog_passes}</span>
+    <span class="profile-stat-chip card-y-chip">Prog. Carries: ${s.prog_carries}</span>
+    <span class="profile-stat-chip assist-chip">Take-Ons: ${s.take_ons_won}</span>
+    <span class="profile-stat-chip apps-chip">Shots: ${s.shots}</span>
+  `;
+  const img = document.getElementById("linkup-chart-img");
+  if (img) { img.src = `data:image/png;base64,${data.chart}`; img.style.display = "block"; }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -422,6 +677,7 @@ if (themeBtn) {
     const isLight = document.body.getAttribute("data-theme") === "light";
     document.body.setAttribute("data-theme", isLight ? "dark" : "light");
     themeBtn.textContent = isLight ? "🌙" : "☀️";
+    localStorage.setItem("theme", isLight ? "dark" : "light");
   });
 }
 

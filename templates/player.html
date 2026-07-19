@@ -25,10 +25,10 @@
 
       <!-- Capability chips -->
       <div class="capability-chips">
-        <span class="cap-chip">🎯 12 Metric Categories</span>
-        <span class="cap-chip">🔗 Combination Play</span>
-        <span class="cap-chip">📐 Half-Space Mapping</span>
-        <span class="cap-chip">🧠 Decision-Making</span>
+        <span class="cap-chip">12 Metric Categories</span>
+        <span class="cap-chip">Combination Play</span>
+        <span class="cap-chip">Half-Space Mapping</span>
+        <span class="cap-chip">Decision-Making</span>
       </div>
 
       <!-- ── Search Card ── -->
@@ -62,7 +62,6 @@
         </div>
 
         <div class="main-search-box">
-          <span class="main-search-icon">🔍</span>
           <input type="text" id="main-search"
                  placeholder="Search for any player — Mbappé, Salah, Haaland, Bellingham…"
                  autocomplete="off" />
@@ -95,7 +94,7 @@
       </div>
       <div class="stat-divider"></div>
       <div class="stat-item">
-        <span class="stat-num">11</span>
+        <span class="stat-num">12</span>
         <span class="stat-lbl">Metric Categories</span>
       </div>
       <div class="stat-divider"></div>
@@ -139,34 +138,40 @@
       </div>
       <div class="features-grid">
         <div class="feature-card glass-card">
-          <div class="fc-icon">🎯</div>
           <div class="fc-title">Passing & Carrying Profiles</div>
           <div class="fc-desc">Progressive passes and carries measured from real ball movement, not FBref's box-score approximation — plus half-space activity and tempo control.</div>
         </div>
         <div class="feature-card glass-card">
-          <div class="fc-icon">🦅</div>
           <div class="fc-title">Aerial Duels & Hold-Up Play</div>
           <div class="fc-desc">Traces what happens after a header is won or a ball is held up — who keeps it, who loses it, and what it leads to.</div>
         </div>
         <div class="feature-card glass-card">
-          <div class="fc-icon">🧠</div>
           <div class="fc-title">Decision Making</div>
           <div class="fc-desc">Space-finding, press resistance, and shot creation — judged by what a pass buys the receiver, not just whether it was completed.</div>
         </div>
         <div class="feature-card glass-card">
-          <div class="fc-icon">📐</div>
           <div class="fc-title">Final Third Composite</div>
           <div class="fc-desc">Completeness and Impact scores — a geometric-mean floor across four pillars, plus a per-touch score from a player's two strongest.</div>
         </div>
         <div class="feature-card glass-card">
-          <div class="fc-icon">🔗</div>
           <div class="fc-title">Combination Play</div>
           <div class="fc-desc">See a player's most-found teammates, and a pitch chart of exactly what that teammate does after receiving from them.</div>
         </div>
         <div class="feature-card glass-card">
-          <div class="fc-icon">🛡️</div>
           <div class="fc-title">Zone-Based Defending</div>
           <div class="fc-desc">Box, channel, and flank actions kept separate — a center-back's job isn't a full-back's job, and the numbers shouldn't be blended together.</div>
+        </div>
+        <div class="feature-card glass-card">
+          <div class="fc-title">Tempo & Transitions</div>
+          <div class="fc-desc">Who speeds the game up versus who settles it, and what a player does in the two actions right after winning the ball back.</div>
+        </div>
+        <div class="feature-card glass-card">
+          <div class="fc-title">Compare Any Players</div>
+          <div class="fc-desc">Put 2-4 players side by side across every category, with a position-weighted Composite Rating and a full percentile breakdown.</div>
+        </div>
+        <div class="feature-card glass-card">
+          <div class="fc-title">Scout Similar Players</div>
+          <div class="fc-desc">Find statistical twins for any player across all 5 leagues and 3 seasons, filtered by age and league — built for finding the next one, not just the current one.</div>
         </div>
       </div>
     </section>
@@ -182,21 +187,18 @@
       <div class="steps-row">
         <div class="step">
           <div class="step-num">01</div>
-          <div class="step-icon">🔍</div>
           <div class="step-title">Search a Player</div>
           <div class="step-desc">Pick a league and season, then type any player name.</div>
         </div>
         <div class="step-arrow">→</div>
         <div class="step">
           <div class="step-num">02</div>
-          <div class="step-icon">📊</div>
           <div class="step-title">Browse the Tabs</div>
-          <div class="step-desc">11 metric categories, percentile-ranked against same-position peers.</div>
+          <div class="step-desc">12 metric categories, percentile-ranked against same-position peers.</div>
         </div>
         <div class="step-arrow">→</div>
         <div class="step">
           <div class="step-num">03</div>
-          <div class="step-icon">🔗</div>
           <div class="step-title">Explore Combinations</div>
           <div class="step-desc">See who they link up with, and what happens after the pass.</div>
         </div>
@@ -218,25 +220,10 @@
       <!-- Advanced Metrics (Opta/WhoScored event data) -->
       <section id="advanced-section" class="glass-card" style="display:none; padding:20px 24px; margin-top:18px">
         <div class="pct-title-row">
-          <span class="section-label">📊 Advanced Metrics <span style="color:var(--muted);font-weight:500">— event-level detail from match data</span></span>
+          <span class="section-label">Advanced Metrics <span style="color:var(--muted);font-weight:500">— event-level detail from match data</span></span>
         </div>
         <div class="adv-tabs" id="adv-tabs"></div>
         <div class="adv-panels" id="adv-panels"></div>
-      </section>
-
-      <!-- Combination Play (pairwise pass network) -->
-      <section id="linkup-section" class="glass-card" style="display:none; padding:20px 24px; margin-top:18px">
-        <div class="pct-title-row">
-          <span class="section-label">🔗 Combination Play <span style="color:var(--muted);font-weight:500">— who they link up with, and what happens next</span></span>
-        </div>
-        <div class="linkup-teammates-row">
-          <span class="similar-lbl">Most linked-up with</span>
-          <div id="linkup-chips" class="linkup-chips"></div>
-        </div>
-        <div id="linkup-stats-row" class="profile-season-stats" style="margin:14px 0"></div>
-        <div class="linkup-chart-wrap">
-          <img id="linkup-chart-img" class="chart-img" alt="Combination play chart" />
-        </div>
       </section>
 
     </section>

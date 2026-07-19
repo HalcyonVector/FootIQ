@@ -29,15 +29,16 @@
   {% block navbar %}
   <nav class="navbar">
     <div class="nav-logo" style="cursor:pointer" onclick="window.location.href='/'">
-      <span class="logo-icon">⚽</span>
       <span class="logo-text">FootIQ</span>
     </div>
     <div class="nav-links" style="display:flex; gap: 24px;">
       <a href="/player" id="nav-player">Player Stats</a>
+      <a href="/compare" id="nav-compare">Compare</a>
+      <a href="/scout" id="nav-scout">Scout</a>
     </div>
     <div class="nav-right" style="display:flex;align-items:center;gap:12px">
       <button id="theme-toggle" style="background:transparent;border:1px solid var(--border);color:var(--text);font-size:16px;padding:6px;border-radius:50%;cursor:pointer;width:34px;height:34px;display:flex;align-items:center;justify-content:center;transition:background 0.2s">🌙</button>
-      <span class="nav-credit">Built by <strong>Sagnik</strong></span>
+      <span class="nav-credit">Built by <strong>HalcyonVector</strong></span>
     </div>
   </nav>
   {% endblock %}
@@ -52,11 +53,10 @@
   <footer>
     <div class="footer-inner">
       <div class="footer-brand">
-        <span class="logo-icon" style="font-size:18px">⚽</span>
         <span class="logo-text" style="font-size:16px">FootIQ</span>
       </div>
       <div class="footer-credits">
-        Built by <strong class="credit-name">Sagnik</strong>
+        Built by <strong class="credit-name">HalcyonVector</strong>
         &nbsp;·&nbsp; Powered by <strong>Flask</strong>
         &nbsp;·&nbsp; Photos via <strong>Wikipedia</strong>
         &nbsp;·&nbsp; Charts via <strong>Matplotlib</strong>
@@ -157,9 +157,12 @@
     }
 
     function initScrollAnimations() {
-      // Feature cards: alternating left/right
-      document.querySelectorAll('.feature-card').forEach((el, i) =>
-        obs(el, i % 2 === 0 ? 'scroll-from-left' : 'scroll-from-right', i * 260));
+      // Feature cards: all rise from the bottom, row by row (3 per row) —
+      // top row finishes before the bottom row starts.
+      document.querySelectorAll('.feature-card').forEach((el, i) => {
+        const row = Math.floor(i / 3);
+        obs(el, 'scroll-from-bottom', row * 260 + (i % 3) * 90);
+      });
 
       // League badges: scale pop
       document.querySelectorAll('.league-badge').forEach((el, i) =>

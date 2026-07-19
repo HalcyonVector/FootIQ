@@ -101,7 +101,10 @@ def compute_aerial(events: list[dict]) -> dict:
             cqm = q.qmap(controlling["qualifiers"])
             cx, cy = controlling.get("x"), controlling.get("y")
             cex, cey = controlling.get("end_x"), controlling.get("end_y")
-            if controlling["outcome_type"] == "Successful" and None not in (cx, cy, cex, cey) \
+            completed = controlling["outcome_type"] == "Successful"
+            if completed:
+                acc.add(pid, "aer_passes_off_duel_completed")
+            if completed and None not in (cx, cy, cex, cey) \
                     and not q.has_qualifier(cqm, q.CROSS_Q) and g.is_progressive_action((cx, cy), (cex, cey)):
                 acc.add(pid, "aer_prog_passes_off_duel")
         elif is_self and controlling["type"] in ("MissedShots", "SavedShot", "Goal", "ShotOnPost"):
@@ -127,6 +130,7 @@ def finalize_aerial(totals: dict) -> dict:
             "aer_falls_opponent_pct": round(100 * t.get("aer_falls_opponent", 0) / won_duels, 1) if won_duels >= 10 else None,
             "aer_cleared_out_pct": round(100 * t.get("aer_cleared_out", 0) / won_duels, 1) if won_duels >= 10 else None,
             "aer_passes_off_duel": t.get("aer_passes_off_duel", 0),
+            "aer_post_aerial_accuracy_pct": round(100 * t.get("aer_passes_off_duel_completed", 0) / t.get("aer_passes_off_duel", 0), 1) if t.get("aer_passes_off_duel", 0) >= 10 else None,
             "aer_prog_passes_off_duel": t.get("aer_prog_passes_off_duel", 0),
             "aer_shots_off_duel": t.get("aer_shots_off_duel", 0),
             "aer_duels_att_third": t.get("aer_duels_att_third", 0),

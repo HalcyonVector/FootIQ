@@ -20,6 +20,10 @@ LEAGUE_DIR_MAP = {
 ADVANCED_DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "data", "advanced")
 PLAYER_SEASON_PARQUET = os.path.join(ADVANCED_DATA_DIR, "player_season_advanced.parquet")
 LINKUP_PAIRS_PARQUET = os.path.join(ADVANCED_DATA_DIR, "linkup_pairs.parquet")
+# Wave 5: per-category raw chart-event coordinates (evt_<category>_<field> list
+# columns) — kept separate from PLAYER_SEASON_PARQUET so /api/advanced-stats
+# (read on every player load) never pays for this heavier file.
+CHART_EVENTS_PARQUET = os.path.join(ADVANCED_DATA_DIR, "player_chart_events.parquet")
 
 # Minimum minutes for a player-season to be included in percentile cohorts.
 # Mirrors config.MIN_MINUTES used by the existing FBref-based system.
@@ -27,7 +31,13 @@ ADV_MIN_MINUTES = 450
 
 
 def season_key(season: str) -> str:
-    """'2023-24' -> '2324' (soccerdata's folder-naming convention)."""
+    """'2023-24' -> '2324' (soccerdata's multi-year folder-naming convention).
+
+    Single-year competitions (World Cup, Euros, etc.) are cached under the
+    plain year instead (e.g. '2022'), so pass those straight through.
+    """
+    if "-" not in season:
+        return season
     start, end = season.split("-")
     return f"{start[-2:]}{end}"
 

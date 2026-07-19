@@ -11,6 +11,7 @@ from core.advanced import config
 
 _DF: pd.DataFrame | None = None
 _LINKUP_DF: pd.DataFrame | None = None
+_CHART_EVENTS_DF: pd.DataFrame | None = None
 
 
 def get_advanced_df() -> pd.DataFrame:
@@ -33,9 +34,23 @@ def get_linkup_df() -> pd.DataFrame:
     return _LINKUP_DF
 
 
+def get_chart_events_df() -> pd.DataFrame:
+    """Per-category raw chart-event coordinates (evt_<category>_<field> list
+    columns) — only loaded when a chart is actually requested, never on the
+    /api/advanced-stats fast path."""
+    global _CHART_EVENTS_DF
+    if _CHART_EVENTS_DF is None:
+        if os.path.exists(config.CHART_EVENTS_PARQUET):
+            _CHART_EVENTS_DF = pd.read_parquet(config.CHART_EVENTS_PARQUET)
+        else:
+            _CHART_EVENTS_DF = pd.DataFrame()
+    return _CHART_EVENTS_DF
+
+
 def reload():
     """Force a re-read from disk (e.g. after rebuilding the parquet)."""
-    global _DF, _LINKUP_DF
+    global _DF, _LINKUP_DF, _CHART_EVENTS_DF
     _DF = None
     _LINKUP_DF = None
+    _CHART_EVENTS_DF = None
     return get_advanced_df()

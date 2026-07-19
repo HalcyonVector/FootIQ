@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block content %}
+
+    <section class="hero" style="padding-bottom:12px">
+      <div class="hero-eyebrow">
+        <span class="eyebrow-dot"></span>
+        <span>Side-By-Side Analysis</span>
+        <span class="eyebrow-dot"></span>
+      </div>
+      <h1 class="hero-title" style="font-size:44px">
+        Compare <span class="gradient-text">Players</span>
+      </h1>
+      <p class="hero-desc">
+        Pick 2-4 players — any league, any season — and see every Advanced Metrics<br/>
+        tab side by side, percentile-ranked against each player's own position cohort.
+      </p>
+    </section>
+
+    <section id="compare-builder" class="glass-card" style="padding:24px">
+      <div class="compare-players-row" id="compare-slots"></div>
+      <div class="add-more-row">
+        <button class="add-more-btn" id="add-slot-btn" type="button">+ Add player</button>
+        <span class="add-more-hint" id="add-slot-hint">Up to 4 players</span>
+      </div>
+      <div class="compare-action-row">
+        <button class="compare-go-btn" id="compare-go-btn" type="button" disabled>Compare</button>
+      </div>
+    </section>
+
+    <section id="compare-results" style="display:none;margin-top:24px">
+      <div class="compare-players-header" id="compare-players-header"></div>
+
+      <section class="glass-card" style="padding:20px 24px">
+        <div class="pct-title-row">
+          <span class="section-label">Full Breakdown <span style="color:var(--muted);font-weight:500">— every Advanced Metrics tab, side by side</span></span>
+        </div>
+        <div class="adv-tabs" id="compare-tabs"></div>
+        <div class="adv-panels" id="compare-panels"></div>
+      </section>
+
+      <section class="glass-card" style="padding:20px 24px;margin-top:20px">
+        <div class="pct-title-row">
+          <span class="section-label">Charts <span style="color:var(--muted);font-weight:500">— headline comparison across every category</span></span>
+        </div>
+        <div class="adv-chart-grid" id="compare-chart-grid"></div>
+      </section>
+    </section>
+
+{% endblock %}
+{% block extra_js %}
+  <script>
+    window.LEAGUES = {{ leagues | tojson }};
+    window.SEASONS = {{ seasons | tojson }};
+    document.getElementById("nav-compare").classList.add("active");
+  </script>
+  <script src="/static/js/compare.js"></script>
+{% endblock %}

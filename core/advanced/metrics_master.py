@@ -5,11 +5,22 @@ unit is '' for plain counts/rates, '%' for percentages, 'm' for meters, 's' for 
 Column names must exactly match core/advanced/store.py's parquet columns.
 """
 
+# Columns where a LOWER raw value is the better outcome (release times, fouls
+# conceded, falls-to-opponent, dangerous losses...). percentiles.py flips the
+# percentile (100 - raw) for these so "80+" still means "elite" in the UI
+# instead of quietly ranking the fastest release as the worst release.
+INVERTED_METRICS = {
+    "pass_median_release_s", "shoot_mean_distance_m", "aer_falls_opponent_pct",
+    "hu_final_dangerous_loss_pct", "hu_middle_dangerous_loss_pct", "hu_whole_dangerous_loss_pct",
+    "dm_median_release_s", "tempo_median_release_s", "pr_backward_release_pct",
+    "def_fouls_box_count_p90", "def_fouls_channel_count_p90",
+}
+
 CATEGORIES = {
     "passing": {
         "label": "Passing Profile",
-        "icon": "🎯",
         "gk_only": False,
+        "desc": "Open play only — set pieces are stripped out via qualifiers.",
         "metrics": [
             ("pass_prog_count_p90", "Progressive passes", ""),
             ("pass_progression_rate_pct", "Progression rate", "%"),
@@ -29,8 +40,8 @@ CATEGORIES = {
     },
     "shooting": {
         "label": "Shooting & Footedness",
-        "icon": "⚽",
         "gk_only": False,
+        "desc": "Open play only. Footedness comes from shot body-part qualifiers.",
         "metrics": [
             ("shoot_shots_count_p90", "Shots", ""),
             ("shoot_goals_count_p90", "Goals", ""),
@@ -48,8 +59,8 @@ CATEGORIES = {
     },
     "defending": {
         "label": "Defending Profile",
-        "icon": "🛡️",
         "gk_only": False,
+        "desc": "By zone — a center-back defending the box does a different job than a full-back on the flank.",
         "metrics": [
             ("def_tackles_total_p90", "Tackles", ""),
             ("def_tackle_success_pct", "Tackle success", "%"),
@@ -72,8 +83,8 @@ CATEGORIES = {
     },
     "goalkeeping": {
         "label": "Goalkeeping",
-        "icon": "🧤",
         "gk_only": True,
+        "desc": "Shot-stopping and distribution, per 90 minutes played in goal.",
         "metrics": [
             ("gk_save_rate_pct", "Save rate", "%"),
             ("gk_saves_count_p90", "Saves", ""),
@@ -87,8 +98,8 @@ CATEGORIES = {
     },
     "carrying": {
         "label": "Carrying Profile",
-        "icon": "🏃",
         "gk_only": False,
+        "desc": "Carries are capped at 20 seconds. Angle bias is measured on progressive carries.",
         "metrics": [
             ("carry_prog_count_p90", "Progressive carries", ""),
             ("carry_penetration_gain_m_p90", "Carry penetration", "m"),
@@ -102,8 +113,8 @@ CATEGORIES = {
     },
     "half_spaces": {
         "label": "Half-Spaces",
-        "icon": "📐",
         "gk_only": False,
+        "desc": "The two strips between the box width and the touchline, where a receiver has the goal in front of them.",
         "metrics": [
             ("hs_receptions_p90", "Receptions", ""),
             ("hs_passes_p90", "Passes from half-space", ""),
@@ -127,8 +138,8 @@ CATEGORIES = {
     },
     "tempo": {
         "label": "Tempo Control",
-        "icon": "⏱️",
         "gk_only": False,
+        "desc": "Who speeds the game up (injectors) vs who settles it (resets).",
         "metrics": [
             ("tempo_injectors_p90", "Injectors", ""),
             ("tempo_injector_passes_p90", "Injector passes", ""),
@@ -143,8 +154,8 @@ CATEGORIES = {
     },
     "post_recovery": {
         "label": "Post-Recovery",
-        "icon": "♻️",
         "gk_only": False,
+        "desc": "What a player does in the two actions immediately after winning the ball back.",
         "metrics": [
             ("pr_recoveries_p90", "Recoveries", ""),
             ("pr_retention_pct", "Retention", "%"),
@@ -158,8 +169,8 @@ CATEGORIES = {
     },
     "aerial": {
         "label": "Aerial Duels",
-        "icon": "🦅",
         "gk_only": False,
+        "desc": "Winning the header is half of it. Where the ball goes afterward is the other half.",
         "metrics": [
             ("aer_duels_count_p90", "Aerial duels", ""),
             ("aer_win_rate_op_pct", "Win rate, open play", "%"),
@@ -171,6 +182,7 @@ CATEGORIES = {
             ("aer_falls_opponent_pct", "Falls to opponent", "%"),
             ("aer_cleared_out_pct", "Cleared out of play", "%"),
             ("aer_passes_off_duel_p90", "Passes off a duel", ""),
+            ("aer_post_aerial_accuracy_pct", "Post-aerial accuracy", "%"),
             ("aer_prog_passes_off_duel_p90", "Prog. passes off a duel", ""),
             ("aer_shots_off_duel_p90", "Shots off a duel", ""),
             ("aer_duels_att_third_p90", "Duels, attacking third", ""),
@@ -178,23 +190,25 @@ CATEGORIES = {
     },
     "holdup": {
         "label": "Hold-Up Play",
-        "icon": "🧱",
         "gk_only": False,
+        "desc": "Held the ball 5s+ without losing it. Final third is the primary view — whole-pitch just rewards centre-backs holding it uncontested deep.",
         "metrics": [
-            ("hu_episodes_p90", "Episodes", ""),
-            ("hu_retention_pct", "Retention", "%"),
-            ("hu_prog_release_pct", "Progressive release", "%"),
-            ("hu_prog_carry_pct", "Progressive carry", "%"),
-            ("hu_shot_from_hold_pct", "Shot from hold", "%"),
-            ("hu_fouls_won_per_hold", "Fouls won per hold", ""),
-            ("hu_tackles_avoided_per_hold", "Tackles avoided", ""),
-            ("hu_dangerous_loss_pct", "Dangerous loss", "%"),
+            ("hu_final_episodes_p90", "Episodes (Final Third)", ""),
+            ("hu_middle_episodes_p90", "Episodes (Middle Third)", ""),
+            ("hu_whole_episodes_p90", "Episodes (Whole Pitch)", ""),
+            ("hu_final_retention_pct", "Retention", "%"),
+            ("hu_final_prog_release_pct", "Progressive release", "%"),
+            ("hu_final_prog_carry_pct", "Progressive carry", "%"),
+            ("hu_final_shot_from_hold_pct", "Shot from hold", "%"),
+            ("hu_final_fouls_won_per_hold", "Fouls won per hold", ""),
+            ("hu_final_tackles_avoided_per_hold", "Tackles avoided", ""),
+            ("hu_final_dangerous_loss_pct", "Dangerous loss", "%"),
         ],
     },
     "decision_making": {
         "label": "Decision Making",
-        "icon": "🧠",
         "gk_only": False,
+        "desc": "A pass is judged by what it buys the receiver, not just whether it was completed.",
         "metrics": [
             ("dm_space_finder_pct", "Space-Finder", "%"),
             ("dm_time_bought_s", "Time Bought (approx.)", "s"),
@@ -209,11 +223,19 @@ CATEGORIES = {
     },
     "final_third": {
         "label": "Final Third",
-        "icon": "🎯",
         "gk_only": False,
+        "desc": "Four pillars, scored two ways. Completeness rewards the floor, Impact the ceiling.",
         # Rendered specially by percentiles.py::_build_final_third_stats —
         # Completeness/Impact are cohort-relative composites, not flat
         # column lookups, so this "metrics" list isn't used directly.
+        "metrics": [],
+    },
+    "linkup": {
+        "label": "Link-Up & Synergy",
+        "gk_only": False,
+        "desc": "Pick a teammate to see what they do with the ball after receiving it from this player.",
+        # Pairwise, not a per-player stat row — rendered by the frontend from
+        # /api/linkup-teammates + /api/linkup-detail, not renderStatCard.
         "metrics": [],
     },
 }
@@ -221,4 +243,5 @@ CATEGORIES = {
 CATEGORY_ORDER = [
     "passing", "shooting", "carrying", "half_spaces", "tempo", "decision_making",
     "final_third", "aerial", "defending", "holdup", "post_recovery", "goalkeeping",
+    "linkup",
 ]

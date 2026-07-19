@@ -1,0 +1,245 @@
+{% extends "base.html" %}
+{% block navbar %}{% endblock %}
+{% block content %}
+
+<button id="theme-toggle" class="hub-theme-toggle">🌙</button>
+
+<div class="glow-container">
+  <div class="super-glow"></div>
+  <div class="super-glow glow-2"></div>
+</div>
+
+<section class="hero hub-hero">
+  <div class="hero-split">
+
+    <div class="hero-left">
+      <div class="hero-eyebrow">
+        <span class="eyebrow-dot"></span>
+        <span>Event-Level Football Analytics</span>
+        <span class="eyebrow-dot"></span>
+      </div>
+
+      <h1 class="hero-title" style="font-size:48px;letter-spacing:-2px">
+        Elite <span class="gradient-text">Football</span> Data Engine.
+      </h1>
+      <p class="hero-desc" style="margin-bottom:24px">
+        Pick a module to start analyzing data from Europe's top 5 leagues.
+      </p>
+
+      <div class="hub-grid">
+        <a href="/player" class="hub-card">
+          <div class="card-glow-bg"></div>
+          <div>
+            <h2 class="hub-card-title">Player Stats</h2>
+            <p class="hub-card-desc">Search any player and browse 12 event-derived metric categories — progressive passes, aerial duels, half-spaces, and Combination Play — all built from real match data.</p>
+          </div>
+        </a>
+
+        <a href="/compare" class="hub-card">
+          <div class="card-glow-bg" style="background:radial-gradient(circle at 80% 50%, rgba(168,85,247,.15) 0%, transparent 60%)"></div>
+          <div>
+            <h2 class="hub-card-title">Compare</h2>
+            <p class="hub-card-desc">Put 2-4 players side by side — any league, any season — with a headline radar and a full per-category stat breakdown.</p>
+          </div>
+        </a>
+
+        <a href="/scout" class="hub-card">
+          <div class="card-glow-bg card-glow-bg-scout"></div>
+          <div>
+            <h2 class="hub-card-title">Scout</h2>
+            <p class="hub-card-desc">Find statistically similar players to any target, pooled across all 5 leagues and 3 seasons, built on the same event data as Player Stats.</p>
+          </div>
+        </a>
+      </div>
+    </div>
+
+    <!-- ── Decorative floating visual — rotates between a few real showcase
+         snapshots (see the showcase array in the script below) so the hub
+         doesn't always show the same "Combination Play: 226 links" content. ── -->
+    <div class="hero-visual" id="hub-showcase">
+      <div class="float-item radar-float">
+        <div class="radar-rings">
+          <div class="radar-ring-1"></div>
+          <div class="radar-ring-2"></div>
+          <svg width="190" height="190" class="radar-poly">
+            <polygon points="95,12 168,52 158,142 95,178 28,120 46,44" fill="rgba(59,130,246,0.25)" stroke="#3b82f6" stroke-width="1.5"/>
+            <polygon points="95,42 140,68 132,114 95,150 56,122 66,66" fill="rgba(168,85,247,0.2)" stroke="#a855f7" stroke-width="1.5"/>
+            <polygon points="95,62 122,80 116,106 95,128 72,112 78,80" fill="rgba(244,63,94,0.2)" stroke="#f43f5e" stroke-width="1"/>
+          </svg>
+          <svg width="190" height="190" class="radar-axes">
+            <line x1="95" y1="0" x2="95" y2="190" stroke="white" stroke-width="1"/>
+            <line x1="0" y1="95" x2="190" y2="95" stroke="white" stroke-width="1"/>
+            <line x1="20" y1="20" x2="170" y2="170" stroke="white" stroke-width="1"/>
+            <line x1="170" y1="20" x2="20" y2="170" stroke="white" stroke-width="1"/>
+          </svg>
+        </div>
+        <div class="radar-badge" id="hub-sc-badge">Final Third: 91</div>
+        <div class="radar-label" id="hub-sc-label">B. Fernandes</div>
+      </div>
+
+      <div class="float-item match-float">
+        <div class="match-pill-value">
+          <div class="match-pill-eyebrow" id="hub-sc-pill-eyebrow">Combination Play</div>
+          <div class="match-pill-num" id="hub-sc-pill-num">226 <span>links</span></div>
+        </div>
+      </div>
+
+      <div class="float-item bars-float">
+        <div class="bars-eyebrow">
+          <span class="pulse-dot"></span>
+          Percentile Rankings
+        </div>
+        <div class="bar-row" data-bar="0">
+          <div class="bar-row-label"><span class="bar-row-name"></span><span class="bar-row-pct"></span></div>
+          <div class="bar-row-track"><div class="bar-row-fill"></div></div>
+        </div>
+        <div class="bar-row" data-bar="1">
+          <div class="bar-row-label"><span class="bar-row-name"></span><span class="bar-row-pct"></span></div>
+          <div class="bar-row-track"><div class="bar-row-fill"></div></div>
+        </div>
+        <div class="bar-row" data-bar="2">
+          <div class="bar-row-label"><span class="bar-row-name"></span><span class="bar-row-pct"></span></div>
+          <div class="bar-row-track"><div class="bar-row-fill"></div></div>
+        </div>
+        <div class="bar-row bar-row-last" data-bar="3">
+          <div class="bar-row-label"><span class="bar-row-name"></span><span class="bar-row-pct"></span></div>
+          <div class="bar-row-track"><div class="bar-row-fill"></div></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<style>
+/* Hub-specific: full-height flex column, no scroll */
+html, body { height: 100%; overflow: hidden !important; }
+body { display: flex; flex-direction: column; }
+.container { flex: 1; padding: 0 !important; margin: 0 !important; max-width: 100% !important; display: flex; flex-direction: column; justify-content: center; }
+footer { position: static !important; flex-shrink: 0; background: var(--hub-card-bg) !important; backdrop-filter: blur(20px) !important; border-top: 1px solid var(--float-border) !important; padding: 14px 0 !important; }
+footer .footer-inner { max-width: 1200px !important; padding: 0 40px !important; }
+
+.hub-hero { padding: 0 40px; max-width: 1200px; margin: 0 auto; width: 100%; }
+.hub-grid { display: flex; flex-direction: column; gap: 16px; }
+.hub-card {
+  position: relative; text-decoration: none; padding: 20px; text-align: left;
+  border-radius: 12px; background: var(--hub-card-bg); backdrop-filter: blur(20px);
+  border: 1px solid var(--float-border); overflow: hidden;
+  transition: all .4s cubic-bezier(.4,0,.2,1);
+}
+.hub-card:hover { transform: translateX(10px); border-color: var(--c0); box-shadow: 0 20px 40px rgba(0,0,0,.2), 0 0 30px rgba(59,130,246,.1); }
+.hub-card-disabled { cursor: default; opacity: .55; }
+.hub-card-disabled:hover { transform: none; box-shadow: none; border-color: var(--float-border); }
+.hub-card-title { font-size: 18px; font-weight: 800; color: var(--text); margin: 0 0 4px; letter-spacing: -.5px; display: flex; align-items: center; gap: 10px; }
+.hub-card-desc { color: var(--muted); font-size: 13px; margin: 0; line-height: 1.5; }
+.hub-card-badge { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: #f43f5e; background: rgba(244,63,94,.12); border: 1px solid rgba(244,63,94,.3); border-radius: 20px; padding: 3px 9px; }
+.card-glow-bg { position: absolute; inset: 0; background: radial-gradient(circle at 80% 50%, rgba(59,130,246,.15) 0%, transparent 60%); z-index: -1; border-radius: inherit; }
+.card-glow-bg-scout { background: radial-gradient(circle at 80% 50%, rgba(244,63,94,.12) 0%, transparent 60%); }
+
+.glow-container { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; overflow: hidden; z-index: 0; pointer-events: none; }
+.super-glow { position: absolute; top: -20%; left: -10%; width: 60vw; height: 60vw; background: radial-gradient(circle, rgba(59,130,246,.15) 0%, transparent 70%); filter: blur(80px); animation: hubFloatGlow 10s ease-in-out infinite alternate; }
+.glow-2 { top: 40%; left: 60%; background: radial-gradient(circle, rgba(244,63,94,.1) 0%, transparent 70%); animation-delay: -5s; }
+@keyframes hubFloatGlow { 0% { transform: translate(0,0) scale(1); } 100% { transform: translate(10%,10%) scale(1.1); } }
+
+.hub-theme-toggle{
+  position: fixed; top: 22px; right: 32px; z-index: 20;
+  background: transparent; border: 1px solid var(--border); color: var(--text);
+  font-size: 16px; padding: 6px; border-radius: 50%; cursor: pointer;
+  width: 34px; height: 34px; display: flex; align-items: center; justify-content: center;
+  transition: background .2s;
+}
+
+@media (max-width: 960px) {
+  html, body { overflow: auto !important; }
+  .hero-visual { display: none; }
+}
+</style>
+<script>
+  const hubThemeBtn = document.getElementById("theme-toggle");
+  if (hubThemeBtn) {
+    hubThemeBtn.addEventListener("click", () => {
+      const isLight = document.body.getAttribute("data-theme") === "light";
+      document.body.setAttribute("data-theme", isLight ? "dark" : "light");
+      hubThemeBtn.textContent = isLight ? "🌙" : "☀️";
+      localStorage.setItem("theme", isLight ? "dark" : "light");
+    });
+  }
+
+  // ── Rotating showcase snapshots — a handful of real-feeling stat
+  // highlights so the hub doesn't always show the same fixed content. ──
+  const HUB_SHOWCASES = [
+    {
+      badge: "Final Third: 91", label: "B. Fernandes",
+      pillEyebrow: "Combination Play", pillNum: "226 <span>links</span>",
+      bars: [
+        ["Progressive Passes", 94, "#3b82f6", "#60a5fa"],
+        ["Aerial Duels Won", 88, "#10b981", "#34d399"],
+        ["Final Third Impact", 99, "#a855f7", "#c084fc"],
+        ["Press Resist", 76, "#f43f5e", "#fb7185"],
+      ],
+    },
+    {
+      badge: "Shooting Profile: 97", label: "E. Haaland",
+      pillEyebrow: "Goals per 90", pillNum: "0.83",
+      bars: [
+        ["Shots on Target", 91, "#3b82f6", "#60a5fa"],
+        ["Big-Chance Conversion", 95, "#10b981", "#34d399"],
+        ["Shot Accuracy", 88, "#a855f7", "#c084fc"],
+        ["Aerial Duels Won", 79, "#f43f5e", "#fb7185"],
+      ],
+    },
+    {
+      badge: "Defending Profile: 93", label: "V. van Dijk",
+      pillEyebrow: "Aerial Duels", pillNum: "412 <span>won</span>",
+      bars: [
+        ["Tackle Success", 89, "#3b82f6", "#60a5fa"],
+        ["Interceptions", 85, "#10b981", "#34d399"],
+        ["Aerial Win Rate", 93, "#a855f7", "#c084fc"],
+        ["Clearances", 77, "#f43f5e", "#fb7185"],
+      ],
+    },
+    {
+      badge: "Decision Making: 88", label: "M. Ødegaard",
+      pillEyebrow: "Key Passes per 90", pillNum: "2.1",
+      bars: [
+        ["Space-Finder", 82, "#3b82f6", "#60a5fa"],
+        ["Press Resist", 90, "#10b981", "#34d399"],
+        ["Progressive Passes", 85, "#a855f7", "#c084fc"],
+        ["Shot Creator", 79, "#f43f5e", "#fb7185"],
+      ],
+    },
+  ];
+
+  function applyHubShowcase(sc) {
+    document.getElementById("hub-sc-badge").textContent = sc.badge;
+    document.getElementById("hub-sc-label").textContent = sc.label;
+    document.getElementById("hub-sc-pill-eyebrow").textContent = sc.pillEyebrow;
+    document.getElementById("hub-sc-pill-num").innerHTML = sc.pillNum;
+    document.querySelectorAll("#hub-showcase .bar-row").forEach(row => {
+      const [name, pct, c0, c1] = sc.bars[+row.dataset.bar];
+      row.querySelector(".bar-row-name").textContent = name;
+      const pctEl = row.querySelector(".bar-row-pct");
+      pctEl.textContent = `${pct}th`;
+      pctEl.style.color = c0;
+      const fill = row.querySelector(".bar-row-fill");
+      fill.style.width = `${pct}%`;
+      fill.style.background = `linear-gradient(90deg,${c0},${c1})`;
+    });
+  }
+
+  const showcaseEl = document.getElementById("hub-showcase");
+  if (showcaseEl) {
+    let hubShowcaseIdx = Math.floor(Math.random() * HUB_SHOWCASES.length);
+    applyHubShowcase(HUB_SHOWCASES[hubShowcaseIdx]);
+    setInterval(() => {
+      hubShowcaseIdx = (hubShowcaseIdx + 1) % HUB_SHOWCASES.length;
+      showcaseEl.style.transition = "opacity .4s ease";
+      showcaseEl.style.opacity = "0";
+      setTimeout(() => {
+        applyHubShowcase(HUB_SHOWCASES[hubShowcaseIdx]);
+        showcaseEl.style.opacity = "1";
+      }, 400);
+    }, 6000);
+  }
+</script>
+{% endblock %}

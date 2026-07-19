@@ -4,15 +4,10 @@ every reception (yellow) and what the receiver did next, colored by
 outcome. Uses mplsoccer's Pitch with pitch_type='opta' since that's exactly
 the 0-100 coordinate system our event data already uses — no conversion needed.
 """
-import io, base64
-import matplotlib
-matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from mplsoccer import Pitch
 
-BG_DARK = "#0a0e1a"
-BG_PANEL = "#0d1526"
-LINE_COLOR = "#374151"
+from visuals.chart_utils import BG_DARK, BG_PANEL, LINE_COLOR, fig_to_b64, layout_pitch_axes, draw_title
 
 OUTCOME_STYLE = {
     "prog_pass":   {"color": "#22c55e", "label": "Prog. Passes"},
@@ -26,20 +21,12 @@ SHOT_COLOR = "#ec4899"
 RECEPTION_COLOR = "#eab308"
 
 
-def _fig_to_b64(fig) -> str:
-    buf = io.BytesIO()
-    fig.savefig(buf, format="png", bbox_inches="tight", facecolor=fig.get_facecolor(), dpi=110)
-    buf.seek(0)
-    encoded = base64.b64encode(buf.read()).decode("utf-8")
-    plt.close(fig)
-    return encoded
-
-
 def generate_linkup_chart(passer_name: str, receiver_name: str, receptions: list[dict]) -> str:
     pitch = Pitch(pitch_type="opta", pitch_color=BG_PANEL, line_color=LINE_COLOR,
                   linewidth=1.2, half=False)
     fig, ax = pitch.draw(figsize=(11, 7.3))
     fig.set_facecolor(BG_DARK)
+    layout_pitch_axes(ax, top=0.80, bottom=0.12)
 
     counts = {"prog_pass": 0, "pass": 0, "unsuccessful": 0, "prog_carry": 0,
               "takeon_won": 0, "takeon_lost": 0, "shot": 0}
@@ -65,9 +52,8 @@ def generate_linkup_chart(passer_name: str, receiver_name: str, receptions: list
 
     n = len(receptions)
     prog_pct = round(100 * (counts["prog_pass"] + counts["prog_carry"]) / n) if n else 0
-    fig.suptitle(f"{receiver_name}", color="white", fontsize=20, fontweight="bold", y=0.99)
-    fig.text(0.5, 0.945, f"After receiving from {passer_name} | {n} receptions | progresses {prog_pct}%",
-              color="#94a3b8", fontsize=11, ha="center")
+    draw_title(fig, receiver_name,
+               f"After receiving from {passer_name} | {n} receptions | progresses {prog_pct}%")
 
     legend_items = [
         (RECEPTION_COLOR, f"Pass from {passer_name}"),
@@ -82,7 +68,6 @@ def generate_linkup_chart(passer_name: str, receiver_name: str, receptions: list
     handles = [plt.Line2D([0], [0], color=c, lw=2.5, marker="o", markersize=5) for c, _ in legend_items]
     labels = [lbl for _, lbl in legend_items]
     fig.legend(handles, labels, loc="lower center", ncol=4, frameon=False,
-               labelcolor="#cbd5e1", fontsize=8.5, bbox_to_anchor=(0.5, -0.02))
+               labelcolor="#cbd5e1", fontsize=8.5, bbox_to_anchor=(0.5, 0.02))
 
-    plt.tight_layout(rect=[0, 0.05, 1, 0.93])
-    return _fig_to_b64(fig)
+    return fig_to_b64(fig)
