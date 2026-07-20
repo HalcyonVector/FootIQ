@@ -201,11 +201,8 @@
       document.querySelectorAll('.league-badge').forEach((el, i) =>
         obs(el, 'scroll-scale-in', i * 180));
 
-      // Steps: outer ones slide in, middle rises
-      document.querySelectorAll('.step').forEach((el, i) => {
-        const cls = i === 0 ? 'scroll-from-left' : i === 2 ? 'scroll-from-right' : 'scroll-from-bottom';
-        obs(el, cls, i * 320);
-      });
+      // Steps: all slide in from the left, staggered so they sweep left-to-right in reading order.
+      document.querySelectorAll('.step').forEach((el, i) => obs(el, 'scroll-from-left', i * 320));
 
       // Section headings
       document.querySelectorAll('.section-intro').forEach(el =>
