@@ -372,7 +372,7 @@ body{background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif;min-
    `change` keeps working untouched — this only replaces what the OPENED
    menu looks like, since a native <select>'s option list is OS-rendered
    and can't be styled to match the app's glass aesthetic at all. ── */
-.custom-select{position:relative;width:100%}
+.custom-select{position:relative;width:100%;min-width:0}
 .custom-select .cs-native{
   position:absolute;opacity:0;pointer-events:none;width:1px;height:1px;
 }
@@ -988,6 +988,7 @@ input::placeholder{color:var(--muted)}
 .compare-slot[data-idx="3"] .slot-label{color:var(--c3)}
 
 .slot-filters{display:flex;gap:8px;margin-bottom:10px}
+.slot-filters > *{flex:1;min-width:0}
 .slot-dd{position:relative;user-select:none;flex:1}
 .slot-dd-sel{display:flex;align-items:center;gap:5px;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:8px;padding:7px 10px;cursor:pointer;font-size:11px;font-weight:500;color:var(--text);transition:border-color .2s;height:36px}
 .slot-dd-sel:hover{border-color:rgba(255,255,255,.2)}
@@ -1030,13 +1031,13 @@ input::placeholder{color:var(--muted)}
 .slot-clear{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:6px;color:var(--muted);font-size:12px;width:24px;height:24px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:background .15s,color .15s}
 .slot-clear:hover{background:rgba(244,63,94,.15);color:var(--c1)}
 
-.add-more-row{display:flex;align-items:center;gap:14px;margin-bottom:20px}
+.add-more-row{display:flex;align-items:center;gap:14px;margin-bottom:10px}
 .add-more-btn{background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:50px;color:var(--dim);font-family:'Outfit',sans-serif;font-size:13px;font-weight:600;padding:10px 22px;cursor:pointer;transition:background .2s,border-color .2s,color .2s}
 .add-more-btn:hover:not(:disabled){background:rgba(168,85,247,.1);border-color:rgba(168,85,247,.4);color:#a855f7}
 .add-more-btn:disabled{opacity:.3;cursor:not-allowed}
 .add-more-hint{font-size:12px;color:var(--muted)}
 
-.compare-action-row{display:flex;justify-content:center;margin-bottom:40px}
+.compare-action-row{display:flex;justify-content:center;margin-bottom:16px}
 .compare-go-btn{background:linear-gradient(135deg,#3b82f6,#a855f7,#f43f5e);background-size:200% 200%;color:#fff;border:none;border-radius:50px;font-family:'Outfit',sans-serif;font-size:16px;font-weight:700;padding:15px 56px;cursor:pointer;box-shadow:0 4px 28px rgba(100,100,246,.35);transition:transform .3s cubic-bezier(0.34, 1.56, 0.64, 1),box-shadow .3s,opacity .15s,background-position .5s}
 .compare-go-btn:hover:not(:disabled){transform:translateY(-3px) scale(1.05);box-shadow:0 12px 48px rgba(168,85,247,.6), 0 0 15px rgba(59,130,246,.4);background-position:right center}
 .compare-go-btn:disabled{opacity:.3;cursor:not-allowed;box-shadow:none}
@@ -1697,9 +1698,9 @@ footer {
 .search-card:hover,
 .search-card.glass-card,
 .search-card.glass-card:hover {
-  background: #0b1120 !important;
+  background: var(--bg) !important;
   backdrop-filter: blur(0px) !important;
-  border: 1px solid rgba(255,255,255,.14) !important;
+  border: 1px solid var(--border) !important;
   box-shadow: 0 0 0 1px rgba(0,212,255,.08), 0 24px 60px rgba(0,0,0,.7) !important;
   animation: none !important;
 }
