@@ -57,7 +57,8 @@ function currentMetricUnit() {
 
 function populateCategorySelect() {
   const catSel = document.getElementById("explore-category");
-  catSel.innerHTML = CATEGORIES.map(c => `<option value="${c.category}">${c.category_label}</option>`).join("");
+  catSel.innerHTML = `<option value="" selected disabled>Choose a category</option>` +
+    CATEGORIES.map(c => `<option value="${c.category}">${c.category_label}</option>`).join("");
   populateMetricSelect();
   if (typeof upgradeSelects === "function") upgradeSelects();
 }
@@ -65,15 +66,20 @@ function populateCategorySelect() {
 function populateMetricSelect() {
   const catSel = document.getElementById("explore-category");
   const metricSel = document.getElementById("explore-metric");
-  const cat = CATEGORIES.find(c => c.category === catSel.value) || CATEGORIES[0];
-  metricSel.innerHTML = (cat ? cat.metrics : []).map(m => `<option value="${m.col}">${m.label}</option>`).join("");
+  const cat = CATEGORIES.find(c => c.category === catSel.value);
+  metricSel.innerHTML = `<option value="" selected disabled>Choose a metric</option>` +
+    (cat ? cat.metrics.map(m => `<option value="${m.col}">${m.label}</option>`).join("") : "");
   if (typeof upgradeSelects === "function") upgradeSelects();
 }
 
 async function runExplore() {
+  const metricSel = document.getElementById("explore-metric");
+  if (!metricSel.value) return;  // nothing chosen yet — stay on the empty state, like Scout before a target is picked
+
+  document.getElementById("explore-results-section").style.display = "block";
+
   const listEl = document.getElementById("explore-list");
   const headingEl = document.getElementById("explore-results-heading");
-  const metricSel = document.getElementById("explore-metric");
   const metricLabel = metricSel.options[metricSel.selectedIndex] ? metricSel.options[metricSel.selectedIndex].text : "";
   headingEl.textContent = metricLabel ? `Top Players: ${metricLabel}` : "Top Players";
 
@@ -142,11 +148,10 @@ function renderResults(results) {
 // Init
 // ─────────────────────────────────────────────────────────────────────────────
 populateCategorySelect();
-document.getElementById("explore-category").addEventListener("change", () => { populateMetricSelect(); runExplore(); });
+document.getElementById("explore-category").addEventListener("change", () => { populateMetricSelect(); });
 ["explore-metric", "explore-league", "explore-season", "explore-position", "explore-min-minutes"].forEach(id => {
   document.getElementById(id).addEventListener("change", runExplore);
 });
-runExplore();
 
 const exploreThemeBtn = document.getElementById("theme-toggle");
 if (exploreThemeBtn) {
