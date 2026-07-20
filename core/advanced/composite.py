@@ -58,10 +58,27 @@ def category_percentile(cat: dict) -> float | None:
     return sum(valid) / len(valid)
 
 
+# A plain weighted ARITHMETIC mean of several percentiles regresses hard
+# toward 50-60 for genuinely elite players, since no one leads every single
+# weighted category simultaneously — Haaland's passing/tempo percentiles
+# drag his shooting-dominant profile down just as much as his shooting drags
+# up a limited passer's. A power mean (weighted sum of pct^POWER, then take
+# the POWER-th root) is the standard fix real rating systems use for this
+# exact "average-of-averages compresses everything toward the middle"
+# problem — it's the arithmetic mean at POWER=1 and increasingly rewards a
+# player's own strongest categories as POWER rises, which is the behavior
+# actually wanted here: a rating that reflects what a player is genuinely
+# elite at, not diluted evenly by categories that were never their job.
+COMPOSITE_POWER = 1.8
+
+
 def compute_composite(cats: list[dict], position: str) -> dict:
     """Returns {"score": float|None, "breakdown": {category_key: pct}} — score
     is None only if literally none of the player's categories have any data
-    (shouldn't happen in practice above the app's minutes threshold)."""
+    (shouldn't happen in practice above the app's minutes threshold). The
+    breakdown itself is unchanged (still the plain per-category percentile),
+    only the way they're COMBINED into one headline number uses a power mean
+    instead of a flat weighted average — see COMPOSITE_POWER above."""
     group = pos_group(position)
     weights = CATEGORY_WEIGHTS.get(group, CATEGORY_WEIGHTS["midfielder"])
     by_key = {c["key"]: c for c in cats}
@@ -76,9 +93,32 @@ def compute_composite(cats: list[dict], position: str) -> dict:
         if pct is None:
             continue
         breakdown[cat_key] = round(pct, 1)
-        weighted_sum += pct * weights[cat_key]
+        weighted_sum += weights[cat_key] * (max(pct, 0.0) ** COMPOSITE_POWER)
         total_weight += weights[cat_key]
 
     if total_weight == 0:
         return {"score": None, "breakdown": breakdown}
-    return {"score": round(weighted_sum / total_weight, 1), "breakdown": breakdown}
+    score = (weighted_sum / total_weight) ** (1 / COMPOSITE_POWER)
+    return {"score": round(score, 1), "breakdown": breakdown}
+
+
+def category_percentile_trend(player_id: int, category: str, seasons: list[str], df) -> list[float | None]:
+    """This player's category_percentile() for each season in `seasons`
+    (oldest-to-newest order is the caller's responsibility), matched by
+    whoscored_player_id rather than the currently-viewed league — a
+    mid-career transfer shouldn't break the trend line. None where the
+    player didn't play that season, or fell below the minutes gate that
+    build_all_categories' cohort already enforces."""
+    from core.advanced.percentiles import build_all_categories
+
+    out = []
+    for season in seasons:
+        matches = df[(df["whoscored_player_id"] == player_id) & (df["season"] == season)]
+        if matches.empty:
+            out.append(None)
+            continue
+        row = matches.iloc[0].to_dict()
+        cats = build_all_categories(row, row.get("position", ""), season, df)
+        cat = next((c for c in cats if c["key"] == category), None)
+        out.append(category_percentile(cat) if cat else None)
+    return out

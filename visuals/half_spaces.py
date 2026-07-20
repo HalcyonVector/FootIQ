@@ -68,12 +68,12 @@ def generate_half_space_chart(player_name: str, team: str, season: str,
 
     mode_label = {"offensive": "Offensive", "defensive": "Defensive", "both": "Offensive + Defensive"}[mode]
     if mode == "offensive":
-        subtitle = f"Half-Space Play — {mode_label} | {team} | {season}    Passes: {off_counts['pass']+off_counts['prog_pass']}    Progressive: {off_counts['prog_pass']}"
+        subtitle = f"Half-Space Play | {mode_label} | {team} | {season}    Passes: {off_counts['pass']+off_counts['prog_pass']}    Progressive: {off_counts['prog_pass']}"
     elif mode == "defensive":
         n = sum(def_counts.values())
-        subtitle = f"Half-Space Play — {mode_label} | {team} | {season}    Actions: {n}"
+        subtitle = f"Half-Space Play | {mode_label} | {team} | {season}    Actions: {n}"
     else:
-        subtitle = f"Half-Space Play — {mode_label} | {team} | {season}"
+        subtitle = f"Half-Space Play | {mode_label} | {team} | {season}"
     draw_title(fig, player_name, subtitle)
 
     handles, labels = [], []
@@ -128,7 +128,7 @@ def generate_half_space_percentile_chart(player_name: str, team: str, season: st
     for label in wanted:
         s = by_label.get(label)
         if not s or s.get("no_data"):
-            items.append((label, 0, "#374151", "—"))
+            items.append((label, 0, "#374151", "-"))
             continue
         pct = s["percentile"]
         items.append((label, pct, percentile_color(pct), f"{s['value']}{s.get('unit','')} ({pct}th pct)"))

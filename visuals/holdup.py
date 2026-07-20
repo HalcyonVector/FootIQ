@@ -34,7 +34,7 @@ def generate_holdup_chart(player_name: str, team: str, season: str, episodes: li
     n = len(episodes)
     ret_pct = round(100 * (n - counts.get("lost", 0) - counts.get("dangerous_loss", 0)) / n) if n else 0
     zone_label = ZONE_LABELS.get(zone, "Final Third")
-    subtitle = f"Hold-Up Episodes — {zone_label} | {team} | {season}    Episodes: {n}    Retention: {ret_pct}%"
+    subtitle = f"Hold-Up Episodes | {zone_label} | {team} | {season}    Episodes: {n}    Retention: {ret_pct}%"
     draw_title(fig, player_name, subtitle)
 
     handles = [plt.Line2D([0], [0], marker="o", color="none", markerfacecolor=v["color"], markersize=9, markeredgecolor="white")

@@ -28,10 +28,35 @@ LEAGUES = [
     {"id": "Serie A",        "name": "Serie A",         "country": "Italy",   "logo": "https://media.api-sports.io/football/leagues/135.png"},
     {"id": "Bundesliga",     "name": "Bundesliga",      "country": "Germany", "logo": "https://media.api-sports.io/football/leagues/78.png"},
     {"id": "Ligue 1",        "name": "Ligue 1",         "country": "France",  "logo": "https://static.wikia.nocookie.net/logopedia/images/3/31/Ligue_1_2024.png"},
+    # Newly-scraped leagues (core/advanced/config.py's LEAGUE_DIR_MAP has the
+    # matching WhoScored cache-folder keys) — these ids MUST match that map
+    # exactly, since the frontend just forwards whatever `id` is picked here
+    # straight through as the `league` query/body param on every API call.
+    {"id": "Championship",              "name": "Championship (England)",  "country": "England",       "logo": "https://media.api-sports.io/football/leagues/40.png"},
+    {"id": "Eredivisie",                "name": "Eredivisie",               "country": "Netherlands",   "logo": "https://media.api-sports.io/football/leagues/88.png"},
+    {"id": "Primeira Liga",             "name": "Primeira Liga",            "country": "Portugal",      "logo": "https://media.api-sports.io/football/leagues/94.png"},
+    {"id": "Belgian Pro League",        "name": "Belgian Pro League",       "country": "Belgium",       "logo": "https://media.api-sports.io/football/leagues/144.png"},
+    {"id": "Süper Lig",                 "name": "Süper Lig",                "country": "Turkey",        "logo": "https://media.api-sports.io/football/leagues/203.png"},
+    {"id": "Scottish Premiership",      "name": "Scottish Premiership",     "country": "Scotland",      "logo": "https://media.api-sports.io/football/leagues/179.png"},
+    {"id": "Champions League",          "name": "Champions League",        "country": "Europe",        "logo": "https://media.api-sports.io/football/leagues/2.png"},
+    {"id": "Europa League",             "name": "Europa League",           "country": "Europe",        "logo": "https://media.api-sports.io/football/leagues/3.png"},
+    {"id": "Europa Conference League",  "name": "Conference League",       "country": "Europe",        "logo": "https://media.api-sports.io/football/leagues/848.png"},
+    {"id": "World Cup",                 "name": "World Cup",               "country": "International", "logo": "https://media.api-sports.io/football/leagues/1.png"},
+    {"id": "European Championship",     "name": "European Championship",   "country": "International", "logo": "https://media.api-sports.io/football/leagues/4.png"},
 ]
 
-# Only seasons we actually have scraped Advanced Metrics data for.
-SEASONS = ["2025-26", "2024-25", "2023-24"]
+# Only seasons we actually have scraped Advanced Metrics data for. The two
+# single-year competitions (World Cup 2022, Euro 2024) get their own entries
+# here too — picking one of the top-3 rows with, say, "Champions League"
+# just yields an honest "no data" until that season/league combo exists.
+SEASONS = ["2025-26", "2024-25", "2023-24", "2022", "2024"]
+
+# The original 5-league scope, kept around for Scout's "top 5 only" pool
+# option — narrowing to these avoids a smaller domestic league (e.g.
+# Scottish Premiership) surfacing as someone's "most similar" player purely
+# because the position cohort there is thinner, not because the profile
+# actually matches better.
+TOP5_LEAGUES = ["Premier League", "La Liga", "Serie A", "Bundesliga", "Ligue 1"]
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -56,6 +81,12 @@ def compare_page():
 @app.route("/scout")
 def scout_page():
     return render_template("scout.html", leagues=LEAGUES, seasons=SEASONS)
+
+
+@app.route("/explore")
+def explore_page():
+    from core.advanced.explore import explorable_metrics
+    return render_template("explore.html", leagues=LEAGUES, seasons=SEASONS, categories=explorable_metrics())
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -423,6 +454,24 @@ def api_category_chart():
         else:
             return jsonify({"error": f"Unknown category '{category}'"}), 400
 
+        # Shared across every category — "is this player trending up or down
+        # relative to their cohort", something multi-season data already
+        # supports but nothing else in the app surfaces.
+        from core.advanced.composite import category_percentile_trend
+        from core.advanced.metrics_master import CATEGORIES
+        from visuals.chart_utils import generate_trend_chart
+
+        trend_seasons = list(reversed(SEASONS))  # oldest -> newest for a left-to-right timeline
+        trend_values = category_percentile_trend(player_id, category, trend_seasons, df)
+        charts.append({
+            "key": "trend",
+            "title": "Season Trend",
+            "image": generate_trend_chart(
+                player_name, f"{CATEGORIES[category]['label']} · percentile by season",
+                trend_seasons, trend_values,
+            ),
+        })
+
         result = {"charts": charts}
         if chart_stats is not None:
             result["stats"] = chart_stats
@@ -512,7 +561,12 @@ def api_scout_similar():
         max_age   = body.get("max_age")
         max_age   = int(max_age) if max_age not in (None, "", "none") else None
         league_pool = body.get("league_pool", "all")
-        leagues   = [league_pool] if league_pool and league_pool != "all" else None
+        if league_pool == "top5":
+            leagues = TOP5_LEAGUES
+        elif league_pool and league_pool != "all":
+            leagues = [league_pool]
+        else:
+            leagues = None
 
         from core.advanced.store import get_advanced_df
         from core.advanced.identity import match_to_advanced_row
@@ -547,5 +601,37 @@ def api_scout_similar():
         return jsonify({"error": str(e)}), 500
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# API — Explore (ranked stat browsing — discovery without a reference player)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.route("/api/explore", methods=["POST"])
+def api_explore():
+    try:
+        body = request.get_json(force=True)
+        metric_col = body["metric"]
+        season = body.get("season", "2024-25")
+        league = body.get("league", "all")
+        position_group = body.get("position_group", "all")
+        min_minutes = body.get("min_minutes")
+        min_minutes = int(min_minutes) if min_minutes not in (None, "", "none") else None
+
+        from core.advanced.store import get_advanced_df
+        from core.advanced.explore import rank_players
+
+        df = get_advanced_df()
+        if df.empty:
+            return jsonify({"error": "No data"}), 404
+
+        results = rank_players(
+            df, metric_col, season, league=league, position_group=position_group,
+            min_minutes=min_minutes, limit=25,
+        )
+        return jsonify({"results": results})
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+
 if __name__ == "__main__":
-    app.run(debug=True, port=5000, use_reloader=False)
+    app.run(debug=True, port=5000, use_reloader=False, threaded=True)

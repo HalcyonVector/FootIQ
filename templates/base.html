@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>FootIQ — Event-Level Football Analytics</title>
-  <meta name="description" content="Event-derived football player stats — passing, carrying, duels, and combination play, built from match event data." />
+  <title>FootIQ: Event-Level Football Analytics</title>
+  <meta name="description" content="Event-derived football player stats: passing, carrying, duels, and combination play, built from match event data." />
   <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
@@ -31,14 +31,27 @@
     <div class="nav-logo" style="cursor:pointer" onclick="window.location.href='/'">
       <span class="logo-text">FootIQ</span>
     </div>
-    <div class="nav-links" style="display:flex; gap: 24px;">
+    <div class="nav-links">
       <a href="/player" id="nav-player">Player Stats</a>
       <a href="/compare" id="nav-compare">Compare</a>
       <a href="/scout" id="nav-scout">Scout</a>
+      <a href="/explore" id="nav-explore">Explore</a>
     </div>
-    <div class="nav-right" style="display:flex;align-items:center;gap:12px">
+    <div class="nav-page-select" id="nav-page-select">
+      <button class="nav-page-select-btn" id="nav-page-btn" type="button">
+        <span id="nav-page-current">Menu</span>
+        <span class="dd-arrow">▾</span>
+      </button>
+      <div class="nav-page-menu" id="nav-page-menu">
+        <a href="/player" class="nav-page-item" data-label="Player Stats">Player Stats</a>
+        <a href="/compare" class="nav-page-item" data-label="Compare">Compare</a>
+        <a href="/scout" class="nav-page-item" data-label="Scout">Scout</a>
+        <a href="/explore" class="nav-page-item" data-label="Explore">Explore</a>
+      </div>
+    </div>
+    <div class="nav-right" style="display:flex;align-items:center;gap:12px;white-space:nowrap">
       <button id="theme-toggle" style="background:transparent;border:1px solid var(--border);color:var(--text);font-size:16px;padding:6px;border-radius:50%;cursor:pointer;width:34px;height:34px;display:flex;align-items:center;justify-content:center;transition:background 0.2s">🌙</button>
-      <span class="nav-credit">Built by <strong>HalcyonVector</strong></span>
+      <span class="nav-credit">Built by <a href="https://github.com/HalcyonVector" target="_blank" rel="noopener"><strong>HalcyonVector</strong></a></span>
     </div>
   </nav>
   {% endblock %}
@@ -56,10 +69,9 @@
         <span class="logo-text" style="font-size:16px">FootIQ</span>
       </div>
       <div class="footer-credits">
-        Built by <strong class="credit-name">HalcyonVector</strong>
-        &nbsp;·&nbsp; Powered by <strong>Flask</strong>
+        Built by <a href="https://github.com/HalcyonVector" target="_blank" rel="noopener" class="credit-name"><strong>HalcyonVector</strong></a>
+        &nbsp;·&nbsp; Data via <strong>Opta</strong> / <strong>WhoScored</strong>
         &nbsp;·&nbsp; Photos via <strong>Wikipedia</strong>
-        &nbsp;·&nbsp; Charts via <strong>Matplotlib</strong>
       </div>
     </div>
   </footer>
@@ -79,6 +91,27 @@
       window.addEventListener('scroll', () => {
         navbar.classList.toggle('scrolled', window.scrollY > 20);
       }, { passive: true });
+    }
+
+    // ── Mobile page-select dropdown (current page + the other 3) ──
+    const navPageSelect = document.getElementById('nav-page-select');
+    const navPageBtn = document.getElementById('nav-page-btn');
+    const navPageCurrent = document.getElementById('nav-page-current');
+    const navPageMenu = document.getElementById('nav-page-menu');
+    if (navPageSelect && navPageBtn && navPageMenu) {
+      const PAGE_LABELS = { '/player': 'Player Stats', '/compare': 'Compare', '/scout': 'Scout', '/explore': 'Explore' };
+      const currentLabel = PAGE_LABELS[window.location.pathname] || 'Menu';
+      navPageCurrent.textContent = currentLabel;
+      navPageMenu.querySelectorAll('.nav-page-item').forEach(item => {
+        if (item.dataset.label === currentLabel) item.style.display = 'none';
+      });
+
+      navPageBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        navPageSelect.classList.toggle('open');
+      });
+      document.addEventListener('click', () => navPageSelect.classList.remove('open'));
+      navPageMenu.addEventListener('click', e => e.stopPropagation());
     }
 
     // ── Particle canvas ──
@@ -157,8 +190,8 @@
     }
 
     function initScrollAnimations() {
-      // Feature cards: all rise from the bottom, row by row (3 per row) —
-      // top row finishes before the bottom row starts.
+      // Feature cards: all rise from the bottom, row by row (3 per row).
+      // Top row finishes before the bottom row starts.
       document.querySelectorAll('.feature-card').forEach((el, i) => {
         const row = Math.floor(i / 3);
         obs(el, 'scroll-from-bottom', row * 260 + (i % 3) * 90);
@@ -225,6 +258,7 @@
       counterObs.observe(el);
     });
   </script>
+  <script src="/static/js/custom-select.js"></script>
   {% block extra_js %}{% endblock %}
 </body>
 </html>

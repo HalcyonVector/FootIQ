@@ -34,8 +34,8 @@ def generate_final_third_scatter(player_name: str, team: str, season: str, point
     for spine in ax.spines.values():
         spine.set_color("#374151")
     ax.tick_params(colors="#94a3b8", labelsize=9)
-    ax.set_xlabel("Completeness (floor — sustained all-round involvement)", color="#94a3b8", fontsize=9.5)
-    ax.set_ylabel("Impact (ceiling — damage per touch)", color="#94a3b8", fontsize=9.5)
+    ax.set_xlabel("Completeness (floor: sustained all-round involvement)", color="#94a3b8", fontsize=9.5)
+    ax.set_ylabel("Impact (ceiling: damage per touch)", color="#94a3b8", fontsize=9.5)
 
     quad_style = dict(color="#64748b", fontsize=9, fontweight="700", alpha=0.85)
     ax.text(3, 97, "MOMENTS PLAYER", va="top", ha="left", **quad_style)
@@ -62,7 +62,7 @@ def generate_pillar_bar_chart(player_name: str, team: str, season: str, floor_pc
         items.append((f"{PILLAR_LABELS[p]} (floor)", floor_pct[p], PILLAR_COLORS[p], f"{floor_pct[p]}th pct"))
     for p in ("shooting", "linkup", "carrying", "ballwinning"):
         items.append((f"{PILLAR_LABELS[p]} (per touch)", per_touch_pct[p], PILLAR_COLORS[p], f"{per_touch_pct[p]}th pct"))
-    return generate_stat_bar_chart("Four Pillars — Floor vs Per-Touch", f"{team} | {season}", items)
+    return generate_stat_bar_chart("Four Pillars: Floor vs Per-Touch", f"{team} | {season}", items)
 
 
 def generate_completeness_distribution_chart(player_name: str, team: str, season: str,
@@ -72,5 +72,5 @@ def generate_completeness_distribution_chart(player_name: str, team: str, season
     actually quite good for a winger."""
     values = [p["completeness"] for p in cohort_points if p.get("completeness") is not None]
     marker = (player_completeness, f"{player_name}: {player_completeness}") if player_completeness is not None else None
-    return generate_histogram_chart("Completeness — Cohort Distribution", f"{team} | {season}    Cohort size: {len(values)}",
+    return generate_histogram_chart("Completeness: Cohort Distribution", f"{team} | {season}    Cohort size: {len(values)}",
                                      values, bins=14, unit="", color="#475569", marker=marker)

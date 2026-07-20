@@ -20,14 +20,15 @@ CATEGORIES = {
     "passing": {
         "label": "Passing Profile",
         "gk_only": False,
-        "desc": "Open play only — set pieces are stripped out via qualifiers.",
+        "desc": "Open play only. Set pieces are stripped out via qualifiers.",
         "metrics": [
             ("pass_prog_count_p90", "Progressive passes", ""),
             ("pass_progression_rate_pct", "Progression rate", "%"),
             ("pass_prog_accuracy_pct", "Prog. pass accuracy", "%"),
             ("pass_penetration_gain_m_p90", "Penetration gain", "m"),
             ("pass_into_box_count_p90", "Passes into box", ""),
-            ("pass_through_balls_count_p90", "Through balls", ""),
+            ("pass_through_balls_count_p90", "Through balls completed", ""),
+            ("pass_through_balls_attempted_count_p90", "Through balls attempted", ""),
             ("pass_crosses_count_p90", "Crosses completed", ""),
             ("pass_cross_accuracy_pct", "Cross accuracy", "%"),
             ("pass_key_passes_count_p90", "Key passes", ""),
@@ -60,7 +61,7 @@ CATEGORIES = {
     "defending": {
         "label": "Defending Profile",
         "gk_only": False,
-        "desc": "By zone — a center-back defending the box does a different job than a full-back on the flank.",
+        "desc": "By zone: a center-back defending the box does a different job than a full-back on the flank.",
         "metrics": [
             ("def_tackles_total_p90", "Tackles", ""),
             ("def_tackle_success_pct", "Tackle success", "%"),
@@ -191,7 +192,7 @@ CATEGORIES = {
     "holdup": {
         "label": "Hold-Up Play",
         "gk_only": False,
-        "desc": "Held the ball 5s+ without losing it. Final third is the primary view — whole-pitch just rewards centre-backs holding it uncontested deep.",
+        "desc": "Held the ball 5s+ without losing it. Final third is the primary view since whole-pitch just rewards centre-backs holding it uncontested deep.",
         "metrics": [
             ("hu_final_episodes_p90", "Episodes (Final Third)", ""),
             ("hu_middle_episodes_p90", "Episodes (Middle Third)", ""),

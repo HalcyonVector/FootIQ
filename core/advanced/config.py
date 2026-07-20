@@ -15,6 +15,17 @@ LEAGUE_DIR_MAP = {
     "Serie A": "ITA-Serie A",
     "Bundesliga": "GER-Bundesliga",
     "Ligue 1": "FRA-Ligue 1",
+    "Championship": "ENG-Championship",
+    "Eredivisie": "NED-Eredivisie",
+    "Primeira Liga": "POR-Liga Portugal",
+    "Belgian Pro League": "BEL-Pro League",
+    "Süper Lig": "TUR-Super Lig",
+    "Scottish Premiership": "SCO-Premiership",
+    "Champions League": "EUR-Champions League",
+    "Europa League": "EUR-Europa League",
+    "Europa Conference League": "EUR-Conference League",
+    "World Cup": "INT-World Cup",
+    "European Championship": "INT-European Championship",
 }
 
 ADVANCED_DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "data", "advanced")

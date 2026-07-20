@@ -69,7 +69,7 @@ def generate_gk_distribution_chart(player_name: str, team: str, season: str, sta
     for label in labels:
         s = by_label.get(label)
         if not s or s.get("no_data"):
-            items.append((label, 0, "#374151", "—"))
+            items.append((label, 0, "#374151", "-"))
             continue
         pct = s["percentile"]
         items.append((label, pct, percentile_color(pct), f"{s['value']}{s.get('unit','')}"))

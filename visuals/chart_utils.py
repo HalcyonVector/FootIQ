@@ -127,6 +127,60 @@ def generate_stat_bar_chart(title: str, subtitle: str, items: list[tuple]) -> st
     return fig_to_b64(fig)
 
 
+def generate_trend_chart(title: str, subtitle: str, seasons: list[str], values: list) -> str:
+    """Season-over-season line chart — `values` is the same 0-100
+    cohort-relative percentile every stat bar already uses (so a rising line
+    means "got better relative to peers", not just "raw number went up",
+    which would conflate improvement with the league getting weaker/stronger
+    around them). None entries (season played, but below the minutes gate,
+    or season not played at all) show as gaps in the line, not zero."""
+    fig, ax = plt.subplots(figsize=(7.6, 4.6))
+    fig.set_facecolor(BG_DARK)
+    ax.set_facecolor(BG_PANEL)
+
+    have_points = [v for v in values if v is not None]
+    if len(have_points) >= 2:
+        xs = list(range(len(seasons)))
+        for lvl in (25, 50, 75):
+            ax.axhline(lvl, color="#374151", linewidth=0.7, linestyle=":", zorder=1)
+
+        # Break the line at gaps instead of interpolating across a missing season.
+        seg_x, seg_y = [], []
+        for x, v in zip(xs, values):
+            if v is None:
+                if len(seg_x) >= 2:
+                    ax.plot(seg_x, seg_y, color="#64748b", linewidth=1.8, zorder=2)
+                seg_x, seg_y = [], []
+                continue
+            seg_x.append(x); seg_y.append(v)
+        if len(seg_x) >= 2:
+            ax.plot(seg_x, seg_y, color="#64748b", linewidth=1.8, zorder=2)
+
+        for x, v in zip(xs, values):
+            if v is None:
+                continue
+            ax.scatter([x], [v], s=110, color=percentile_color(v), zorder=3, edgecolor=BG_DARK, linewidth=1.2)
+            ax.text(x, v + 6, f"{v:.0f}", color="white", fontsize=10, fontweight="700", ha="center", zorder=4)
+
+        ax.set_xticks(xs)
+        ax.set_xticklabels(seasons, color="#cbd5e1", fontsize=10)
+        ax.set_ylim(0, 108)
+        ax.set_ylabel("Percentile vs. cohort", color="#94a3b8", fontsize=9.5)
+    else:
+        ax.text(0.5, 0.5, "Not enough season history yet", transform=ax.transAxes,
+                 ha="center", va="center", color="#64748b", fontsize=12)
+        ax.set_xticks([])
+
+    ax.set_yticks([0, 25, 50, 75, 100]) if have_points and len(have_points) >= 2 else None
+    for spine in ax.spines.values():
+        spine.set_color("#374151")
+    ax.tick_params(colors="#94a3b8", labelsize=9)
+
+    top = draw_title_block(fig, title, subtitle)
+    plt.tight_layout(rect=[0.02, 0.02, 0.98, top])
+    return fig_to_b64(fig)
+
+
 def generate_histogram_chart(title: str, subtitle: str, values: list, bins: int = 10,
                               unit: str = "", color: str = "#3b82f6", marker: tuple = None) -> str:
     """Distribution chart for raw per-event values (release times, carry

@@ -8,7 +8,7 @@ now; no more synthetic hash-based ID translation layer.
 import pandas as pd
 
 from core.advanced.store import get_advanced_df
-from core.media import _normalize_str, get_team_color, get_wikimedia_image
+from core.media import _normalize_str, get_team_color
 
 
 def _clean_position(value) -> str:
@@ -95,12 +95,18 @@ def get_player_stats(player_id: int, league: str, season: str) -> dict | None:
     row = match.iloc[0]
     name = row["player_name"]
     team = row["team_name"]
-    photo = get_wikimedia_image(name, team=team)
 
     return {
         "id": int(row["whoscored_player_id"]),
         "name": name,
-        "photo": photo,
+        # No photo fetch here — the frontend lazy-loads it client-side via
+        # /api/player-image right after this response arrives (see
+        # renderProfileHeader's applyWikiImage call), same as Compare/Scout.
+        # This used to call get_wikimedia_image() synchronously, which meant
+        # every single player selection paid the full Wikipedia round-trip
+        # cost before showing ANY stats, even though the result was always
+        # immediately overwritten by that client-side re-fetch anyway.
+        "photo": "",
         "team": team,
         "team_color": get_team_color(team),
         "league": row["league"],

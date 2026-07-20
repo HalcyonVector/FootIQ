@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block content %}
+
+    <section class="hero" style="padding-bottom:12px">
+      <div class="hero-eyebrow">
+        <span class="eyebrow-dot"></span>
+        <span>Ranked Stat Browsing</span>
+        <span class="eyebrow-dot"></span>
+      </div>
+      <h1 class="hero-title" style="font-size:44px">
+        Explore <span class="gradient-text">The Data</span>
+      </h1>
+      <p class="hero-desc">
+        Don't know who you're looking for yet? Pick a stat and see who leads it,<br/>
+        no reference player required, filterable by league, season, position and age.
+      </p>
+
+      <div class="search-card glass-card" style="max-width:760px;margin:24px auto 0">
+        <div class="search-card-label">
+          Choose a metric
+        </div>
+        <div class="scout-filter-row" style="margin-top:0">
+          <div class="filter-group">
+            <label>Category</label>
+            <select class="filter-select" id="explore-category"></select>
+          </div>
+          <div class="filter-group" style="flex:1.4">
+            <label>Metric</label>
+            <select class="filter-select" id="explore-metric"></select>
+          </div>
+        </div>
+        <div class="scout-filter-row">
+          <div class="filter-group">
+            <label>League</label>
+            <select class="filter-select" id="explore-league">
+              <option value="all" selected>All leagues</option>
+              {% for lg in leagues %}
+              <option value="{{ lg.id }}">{{ lg.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="filter-group">
+            <label>Season</label>
+            <select class="filter-select" id="explore-season">
+              {% for s in seasons %}
+              <option value="{{ s }}" {% if s == seasons[0] %}selected{% endif %}>{{ s }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="filter-group">
+            <label>Position</label>
+            <select class="filter-select" id="explore-position">
+              <option value="all" selected>All positions</option>
+              <option value="attacker">Attackers</option>
+              <option value="midfielder">Midfielders</option>
+              <option value="defender">Defenders</option>
+              <option value="goalkeeper">Goalkeepers</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label>Min Minutes</label>
+            <select class="filter-select" id="explore-min-minutes">
+              <option value="90">90+</option>
+              <option value="270">270+</option>
+              <option value="none" selected>450+ (default)</option>
+              <option value="900">900+</option>
+              <option value="1350">1,350+</option>
+              <option value="1800">1,800+</option>
+              <option value="2500">2,500+</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="explore-results-section" style="margin-top:24px">
+      <div class="section-intro">
+        <span class="section-eyebrow">Results</span>
+        <h2 class="section-heading" id="explore-results-heading">Top Players</h2>
+      </div>
+      <div id="explore-list" class="scout-matches-list"></div>
+    </section>
+
+{% endblock %}
+{% block extra_js %}
+  <script>
+    window.LEAGUES = {{ leagues | tojson }};
+    window.SEASONS = {{ seasons | tojson }};
+    window.EXPLORE_CATEGORIES = {{ categories | tojson }};
+    document.getElementById("nav-explore").classList.add("active");
+  </script>
+  <script src="/static/js/explore.js"></script>
+{% endblock %}

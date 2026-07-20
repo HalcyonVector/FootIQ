@@ -2,7 +2,10 @@
 {% block navbar %}{% endblock %}
 {% block content %}
 
-<button id="theme-toggle" class="hub-theme-toggle">🌙</button>
+<div class="hub-mobile-topbar">
+  <span class="logo-text hub-mobile-logo">FootIQ</span>
+  <button id="theme-toggle" class="hub-theme-toggle">🌙</button>
+</div>
 
 <div class="glow-container">
   <div class="super-glow"></div>
@@ -19,11 +22,11 @@
         <span class="eyebrow-dot"></span>
       </div>
 
-      <h1 class="hero-title" style="font-size:48px;letter-spacing:-2px">
+      <h1 class="hero-title hub-title">
         Elite <span class="gradient-text">Football</span> Data Engine.
       </h1>
       <p class="hero-desc" style="margin-bottom:24px">
-        Pick a module to start analyzing data from Europe's top 5 leagues.
+        Pick a module to start analyzing data across 16 leagues and competitions.
       </p>
 
       <div class="hub-grid">
@@ -31,7 +34,7 @@
           <div class="card-glow-bg"></div>
           <div>
             <h2 class="hub-card-title">Player Stats</h2>
-            <p class="hub-card-desc">Search any player and browse 12 event-derived metric categories — progressive passes, aerial duels, half-spaces, and Combination Play — all built from real match data.</p>
+            <p class="hub-card-desc">Search any player and browse 12 event-derived metric categories, like progressive passes, aerial duels, half-spaces, and Combination Play, all built from real match data.</p>
           </div>
         </a>
 
@@ -39,7 +42,7 @@
           <div class="card-glow-bg" style="background:radial-gradient(circle at 80% 50%, rgba(168,85,247,.15) 0%, transparent 60%)"></div>
           <div>
             <h2 class="hub-card-title">Compare</h2>
-            <p class="hub-card-desc">Put 2-4 players side by side — any league, any season — with a headline radar and a full per-category stat breakdown.</p>
+            <p class="hub-card-desc">Put 2-4 players side by side, any league, any season, with a headline radar and a full per-category stat breakdown.</p>
           </div>
         </a>
 
@@ -47,13 +50,21 @@
           <div class="card-glow-bg card-glow-bg-scout"></div>
           <div>
             <h2 class="hub-card-title">Scout</h2>
-            <p class="hub-card-desc">Find statistically similar players to any target, pooled across all 5 leagues and 3 seasons, built on the same event data as Player Stats.</p>
+            <p class="hub-card-desc">Find statistically similar players to any target, pooled across all leagues and seasons (or narrowed to the top 5), built on the same event data as Player Stats.</p>
+          </div>
+        </a>
+
+        <a href="/explore" class="hub-card">
+          <div class="card-glow-bg card-glow-bg-explore"></div>
+          <div>
+            <h2 class="hub-card-title">Explore</h2>
+            <p class="hub-card-desc">Don't have a name in mind yet? Rank every player by a single stat, filtered by league, season, position and age, to browse instead of search.</p>
           </div>
         </a>
       </div>
     </div>
 
-    <!-- ── Decorative floating visual — rotates between a few real showcase
+    <!-- Decorative floating visual: rotates between a few real showcase
          snapshots (see the showcase array in the script below) so the hub
          doesn't always show the same "Combination Play: 226 links" content. ── -->
     <div class="hero-visual" id="hub-showcase">
@@ -82,6 +93,16 @@
           <div class="match-pill-eyebrow" id="hub-sc-pill-eyebrow">Combination Play</div>
           <div class="match-pill-num" id="hub-sc-pill-num">226 <span>links</span></div>
         </div>
+      </div>
+
+      <div class="float-item live-float">
+        <span class="live-dot"></span>
+        Live from 5,000+ matches
+      </div>
+
+      <div class="float-item mini-stat-float">
+        <div class="mini-stat-num">100+</div>
+        <div class="mini-stat-label">Metrics Tracked</div>
       </div>
 
       <div class="float-item bars-float">
@@ -120,9 +141,9 @@ footer { position: static !important; flex-shrink: 0; background: var(--hub-card
 footer .footer-inner { max-width: 1200px !important; padding: 0 40px !important; }
 
 .hub-hero { padding: 0 40px; max-width: 1200px; margin: 0 auto; width: 100%; }
-.hub-grid { display: flex; flex-direction: column; gap: 16px; }
+.hub-grid { display: flex; flex-direction: column; gap: 10px; max-width: 480px; }
 .hub-card {
-  position: relative; text-decoration: none; padding: 20px; text-align: left;
+  position: relative; text-decoration: none; padding: 14px 16px; text-align: left;
   border-radius: 12px; background: var(--hub-card-bg); backdrop-filter: blur(20px);
   border: 1px solid var(--float-border); overflow: hidden;
   transition: all .4s cubic-bezier(.4,0,.2,1);
@@ -130,11 +151,12 @@ footer .footer-inner { max-width: 1200px !important; padding: 0 40px !important;
 .hub-card:hover { transform: translateX(10px); border-color: var(--c0); box-shadow: 0 20px 40px rgba(0,0,0,.2), 0 0 30px rgba(59,130,246,.1); }
 .hub-card-disabled { cursor: default; opacity: .55; }
 .hub-card-disabled:hover { transform: none; box-shadow: none; border-color: var(--float-border); }
-.hub-card-title { font-size: 18px; font-weight: 800; color: var(--text); margin: 0 0 4px; letter-spacing: -.5px; display: flex; align-items: center; gap: 10px; }
-.hub-card-desc { color: var(--muted); font-size: 13px; margin: 0; line-height: 1.5; }
+.hub-card-title { font-size: 15px; font-weight: 800; color: var(--text); margin: 0 0 3px; letter-spacing: -.5px; display: flex; align-items: center; gap: 10px; }
+.hub-card-desc { color: var(--muted); font-size: 11.5px; margin: 0; line-height: 1.4; }
 .hub-card-badge { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: #f43f5e; background: rgba(244,63,94,.12); border: 1px solid rgba(244,63,94,.3); border-radius: 20px; padding: 3px 9px; }
 .card-glow-bg { position: absolute; inset: 0; background: radial-gradient(circle at 80% 50%, rgba(59,130,246,.15) 0%, transparent 60%); z-index: -1; border-radius: inherit; }
 .card-glow-bg-scout { background: radial-gradient(circle at 80% 50%, rgba(244,63,94,.12) 0%, transparent 60%); }
+.card-glow-bg-explore { background: radial-gradient(circle at 80% 50%, rgba(16,185,129,.12) 0%, transparent 60%); }
 
 .glow-container { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; overflow: hidden; z-index: 0; pointer-events: none; }
 .super-glow { position: absolute; top: -20%; left: -10%; width: 60vw; height: 60vw; background: radial-gradient(circle, rgba(59,130,246,.15) 0%, transparent 70%); filter: blur(80px); animation: hubFloatGlow 10s ease-in-out infinite alternate; }
@@ -149,9 +171,36 @@ footer .footer-inner { max-width: 1200px !important; padding: 0 40px !important;
   transition: background .2s;
 }
 
+.hub-mobile-topbar{ display: contents; }
+.hub-mobile-logo{ display: none; }
+
+.hub-title { font-size: 48px; letter-spacing: -2px; }
+
 @media (max-width: 960px) {
   html, body { overflow: auto !important; }
+  .container { justify-content: flex-start !important; }
   .hero-visual { display: none; }
+  .hub-title { font-size: 38px; letter-spacing: -1.5px; }
+
+  /* On mobile the page is taller than one screen, so the theme toggle can't
+     float alone with nothing around it — give it a proper top bar with the
+     logo, like every other page's navbar has. */
+  .hub-mobile-topbar{
+    display: flex; align-items: center; justify-content: space-between;
+    position: fixed; top: 0; left: 0; right: 0; z-index: 25;
+    padding: 14px 20px; background: rgba(5,8,17,.55); backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--border);
+  }
+  .hub-mobile-logo{
+    display: block; font-size: 18px; font-weight: 900; letter-spacing: -.5px;
+    background: linear-gradient(135deg,#3b82f6,#a855f7,#f43f5e);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  }
+  .hub-theme-toggle{ position: static; top: auto; right: auto; }
+  .hub-hero{ padding-top: 78px; }
+}
+@media (max-width: 480px) {
+  .hub-title { font-size: 30px; letter-spacing: -1px; }
 }
 </style>
 <script>
@@ -165,8 +214,8 @@ footer .footer-inner { max-width: 1200px !important; padding: 0 40px !important;
     });
   }
 
-  // ── Rotating showcase snapshots — a handful of real-feeling stat
-  // highlights so the hub doesn't always show the same fixed content. ──
+  // Rotating showcase snapshots: a handful of real-feeling stat
+  // highlights so the hub doesn't always show the same fixed content.
   const HUB_SHOWCASES = [
     {
       badge: "Final Third: 91", label: "B. Fernandes",

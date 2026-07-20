@@ -11,8 +11,8 @@
         Scout <span class="gradient-text">Similar Players</span>
       </h1>
       <p class="hero-desc">
-        Pick a target player — the search pools every player-season across all 5 leagues<br/>
-        and 3 seasons in the same position group, ranked by whole-profile percentile similarity.
+        Pick a target player, and the search pools every player-season across all leagues<br/>
+        and seasons in the same position group, ranked by whole-profile percentile similarity.
       </p>
 
       <div class="search-card glass-card" style="max-width:640px;margin:24px auto 0">
@@ -64,7 +64,8 @@
           <div class="filter-group">
             <label>League Pool</label>
             <select class="filter-select" id="scout-league-pool">
-              <option value="all">All top 5 leagues</option>
+              <option value="all">All leagues</option>
+              <option value="top5">Top 5 leagues only</option>
               {% for lg in leagues %}
               <option value="{{ lg.id }}">{{ lg.name }} only</option>
               {% endfor %}

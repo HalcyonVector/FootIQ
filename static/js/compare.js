@@ -172,6 +172,8 @@ function renderSlots() {
       updateGoButton();
     });
   });
+
+  if (typeof upgradeSelects === "function") upgradeSelects(container);
 }
 
 function updateGoButton() {
@@ -239,19 +241,37 @@ function renderResults(data) {
   const players = data.players;
 
   document.getElementById("compare-players-header").innerHTML = players.map((p, i) => {
-    const score = p.composite && p.composite.score !== null ? p.composite.score : "—";
+    const score = p.composite && p.composite.score !== null ? p.composite.score : "-";
+    const breakdown = (p.composite && p.composite.breakdown) || {};
+    const bdRows = CATEGORY_ORDER.filter(k => breakdown[k] !== undefined).map(k => {
+      const pct = breakdown[k];
+      return `
+        <div class="cph-bd-row">
+          <span class="cph-bd-label">${CATEGORY_LABELS[k]}</span>
+          <div class="cph-bd-bar-track"><div class="cph-bd-bar-fill" style="width:${pct}%;background:${percentileColor(pct)}"></div></div>
+          <span class="cph-bd-val">${pct}</span>
+        </div>
+      `;
+    }).join("");
     return `
       <div class="cph-card" data-idx="${i % 4}">
-        <img class="cph-photo" data-name="${p.name}" data-team="${p.team}" src="${_initialsAvatar(p.name, 46)}"
-             onerror="this.src='${_initialsAvatar(p.name, 46)}'" alt="${p.name}" />
-        <div class="cph-info">
-          <div class="cph-name">${p.name}</div>
-          <div class="cph-meta">${p.team} · ${p.position} · ${p.league} ${p.season}</div>
+        <div class="cph-top">
+          <img class="cph-photo" data-name="${p.name}" data-team="${p.team}" src="${_initialsAvatar(p.name, 46)}"
+               onerror="this.src='${_initialsAvatar(p.name, 46)}'" alt="${p.name}" />
+          <div class="cph-info">
+            <div class="cph-name">${p.name}</div>
+            <div class="cph-meta">${p.team} · ${p.position} · ${p.league} ${p.season}</div>
+          </div>
+          <div class="cph-score">
+            <div class="cph-score-val">${score}</div>
+            <div class="cph-score-lbl">Rating</div>
+          </div>
         </div>
-        <div class="cph-score">
-          <div class="cph-score-val">${score}</div>
-          <div class="cph-score-lbl">Rating</div>
-        </div>
+        ${bdRows ? `
+        <details class="cph-breakdown">
+          <summary>How this rating breaks down</summary>
+          <div class="cph-bd-list">${bdRows}</div>
+        </details>` : ""}
       </div>
     `;
   }).join("");
@@ -309,7 +329,7 @@ function renderCategoryTable(catKey, players) {
     const validPct = cells.map(c => (c && !c.no_data) ? c.percentile : null);
     const maxPct = Math.max(...validPct.filter(v => v !== null), -1);
     const cellsHtml = cells.map((s, i) => {
-      if (!s || s.no_data) return `<td class="stat-lbl">—</td>`;
+      if (!s || s.no_data) return `<td class="stat-lbl">-</td>`;
       const isWinner = s.percentile === maxPct && maxPct >= 0;
       return `<td class="w-${i % 4}${isWinner ? " winner-cell" : ""}">${s.value}${s.unit || ""}</td>`;
     }).join("");

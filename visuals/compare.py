@@ -93,7 +93,7 @@ def generate_composite_bar_chart(players: list[dict]) -> str:
     for i, p in enumerate(players):
         score = p["composite"]["score"]
         color = PLAYER_COLORS[i % len(PLAYER_COLORS)]
-        items.append((p["name"], score if score is not None else 0, color, f"{score}" if score is not None else "—"))
+        items.append((p["name"], score if score is not None else 0, color, f"{score}" if score is not None else "-"))
     return generate_stat_bar_chart("Composite Rating", "Position-weighted across every category", items)
 
 

@@ -284,7 +284,7 @@ function renderStatCard(cat, containerId) {
           <div class="stat-card-row">
             <span class="scr-label">${s.label}</span>
             <div class="scr-right">
-              <span class="scr-val" style="color:${noData ? 'var(--muted)' : color}">${noData ? '—' : s.value + (s.unit || '')}</span>
+              <span class="scr-val" style="color:${noData ? 'var(--muted)' : color}">${noData ? '-' : s.value + (s.unit || '')}</span>
               <div class="scr-bar-bg"><div class="scr-bar-fill" style="width:${noData ? 0 : Math.min(s.percentile, 100)}%; background:${color}; box-shadow: 0 0 10px ${color}44;"></div></div>
             </div>
           </div>`;
@@ -665,10 +665,31 @@ document.querySelectorAll(".hint-btn").forEach(btn => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Deep-link pre-fill (from Explore's "View Profile" links: ?player_id=&
+// league=&season=)
+// ─────────────────────────────────────────────────────────────────────────────
+async function initFromQuery() {
+  const params = new URLSearchParams(location.search);
+  const pid = params.get("player_id");
+  if (!pid) return;
+  const league = params.get("league") || primaryLeague;
+  const season = params.get("season") || primarySeason;
+  try {
+    const res = await fetch("/api/advanced-stats", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ player_id: pid, league, season }),
+    });
+    const data = await res.json();
+    if (data.player) selectPrimaryPlayer({ ...data.player, league, season });
+  } catch { /* silent — deep link just won't pre-select */ }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Init
 // ─────────────────────────────────────────────────────────────────────────────
 initMainDropdown();
 initMainSearch();
+initFromQuery();
 
 // Theme Toggle
 const themeBtn = document.getElementById("theme-toggle");

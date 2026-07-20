@@ -13,8 +13,8 @@ from core.advanced.accumulate import PlayerAcc
 # ratio/percentage/median and is used as-is).
 P90_KEYS = {
     "pass_prog_count", "pass_penetration_gain_m", "pass_into_box_count",
-    "pass_through_balls_count", "pass_crosses_count", "pass_key_passes_count",
-    "pass_assists_count",
+    "pass_through_balls_count", "pass_through_balls_attempted_count",
+    "pass_crosses_count", "pass_key_passes_count", "pass_assists_count",
 }
 
 
@@ -56,8 +56,10 @@ def compute_passing(events: list[dict], rosters: list[dict]) -> dict:
             if completed and g.in_box(ex, ey):
                 acc.add(pid, "pass_into_box")
 
-        if q.has_qualifier(qm, q.THROUGHBALL_Q) and completed:
-            acc.add(pid, "pass_through_balls")
+        if q.has_qualifier(qm, q.THROUGHBALL_Q):
+            acc.add(pid, "pass_through_balls_attempted")
+            if completed:
+                acc.add(pid, "pass_through_balls")
 
         if q.has_qualifier(qm, q.CROSS_Q):
             acc.add(pid, "pass_crosses_attempted")
@@ -105,6 +107,7 @@ def finalize_passing(totals: dict) -> dict:
             "pass_penetration_gain_m": round(t.get("pass_penetration_gain_m", 0), 1),
             "pass_into_box_count": t.get("pass_into_box", 0),
             "pass_through_balls_count": t.get("pass_through_balls", 0),
+            "pass_through_balls_attempted_count": t.get("pass_through_balls_attempted", 0),
             "pass_crosses_count": cross_comp,
             "pass_cross_accuracy_pct": round(100 * cross_comp / cross_att, 1) if cross_att >= 20 else None,
             "pass_key_passes_count": t.get("pass_key_passes", 0),

@@ -67,7 +67,16 @@ def main() -> None:
     # Any already-known league works here - we only need a live Selenium
     # session, read_leagues() itself isn't used since it filters down to
     # already-configured leagues. We want the FULL universe WhoScored serves.
-    ws = sd.WhoScored(leagues="ENG-Premier League", seasons="2024-25", headless=False)
+    # Pinned to stable Chrome explicitly: this machine's Chrome Dev channel
+    # (152.x) runs ahead of seleniumbase's bundled driver (150.x, matching
+    # stable Chrome), and letting undetected-chromedriver auto-detect a
+    # browser picks Chrome Dev, causing a silent version-mismatch handshake
+    # failure ("cannot connect to chrome at 127.0.0.1:9222").
+    STABLE_CHROME = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
+    ws = sd.WhoScored(
+        leagues="ENG-Premier League", seasons="2024-25", headless=False,
+        path_to_browser=STABLE_CHROME,
+    )
 
     filepath = ws.data_dir / "tiers.json"
     reader = ws.get("https://www.whoscored.com", filepath, var="allRegions", no_cache=True)
