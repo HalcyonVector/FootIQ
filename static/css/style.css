@@ -396,6 +396,7 @@ body{background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif;min-
   max-height:260px;overflow-y:auto;box-shadow:0 20px 50px rgba(0,0,0,.55);
 }
 .custom-select.open .custom-select-menu{display:block}
+.custom-select.drop-up .custom-select-menu{top:auto;bottom:calc(100% + 6px)}
 .custom-select-item{
   padding:10px 14px;cursor:pointer;font-size:13px;font-weight:600;color:var(--dim);
   border-bottom:1px solid rgba(255,255,255,.06);transition:background .12s,color .12s;

@@ -63,7 +63,7 @@ function _buildCustomSelect(selectEl) {
     e.stopPropagation();
     const willOpen = !wrap.classList.contains("open");
     document.querySelectorAll(".custom-select.open").forEach(w => w.classList.remove("open"));
-    if (willOpen) { wrap.classList.add("open"); _kbSetActive(menu, selectEl.selectedIndex); }
+    if (willOpen) { _positionMenu(wrap, btn); wrap.classList.add("open"); _kbSetActive(menu, selectEl.selectedIndex); }
   });
   menu.addEventListener("click", e => e.stopPropagation());
   selectEl.addEventListener("change", render);
@@ -80,6 +80,7 @@ function _buildCustomSelect(selectEl) {
       e.preventDefault();
       if (!isOpen) {
         document.querySelectorAll(".custom-select.open").forEach(w => w.classList.remove("open"));
+        _positionMenu(wrap, btn);
         wrap.classList.add("open");
         _kbSetActive(menu, selectEl.selectedIndex);
         return;
@@ -110,6 +111,19 @@ function _buildCustomSelect(selectEl) {
 
   wrap._csRender = render;
   render();
+}
+
+// Opens downward by default, but flips above the button when there isn't
+// enough room below (e.g. a dropdown near the bottom of a short page) —
+// otherwise the menu just spills past the viewport/footer instead of
+// clipping or scrolling into view.
+function _positionMenu(wrap, btn) {
+  const rect = btn.getBoundingClientRect();
+  const menuMaxHeight = 260; // matches .custom-select-menu's max-height
+  const spaceBelow = window.innerHeight - rect.bottom;
+  const spaceAbove = rect.top;
+  const dropUp = spaceBelow < menuMaxHeight + 12 && spaceAbove > spaceBelow;
+  wrap.classList.toggle("drop-up", dropUp);
 }
 
 function _kbSetActive(menu, idx) {
