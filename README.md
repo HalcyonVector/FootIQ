@@ -1,8 +1,8 @@
 # FootIQ: Event-Level Football Analytics
 
-A Flask web app for football analytics across 16 leagues and competitions, built directly from parsed WhoScored/Opta match-event data, not season-aggregate box scores. Search a player and browse 12 metric categories (Passing, Carrying, Shooting, Aerial Duels, Hold-Up Play, Decision Making, Final Third, Half-Spaces, Tempo Control, Defending, Post-Recovery, Goalkeeping), Combination Play (a pairwise pass-network view), Compare (2 to 4 players side by side), Scout (statistical-twin search), and Explore (rank every player-season by a single metric).
+A Flask web app for football analytics across 15 leagues and competitions, built directly from parsed WhoScored/Opta match-event data, not season-aggregate box scores. Search a player and browse 12 metric categories (Passing, Carrying, Shooting, Aerial Duels, Hold-Up Play, Decision Making, Final Third, Half-Spaces, Tempo Control, Defending, Post-Recovery, Goalkeeping), Combination Play (a pairwise pass-network view), Compare (2 to 4 players side by side), Scout (statistical-twin search), and Explore (rank every player-season by a single metric).
 
-Data source: WhoScored/Opta match-event JSON (passes, carries, duels, and their outcomes, with pitch coordinates and qualifiers). Coverage: Premier League, La Liga, Serie A, Bundesliga, Ligue 1, Championship, Eredivisie, Primeira Liga, Belgian Pro League, Süper Lig, Scottish Premiership, Champions League, Europa League, Conference League, World Cup, and European Championship, spanning 2023-24 through 2025-26 (plus World Cup 2022 and Euro 2024 as one-off tournament entries).
+Data source: WhoScored/Opta match-event JSON (passes, carries, duels, and their outcomes, with pitch coordinates and qualifiers). Coverage: Premier League, La Liga, Serie A, Bundesliga, Ligue 1, Championship, Eredivisie, Primeira Liga, Belgian Pro League, Süper Lig, Scottish Premiership, Champions League, Europa League, World Cup, and European Championship, spanning 2023-24 through 2025-26 (plus World Cup 2022 and Euro 2024 as one-off tournament entries). Europa Conference League was scraped in full but excluded: WhoScored never returned usable match-event data for any of its 447 matches, a coverage gap on their end rather than something fixable by scraping again.
 
 ---
 
@@ -20,7 +20,7 @@ Open **http://127.0.0.1:5000**
 ## Features
 
 **Player page**
-- Search across 16 leagues and competitions, percentile-ranked within same-position cohorts
+- Search across 15 leagues and competitions, percentile-ranked within same-position cohorts
 - 12 Advanced Metrics tabs (Goalkeeping swaps in for keepers)
 - Position-weighted Composite Rating: a single headline number combining every category with a power mean, so a player's strongest categories are rewarded rather than diluted by ones that were never their job
 - **Final Third**: Completeness (geometric-mean floor across 4 pillars) and Impact (per-touch value from a player's 2 strongest pillars)

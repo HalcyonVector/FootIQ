@@ -23,7 +23,6 @@ LEAGUE_DIR_MAP = {
     "Scottish Premiership": "SCO-Premiership",
     "Champions League": "EUR-Champions League",
     "Europa League": "EUR-Europa League",
-    "Europa Conference League": "EUR-Conference League",
     "World Cup": "INT-World Cup",
     "European Championship": "INT-European Championship",
 }

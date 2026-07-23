@@ -40,7 +40,13 @@ LEAGUES = [
     {"id": "Scottish Premiership",      "name": "Scottish Premiership",     "country": "Scotland",      "logo": "https://media.api-sports.io/football/leagues/179.png"},
     {"id": "Champions League",          "name": "Champions League",        "country": "Europe",        "logo": "https://media.api-sports.io/football/leagues/2.png"},
     {"id": "Europa League",             "name": "Europa League",           "country": "Europe",        "logo": "https://media.api-sports.io/football/leagues/3.png"},
-    {"id": "Europa Conference League",  "name": "Conference League",       "country": "Europe",        "logo": "https://media.api-sports.io/football/leagues/848.png"},
+    # Europa Conference League was scraped in full (447 matches, 3 seasons)
+    # but WhoScored never returned usable match-event data for a single one
+    # of them (confirmed via a full no-cache retry) — Champions/Europa League,
+    # scraped in the same session, came back 100% clean, ruling out a
+    # blocking/parallelism issue. This looks like a genuine coverage-tier gap
+    # on WhoScored's side, not something scraping harder fixes, so it's
+    # excluded here rather than shown as a league that always returns nothing.
     {"id": "World Cup",                 "name": "World Cup",               "country": "International", "logo": "https://media.api-sports.io/football/leagues/1.png"},
     {"id": "European Championship",     "name": "European Championship",   "country": "International", "logo": "https://media.api-sports.io/football/leagues/4.png"},
 ]
