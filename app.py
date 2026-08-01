@@ -184,9 +184,9 @@ def api_linkup_teammates():
         league    = body.get("league", "Premier League")
         season    = body.get("season", "2024-25")
 
-        from core.advanced.store import get_linkup_df
+        from core.advanced.store import get_linkup_summary_df
 
-        link_df = get_linkup_df()
+        link_df = get_linkup_summary_df()
         if link_df.empty:
             return jsonify({"teammates": []})
 
@@ -213,9 +213,9 @@ def api_linkup_detail():
         league      = body.get("league", "Premier League")
         season      = body.get("season", "2024-25")
 
-        from core.advanced.store import get_linkup_df
+        from core.advanced.store import get_linkup_summary_df, get_linkup_receptions
 
-        link_df = get_linkup_df()
+        link_df = get_linkup_summary_df()
         if link_df.empty:
             return jsonify({"error": "No data"}), 400
 
@@ -225,11 +225,9 @@ def api_linkup_detail():
             return jsonify({"error": "No data for this pair"}), 404
         pair = match.iloc[0]
 
-        receptions = [
-            {"reception_x": pair["reception_x"][i], "reception_y": pair["reception_y"][i],
-             "outcome": pair["outcome"][i], "end_x": pair["end_x"][i], "end_y": pair["end_y"][i]}
-            for i in range(len(pair["reception_x"]))
-        ]
+        receptions = get_linkup_receptions(passer_id, teammate_id, league, season)
+        if not receptions:
+            return jsonify({"error": "No data for this pair"}), 404
 
         import collections
         counts = collections.Counter(r["outcome"] for r in receptions)
@@ -283,7 +281,7 @@ def api_category_chart():
         if cache_key in _chart_cache:
             return jsonify(_chart_cache[cache_key])
 
-        from core.advanced.store import get_advanced_df, get_chart_events_df
+        from core.advanced.store import get_advanced_df, get_chart_events
         from core.advanced.identity import match_to_advanced_row
         from core.advanced import percentiles as pct_mod
 
@@ -293,17 +291,11 @@ def api_category_chart():
             return jsonify({"error": "No data for this player/season"}), 404
         player_name, team = row.get("player_name"), row.get("team_name")
 
-        cdf = get_chart_events_df()
-        crow = None
-        if not cdf.empty:
-            match = cdf[(cdf["whoscored_player_id"] == player_id) & (cdf["league"] == league) & (cdf["season"] == season)]
-            if not match.empty:
-                crow = match.iloc[0]
-
-        def recs(prefix, fields):
-            if crow is None:
-                return []
-            return [dict(zip(fields, vals)) for vals in zip(*[crow[f"evt_{prefix}_{f}"] for f in fields])]
+        def recs(prefix, fields=None):
+            # Reads only this one category's league/season partition,
+            # filtered to this one player — never the whole chart-events
+            # dataset (see core/advanced/store.get_chart_events docstring).
+            return get_chart_events(prefix, player_id, league, season)
 
         _stats_cache = {}
 

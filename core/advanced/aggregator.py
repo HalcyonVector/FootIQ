@@ -19,34 +19,23 @@ from core.advanced.categories import (
 from core.advanced.linkup import compute_linkup
 from core.advanced.per90 import per_90
 
-# Wave 5: per-category chart-event fields, flattened into parallel list-columns
-# (evt_<category>_<field>) in data/advanced/player_chart_events.parquet — the
-# same shape linkup_pairs.parquet already proved out. A fixed field tuple per
-# category (rather than inferring from dict keys) keeps the parquet schema
-# stable even for a player-season with zero records in some category.
-CHART_FIELDS = {
-    "passing": ("x", "y", "end_x", "end_y", "completed", "progressive", "into_box", "release_s"),
-    "shooting": ("x", "y", "outcome", "body_part"),
-    "carrying": ("start_x", "start_y", "end_x", "end_y", "progressive", "followup"),
-    "takeons": ("x", "y", "outcome"),
-    "aerial": ("x", "y", "won", "phase"),
-    "holdup": ("x", "y", "zone", "outcome"),
-    "half_space_off": ("x", "y", "end_x", "end_y", "kind"),
-    "half_space_def": ("x", "y", "kind"),
-    "tempo": ("x", "y", "end_x", "end_y", "kind", "release_s"),
-    "defending": ("x", "y", "action", "outcome"),
-    "post_recovery": ("x", "y", "end_x", "end_y", "outcome"),
-    "goalkeeping": ("x", "y", "outcome"),
-}
+# Wave 5 categories (one row per event, NOT one row per player-season with
+# list-columns — see data/advanced/chart_events/<category>/ layout in
+# scraping/build_advanced_metrics.py for why: a wide list-column table loads
+# every player's every event into memory at once just to draw one player's
+# chart, which is what was blowing well past a 512MB hosting ceiling).
+CHART_CATEGORIES = (
+    "passing", "shooting", "carrying", "takeons", "aerial", "holdup",
+    "half_space_off", "half_space_def", "tempo", "defending",
+    "post_recovery", "goalkeeping",
+)
 
 
 def _merge_chart_events(chart_totals: dict, category: str, records_by_pid: dict) -> None:
     for pid, records in records_by_pid.items():
-        chart_totals.setdefault(pid, {}).setdefault(category, []).extend(records)
-
-
-def _flatten_chart_records(prefix: str, records: list, fields: tuple) -> dict:
-    return {f"evt_{prefix}_{field}": [r.get(field) for r in records] for field in fields}
+        chart_totals.setdefault(category, []).extend(
+            {"whoscored_player_id": pid, **r} for r in records
+        )
 
 # Categories needing only (events, rosters) — no carries/minutes.
 SIMPLE_CATEGORY_MODULES = [
@@ -76,7 +65,7 @@ def build_player_season_table(league: str, season: str, collect_linkup: bool = T
     totals: dict = {}
     meta: dict = {}  # player_id -> {name, team_name, positions: Counter, total_minutes}
     linkup_totals: dict = {}  # (passer_id, receiver_id) -> list of reception records
-    chart_totals: dict = {}  # player_id -> {category: [event records]}
+    chart_totals: dict = {}  # category -> [event records, each tagged with whoscored_player_id]
 
     n_matches = 0
     n_skipped = 0
@@ -169,47 +158,50 @@ def build_player_season_table(league: str, season: str, collect_linkup: bool = T
                     row[k] = v
         rows.append(row)
 
-    linkup_rows = []
+    linkup_summary_rows = []  # one row per (passer, receiver) pair, no list columns
+    linkup_reception_rows = []  # one row per reception event
     for (passer_id, receiver_id), receptions in linkup_totals.items():
         passer_meta = meta.get(passer_id)
         receiver_meta = meta.get(receiver_id)
         if not passer_meta or not receiver_meta:
             continue
-        linkup_rows.append({
+        linkup_summary_rows.append({
             "passer_id": passer_id, "receiver_id": receiver_id,
             "passer_name": passer_meta["name"], "receiver_name": receiver_meta["name"],
             "team_name": passer_meta["team_name"],
             "league": league, "season": season,
             "count": len(receptions),
-            "reception_x": [r["reception_x"] for r in receptions],
-            "reception_y": [r["reception_y"] for r in receptions],
-            "outcome": [r["outcome"] for r in receptions],
-            "end_x": [r["end_x"] for r in receptions],
-            "end_y": [r["end_y"] for r in receptions],
         })
+        linkup_reception_rows.extend({
+            "passer_id": passer_id, "receiver_id": receiver_id,
+            "league": league, "season": season,
+            "reception_x": r["reception_x"], "reception_y": r["reception_y"],
+            "outcome": r["outcome"], "end_x": r["end_x"], "end_y": r["end_y"],
+        } for r in receptions)
 
-    chart_rows = []
-    for pid, cats in chart_totals.items():
-        m = meta.get(pid)
-        if not m:
-            continue
-        row = {"whoscored_player_id": pid, "league": league, "season": season}
-        for cat_key, fields in CHART_FIELDS.items():
-            row.update(_flatten_chart_records(cat_key, cats.get(cat_key, []), fields))
-        chart_rows.append(row)
+    chart_rows_by_cat = {}
+    for cat_key in CHART_CATEGORIES:
+        chart_rows_by_cat[cat_key] = [
+            {**rec, "league": league, "season": season}
+            for rec in chart_totals.get(cat_key, []) if rec["whoscored_player_id"] in meta
+        ]
 
     skip_note = f", {n_skipped} skipped (corrupted)" if n_skipped else ""
+    n_chart_rows = sum(len(v) for v in chart_rows_by_cat.values())
     print(f"[advanced] {league} {season}: {n_matches} matches{skip_note}, {len(rows)} player-seasons, "
-          f"{len(linkup_rows)} linkup pairs, {len(chart_rows)} chart-event rows")
-    return rows, linkup_rows, chart_rows
+          f"{len(linkup_summary_rows)} linkup pairs, {n_chart_rows} chart-event rows")
+    return rows, linkup_summary_rows, linkup_reception_rows, chart_rows_by_cat
 
 
 def build_all(leagues: list[str], seasons: list[str]):
-    all_rows, all_linkup_rows, all_chart_rows = [], [], []
+    all_rows, all_linkup_summary, all_linkup_receptions = [], [], []
+    all_chart_rows_by_cat = {cat: [] for cat in CHART_CATEGORIES}
     for league in leagues:
         for season in seasons:
-            rows, linkup_rows, chart_rows = build_player_season_table(league, season)
+            rows, linkup_summary_rows, linkup_reception_rows, chart_rows_by_cat = build_player_season_table(league, season)
             all_rows.extend(rows)
-            all_linkup_rows.extend(linkup_rows)
-            all_chart_rows.extend(chart_rows)
-    return all_rows, all_linkup_rows, all_chart_rows
+            all_linkup_summary.extend(linkup_summary_rows)
+            all_linkup_receptions.extend(linkup_reception_rows)
+            for cat_key, cat_rows in chart_rows_by_cat.items():
+                all_chart_rows_by_cat[cat_key].extend(cat_rows)
+    return all_rows, all_linkup_summary, all_linkup_receptions, all_chart_rows_by_cat

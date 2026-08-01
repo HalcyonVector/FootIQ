@@ -5,7 +5,17 @@ services:
     plan: free
     branch: main
     buildCommand: "pip install -r requirements.txt"
-    startCommand: "gunicorn app:app --bind 0.0.0.0:$PORT --timeout 120 --workers 2"
+    # 1 worker: Render's free tier caps the whole instance at 512MB RAM, and
+    # each worker is a separate process with its own full copy of the cached
+    # dataframes (~300-400MB) plus matplotlib/mplsoccer/pandas import
+    # overhead — 2 workers would double that and blow the ceiling on a
+    # single request. Single-worker is fine for this app's actual traffic.
+    # --max-requests recycles the worker periodically as a safety net: even
+    # with per-request Arrow reads scoped to one tiny partition slice,
+    # repeated parquet reads showed a slow, converging RSS creep in local
+    # testing (native-allocator fragmentation, not a real Python object leak
+    # — confirmed via tracemalloc) that a fresh process resets for free.
+    startCommand: "gunicorn app:app --bind 0.0.0.0:$PORT --timeout 120 --workers 1 --max-requests 300 --max-requests-jitter 50"
     envVars:
       - key: FLASK_DEBUG
         value: "0"

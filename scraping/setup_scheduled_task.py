@@ -20,13 +20,14 @@ Covers, specifically:
     silently skipping that week.
   - AC power only: <DisallowStartIfOnBatteries> (won't start on battery) and
     <StopIfGoingOnBatteries> (aborts if unplugged mid-run).
-  - Runs only when logged on (<LogonType>InteractiveToken</LogonType>) --
-    deliberately NOT "run whether user is logged on or not", since that
-    requires Task Scheduler to store your Windows password, which this
-    script has no way to collect or store safely. Trade-off: the task only
-    fires if you're logged into Windows (not necessarily actively using it)
-    at the scheduled time -- combined with catch-up-if-missed, it'll run
-    shortly after you next log in if the exact moment was missed.
+  - Survives screen lock/sleep during the run (<LogonType>S4U</LogonType>) --
+    S4U runs independent of the interactive session (no stored password
+    needed, unlike "run whether user is logged on or not" which requires
+    Task Scheduler to store your Windows password). InteractiveToken was
+    tried first and found to hard-kill the process (Task Scheduler result
+    -2147023829) if the screen locked/slept mid-run, since it ties the
+    process to the interactive session's lifetime -- a real problem for a
+    job that can run 20-60+ minutes unattended.
 """
 import getpass
 import os
@@ -62,7 +63,7 @@ XML_TEMPLATE = """<?xml version="1.0" encoding="UTF-16"?>
   <Principals>
     <Principal id="Author">
       <UserId>{user_id}</UserId>
-      <LogonType>InteractiveToken</LogonType>
+      <LogonType>S4U</LogonType>
       <RunLevel>LeastPrivilege</RunLevel>
     </Principal>
   </Principals>

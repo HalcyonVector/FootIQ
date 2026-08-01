@@ -29,11 +29,23 @@ LEAGUE_DIR_MAP = {
 
 ADVANCED_DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "data", "advanced")
 PLAYER_SEASON_PARQUET = os.path.join(ADVANCED_DATA_DIR, "player_season_advanced.parquet")
-LINKUP_PAIRS_PARQUET = os.path.join(ADVANCED_DATA_DIR, "linkup_pairs.parquet")
-# Wave 5: per-category raw chart-event coordinates (evt_<category>_<field> list
-# columns) — kept separate from PLAYER_SEASON_PARQUET so /api/advanced-stats
-# (read on every player load) never pays for this heavier file.
-CHART_EVENTS_PARQUET = os.path.join(ADVANCED_DATA_DIR, "player_chart_events.parquet")
+
+# Combination Play: a small summary table (one row per passer/receiver pair,
+# no list columns — safe to load fully into memory like PLAYER_SEASON_PARQUET)
+# plus the actual per-reception events, partitioned by league/season so a
+# single pair's chart only ever reads one partition off disk, never all
+# ~8.4M reception events across every league/season/pair at once.
+LINKUP_SUMMARY_PARQUET = os.path.join(ADVANCED_DATA_DIR, "linkup_summary.parquet")
+LINKUP_RECEPTIONS_DIR = os.path.join(ADVANCED_DATA_DIR, "linkup_receptions")
+
+# Wave 5: per-category raw chart-event coordinates, ONE ROW PER EVENT (not one
+# row per player-season holding list-columns of every event — that shape
+# forced loading every player's every event into memory just to draw one
+# player's chart, which alone needed >1GB RSS and OOM-crashed on a 512MB
+# hosting tier). Each category gets its own directory, partitioned by
+# league/season, so a single chart request reads one small partition of one
+# category instead of the whole dataset.
+CHART_EVENTS_DIR = os.path.join(ADVANCED_DATA_DIR, "chart_events")
 
 # Minimum minutes for a player-season to be included in percentile cohorts.
 # Mirrors config.MIN_MINUTES used by the existing FBref-based system.

@@ -3,8 +3,10 @@ Per-match extraction of lightweight per-event records for chart rendering —
 raw coordinates/outcomes that the scalar category compute_*() functions
 throw away after tallying counts. Collected in the SAME per-match loop as
 Wave 1-4's aggregation (core/advanced/aggregator.py), merged into
-data/advanced/player_chart_events.parquet — a separate file from the main
-scalar table so /api/advanced-stats stays fast.
+data/advanced/chart_events/<category>/ (Hive-partitioned by league/season) —
+separate from the main scalar table so /api/advanced-stats stays fast, and
+partitioned so a single chart request reads one small slice, not every
+player's every event.
 
 Each extract_<category>(...) mirrors that category's own compute_<category>()
 test logic (open-play filter, progressive test, zone test, etc.) so a chart's

@@ -138,7 +138,7 @@ python scraping/build_advanced_metrics.py      # parses the raw cache into data/
 
 Add `--workers N` to `scrape_whoscored.py` to run multiple leagues and seasons concurrently, each in its own Chrome instance. Defaults to 1 (sequential).
 
-`data/advanced/player_season_advanced.parquet`, `linkup_pairs.parquet`, and `player_chart_events.parquet` are the only files `app.py` reads at request time. The raw event cache never touches the running app.
+`data/advanced/player_season_advanced.parquet` and `linkup_summary.parquet` are loaded fully into memory (small, no per-event data). `linkup_receptions/` and `chart_events/<category>/` are Hive-partitioned by league/season — each request reads only its own player/league/season slice off disk, not the whole dataset, so per-tab chart rendering stays within a modest memory footprint. The raw event cache never touches the running app.
 
 ---
 
