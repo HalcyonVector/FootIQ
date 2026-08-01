@@ -22,7 +22,7 @@ PILLAR_LABELS = {"shooting": "Shooting", "linkup": "Link-Up", "carrying": "Carry
 def _cohort(df: pd.DataFrame, position: str, league_agnostic_season: str) -> pd.DataFrame:
     group = pos_group(position)
     subset = df[df["season"] == league_agnostic_season]
-    subset = subset[subset["position"].apply(lambda p: pos_group(p) == group)]
+    subset = subset[subset["_pos_group"] == group]
     subset = subset[subset["total_minutes"] >= config.ADV_MIN_MINUTES]
     return subset
 

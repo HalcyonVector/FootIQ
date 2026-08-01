@@ -5,6 +5,8 @@ dataset has been retired. whoscored_player_id IS the player_id everywhere
 now; no more synthetic hash-based ID translation layer.
 """
 
+import re
+
 import pandas as pd
 
 from core.advanced.store import get_advanced_df
@@ -54,7 +56,7 @@ def search_players(name: str, league: str, season: str) -> list[dict]:
         return []
     norm_name = _normalize_str(name)
     mask = (
-        df["player_name"].apply(lambda p: norm_name in _normalize_str(str(p)))
+        df["_norm_name"].str.contains(re.escape(norm_name), na=False)
         & (df["league"] == league)
         & (df["season"] == season)
     )
@@ -66,7 +68,7 @@ def search_players_global(name: str, season: str) -> list[dict]:
     if df.empty:
         return []
     norm_name = _normalize_str(name)
-    mask = df["player_name"].apply(lambda p: norm_name in _normalize_str(str(p))) & (df["season"] == season)
+    mask = df["_norm_name"].str.contains(re.escape(norm_name), na=False) & (df["season"] == season)
     return [_row_to_dict(r) for _, r in df[mask].head(15).iterrows()]
 
 

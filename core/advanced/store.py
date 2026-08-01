@@ -19,6 +19,16 @@ def get_advanced_df() -> pd.DataFrame:
     if _DF is None:
         if os.path.exists(config.PLAYER_SEASON_PARQUET):
             _DF = pd.read_parquet(config.PLAYER_SEASON_PARQUET)
+            if not _DF.empty:
+                from core.media import _normalize_str
+                from core.position import pos_group
+                # Precomputed once here instead of re-normalizing every
+                # player's name / re-classifying every player's position
+                # group on every single search/Scout/Explore request —
+                # turns a per-request O(n) Python-level pass into a
+                # one-time cost at load/reload.
+                _DF["_norm_name"] = _DF["player_name"].map(lambda p: _normalize_str(str(p)))
+                _DF["_pos_group"] = _DF["position"].map(pos_group)
         else:
             _DF = pd.DataFrame()
     return _DF

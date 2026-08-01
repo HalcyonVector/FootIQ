@@ -58,7 +58,7 @@ def rank_players(
     if league and league != "all":
         subset = subset[subset["league"] == league]
     if position_group and position_group != "all":
-        subset = subset[subset["position"].apply(lambda p: pos_group(p) == position_group)]
+        subset = subset[subset["_pos_group"] == position_group]
     minutes_floor = min_minutes if min_minutes is not None else config.ADV_MIN_MINUTES
     subset = subset[subset["total_minutes"] >= minutes_floor]
 
@@ -80,7 +80,7 @@ def rank_players(
     for rank, (_, row) in enumerate(subset.head(limit).iterrows(), start=1):
         group = pos_group(row.get("position"))
         if group not in cohorts:
-            cohort_mask = (df["season"] == season) & (df["position"].apply(lambda p: pos_group(p) == group)) & (df["total_minutes"] >= config.ADV_MIN_MINUTES)
+            cohort_mask = (df["season"] == season) & (df["_pos_group"] == group) & (df["total_minutes"] >= config.ADV_MIN_MINUTES)
             cohorts[group] = df.loc[cohort_mask, metric_col]
         pct = _percentile_rank(row[metric_col], cohorts[group], invert=ascending)
 
