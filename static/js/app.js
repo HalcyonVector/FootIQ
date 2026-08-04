@@ -227,8 +227,26 @@ function renderProfileHeader(player) {
         <span class="profile-stat-chip apps-chip">${player.minutes || "–"} min &middot; ${primarySeason}</span>
       </div>
     </div>
+    <div class="score-placeholder-pulse" id="profile-score-slot"></div>
   `;
   applyWikiImage(player.name, player.team, document.querySelector(".profile-photo"));
+}
+
+// Composite Rating box on the right of the header (same number Compare
+// shows) — arrives with /api/advanced-stats, so it replaces the pulsing
+// placeholder renderProfileHeader() put there rather than blocking the
+// header on it.
+function renderProfileScore(composite) {
+  const slot = document.getElementById("profile-score-slot");
+  if (!slot) return;
+  const score = composite && composite.score !== null && composite.score !== undefined ? composite.score : null;
+  if (score === null) { slot.remove(); return; }
+  slot.outerHTML = `
+    <div class="profile-score" id="profile-score-slot">
+      <div class="score-num">${score}</div>
+      <div class="score-lbl">Rating</div>
+    </div>
+  `;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -309,11 +327,16 @@ async function fetchAdvancedStats(player) {
     const data = await res.json();
     if (!res.ok || !data.categories || !data.categories.length) {
       showToast("No advanced stats found for this player/season.");
+      renderProfileScore(null);
       return;
     }
     renderAdvancedStats(data.categories);
+    renderProfileScore(data.composite);
     advancedSection.style.display = "block";
-  } catch { showToast("Could not load advanced stats."); }
+  } catch {
+    showToast("Could not load advanced stats.");
+    renderProfileScore(null);
+  }
 }
 
 // Categories whose chart grid is wired up and ready to lazy-load on tab

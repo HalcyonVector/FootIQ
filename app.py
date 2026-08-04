@@ -160,6 +160,7 @@ def api_advanced_stats():
         from core.advanced.store import get_advanced_df
         from core.advanced.identity import match_to_advanced_row
         from core.advanced.percentiles import build_all_categories
+        from core.advanced.composite import compute_composite
 
         df = get_advanced_df()
         if df.empty:
@@ -170,7 +171,11 @@ def api_advanced_stats():
             return jsonify({"player": raw, "categories": []})
 
         categories = build_all_categories(row, raw.get("position", ""), season, df)
-        return jsonify({"player": raw, "categories": categories})
+        # Same composite Compare already shows per player — the single-player
+        # header has styled-but-unused CSS for this (.profile-score/.score-num
+        # in style.css) that was never wired up on this page.
+        composite = compute_composite(categories, raw.get("position", ""))
+        return jsonify({"player": raw, "categories": categories, "composite": composite})
     except Exception as e:
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
