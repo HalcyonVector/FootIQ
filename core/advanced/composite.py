@@ -109,7 +109,7 @@ def category_percentile_trend(player_id: int, category: str, seasons: list[str],
     mid-career transfer shouldn't break the trend line. None where the
     player didn't play that season, or fell below the minutes gate that
     build_all_categories' cohort already enforces."""
-    from core.advanced.percentiles import build_all_categories
+    from core.advanced.percentiles import build_one_category
 
     out = []
     for season in seasons:
@@ -118,7 +118,6 @@ def category_percentile_trend(player_id: int, category: str, seasons: list[str],
             out.append(None)
             continue
         row = matches.iloc[0].to_dict()
-        cats = build_all_categories(row, row.get("position", ""), season, df)
-        cat = next((c for c in cats if c["key"] == category), None)
+        cat = build_one_category(row, row.get("position", ""), season, df, category)
         out.append(category_percentile(cat) if cat else None)
     return out

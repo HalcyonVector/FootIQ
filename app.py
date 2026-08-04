@@ -305,14 +305,16 @@ def api_category_chart():
         _stats_cache = {}
 
         def stats_for(cat_key):
-            """Lazily computes build_all_categories once per request (all 12
-            categories are computed together anyway) and reuses it for every
-            companion chart on this request that needs percentile stats."""
-            if "cats" not in _stats_cache:
-                _stats_cache["cats"] = pct_mod.build_all_categories(row, row.get("position", ""), season, df)
-            cats = _stats_cache["cats"]
-            cat = next((c for c in cats if c["key"] == cat_key), None)
-            return cat["rows"][0]["stats"] if cat else []
+            """Ranks only cat_key against the cohort (build_one_category),
+            not all 12 categories — every call site in this endpoint only
+            ever asks for the one category whose tab is actually being
+            rendered, so there's nothing to gain from computing the other 11.
+            Still memoized per cat_key in case a category ever calls this
+            more than once in a single request."""
+            if cat_key not in _stats_cache:
+                cat = pct_mod.build_one_category(row, row.get("position", ""), season, df, cat_key)
+                _stats_cache[cat_key] = cat["rows"][0]["stats"] if cat else []
+            return _stats_cache[cat_key]
 
         chart_stats = None  # only Carrying returns this — its counts render as HTML, not baked into the image
         charts = []  # list of {key, title, image}
@@ -445,7 +447,7 @@ def api_category_chart():
             position = row.get("position", "")
             points = pct_mod.build_final_third_scatter(position, season, df, player_id)
             cohort = pct_mod.build_cohort(df, position, season)
-            floor_pct, per_touch_pct, _, _ = pct_mod.final_third_pillar_percentiles(row, cohort)
+            floor_pct, per_touch_pct, _, _ = pct_mod.final_third_pillar_percentiles(row, cohort, df, season)
             target = next((p for p in points if p["is_target"]), None)
             player_completeness = target["completeness"] if target else None
             charts = [

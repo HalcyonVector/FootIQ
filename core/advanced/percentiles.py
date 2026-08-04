@@ -18,6 +18,33 @@ from core.position import pos_group
 PILLAR_NAMES = ("shooting", "linkup", "carrying", "ballwinning")
 PILLAR_LABELS = {"shooting": "Shooting", "linkup": "Link-Up", "carrying": "Carrying", "ballwinning": "Ball Winning"}
 
+# final_third_pillar_percentiles() and build_final_third_scatter() both need
+# every cohort member's derived pillar floor/per-touch scores (NOT a flat
+# column, so it can't be a cheap df[col] lookup) — deriving them means
+# converting the whole cohort to records and calling pillar_floor_scores()/
+# pillar_per_touch_scores() per record. A single Final Third chart request
+# calls final_third_pillar_percentiles() 4x (once directly, 3x via the
+# season trend) for cohorts that repeat across those calls, so this cache
+# turns that into at most 1 derivation per distinct (position group, season)
+# actually seen in a request. Keyed by id(df) too so a store.reload() (which
+# always produces a new DataFrame object) naturally invalidates every entry
+# without this module needing to know about that reload.
+_PILLAR_SCORE_CACHE: dict = {}
+
+
+def _cohort_pillar_series(df: pd.DataFrame, cohort: pd.DataFrame, position: str, season: str) -> tuple[dict, dict]:
+    key = (id(df), pos_group(position), season)
+    cached = _PILLAR_SCORE_CACHE.get(key)
+    if cached is not None:
+        return cached
+    records = cohort.to_dict("records")
+    floor = {p: pd.Series([pillar_floor_scores(r)[p] for r in records]) for p in PILLAR_NAMES}
+    per_touch = {p: pd.Series([pillar_per_touch_scores(r)[p] for r in records]) for p in PILLAR_NAMES}
+    if len(_PILLAR_SCORE_CACHE) > 200:  # bounded -- this is a request-scoped speedup, not meant to grow forever
+        _PILLAR_SCORE_CACHE.clear()
+    _PILLAR_SCORE_CACHE[key] = (floor, per_touch)
+    return floor, per_touch
+
 
 def _cohort(df: pd.DataFrame, position: str, league_agnostic_season: str) -> pd.DataFrame:
     group = pos_group(position)
@@ -45,6 +72,26 @@ def _percentile_rank(value: float, series: pd.Series, invert: bool = False) -> i
     return 100 - pct if invert else pct
 
 
+def _percentile_rank_series(series: pd.Series, invert: bool = False) -> pd.Series:
+    """Vectorized equivalent of calling _percentile_rank(x, series) for every
+    x already IN series (self-ranking a cohort against itself) — same "percent
+    of non-null cohort values strictly below x" semantics, computed once for
+    the whole series with pandas' rank() instead of one O(n) scan per element.
+    rank(method='min') gives each value's count of strictly-smaller values
+    (rank - 1, 1-indexed) directly, and ignores NaNs from the ranking base by
+    default (na_option='keep') the same way _percentile_rank's own dropna()
+    does. Used by build_final_third_scatter, where the naive per-player loop
+    measured at 6300+ individual scans over an ~800-player cross-league
+    cohort — the single biggest cost in a Final Third chart request."""
+    valid_n = series.notna().sum()
+    if valid_n < 5:
+        return pd.Series(0, index=series.index)
+    pct = ((series.rank(method="min") - 1) / valid_n * 100).round()
+    if invert:
+        pct = 100 - pct
+    return pct.fillna(0).astype(int)
+
+
 def _completeness_impact(floor_pct: dict, per_touch_pct: dict, have_data: bool) -> tuple:
     """Completeness rewards the floor (geometric mean across all 4 pillar
     percentiles, penalized by how spread out they are) — Impact rewards the
@@ -61,28 +108,37 @@ def _completeness_impact(floor_pct: dict, per_touch_pct: dict, have_data: bool) 
     return completeness, impact
 
 
-def final_third_pillar_percentiles(row: dict, cohort: pd.DataFrame) -> tuple:
+def final_third_pillar_percentiles(row: dict, cohort: pd.DataFrame, df: pd.DataFrame = None, season: str = None) -> tuple:
     """Percentile-rank a player's 4 pillar floor/per-touch scores against the
     cohort's own distribution of those same (derived, not flat-column) scores.
     Shared by the Completeness/Impact stat-card composite and the Final Third
-    tab's pillar bar chart, so both read the exact same numbers."""
+    tab's pillar bar chart, so both read the exact same numbers.
+
+    df/season are optional and only used as a cache key (_cohort_pillar_series)
+    for cohorts that repeat within a request (the season trend + the direct
+    stat-card call are frequently the exact same cohort) — pass them when
+    available; omitting them just means no caching for that call, not wrong
+    results, since cohort's own content is still what's actually ranked."""
     player_floor = pillar_floor_scores(row)
     player_per_touch = pillar_per_touch_scores(row)
 
-    cohort_records = cohort.to_dict("records")
-    cohort_floor = {p: pd.Series([pillar_floor_scores(r)[p] for r in cohort_records]) for p in PILLAR_NAMES}
-    cohort_per_touch = {p: pd.Series([pillar_per_touch_scores(r)[p] for r in cohort_records]) for p in PILLAR_NAMES}
+    if df is not None and season is not None:
+        cohort_floor, cohort_per_touch = _cohort_pillar_series(df, cohort, row.get("position", ""), season)
+    else:
+        cohort_records = cohort.to_dict("records")
+        cohort_floor = {p: pd.Series([pillar_floor_scores(r)[p] for r in cohort_records]) for p in PILLAR_NAMES}
+        cohort_per_touch = {p: pd.Series([pillar_per_touch_scores(r)[p] for r in cohort_records]) for p in PILLAR_NAMES}
 
     floor_pct = {p: _percentile_rank(player_floor[p], cohort_floor[p]) for p in PILLAR_NAMES}
     per_touch_pct = {p: _percentile_rank(player_per_touch[p], cohort_per_touch[p]) for p in PILLAR_NAMES}
     return floor_pct, per_touch_pct, player_floor, player_per_touch
 
 
-def _build_final_third_stats(row: dict, cohort: pd.DataFrame) -> list[dict]:
+def _build_final_third_stats(row: dict, cohort: pd.DataFrame, df: pd.DataFrame = None, season: str = None) -> list[dict]:
     """Completeness/Impact composites need the whole cohort's pillar-score
     DISTRIBUTIONS to percentile-rank against — this can't be a flat column
     lookup like every other category, so it's handled separately here."""
-    floor_pct, per_touch_pct, player_floor, player_per_touch = final_third_pillar_percentiles(row, cohort)
+    floor_pct, per_touch_pct, player_floor, player_per_touch = final_third_pillar_percentiles(row, cohort, df, season)
 
     have_data = bool(row.get("ft_touches_p90") and len(cohort) >= 5)
     completeness, impact = _completeness_impact(floor_pct, per_touch_pct, have_data)
@@ -121,17 +177,18 @@ def build_final_third_scatter(position: str, season: str, df: pd.DataFrame, targ
     since cohorts are small (tens to low hundreds of players)."""
     cohort = _cohort(df, position, season)
     records = cohort.to_dict("records")
-    cohort_floor = {p: pd.Series([pillar_floor_scores(r)[p] for r in records]) for p in PILLAR_NAMES}
-    cohort_per_touch = {p: pd.Series([pillar_per_touch_scores(r)[p] for r in records]) for p in PILLAR_NAMES}
+    cohort_floor, cohort_per_touch = _cohort_pillar_series(df, cohort, position, season)
+    # Ranked once per pillar for the whole cohort (vectorized) instead of once
+    # per player per pillar — see _percentile_rank_series's docstring.
+    floor_pct_series = {p: _percentile_rank_series(cohort_floor[p]) for p in PILLAR_NAMES}
+    per_touch_pct_series = {p: _percentile_rank_series(cohort_per_touch[p]) for p in PILLAR_NAMES}
 
     points = []
-    for r in records:
+    for i, r in enumerate(records):
         if not r.get("ft_touches_p90"):
             continue
-        floor = pillar_floor_scores(r)
-        per_touch = pillar_per_touch_scores(r)
-        floor_pct = {p: _percentile_rank(floor[p], cohort_floor[p]) for p in PILLAR_NAMES}
-        per_touch_pct = {p: _percentile_rank(per_touch[p], cohort_per_touch[p]) for p in PILLAR_NAMES}
+        floor_pct = {p: int(floor_pct_series[p].iloc[i]) for p in PILLAR_NAMES}
+        per_touch_pct = {p: int(per_touch_pct_series[p].iloc[i]) for p in PILLAR_NAMES}
         completeness, impact = _completeness_impact(floor_pct, per_touch_pct, True)
         points.append({
             "name": r.get("player_name"), "completeness": completeness, "impact": impact,
@@ -146,6 +203,39 @@ def build_final_third_scatter(position: str, season: str, df: pd.DataFrame, targ
 GK_VISIBLE_OUTFIELD_CATEGORIES = {"passing", "linkup"}
 
 
+def _category_visible(cat_key: str, is_gk: bool) -> bool:
+    cat = CATEGORIES[cat_key]
+    if cat["gk_only"] and not is_gk:
+        return False
+    if not cat["gk_only"] and is_gk and cat_key not in GK_VISIBLE_OUTFIELD_CATEGORIES:
+        return False
+    return True
+
+
+def _build_category_stats(cat_key: str, row: dict, cohort: pd.DataFrame, df: pd.DataFrame = None, season: str = None) -> list[dict]:
+    """The per-category stats list, factored out of build_all_categories so
+    build_one_category() can compute a single category without also ranking
+    the other 11 against the cohort — category_percentile_trend() only ever
+    needs one category's number, and calling the full 12-category build once
+    per trend season (build_all_categories originally did) meant a 3-season
+    trend did roughly 36x the percentile-ranking work a single number needs."""
+    if cat_key == "final_third":
+        return _build_final_third_stats(row, cohort, df, season)
+    if cat_key == "linkup":
+        return []  # rendered by the frontend from the linkup endpoints, not this stat table
+
+    cat = CATEGORIES[cat_key]
+    stats = []
+    for col, label, unit in cat["metrics"]:
+        value = row.get(col)
+        if value is None or (isinstance(value, float) and pd.isna(value)):
+            stats.append({"label": label, "value": 0, "percentile": 0, "unit": unit, "no_data": True})
+            continue
+        pct = _percentile_rank(value, cohort[col], invert=col in INVERTED_METRICS) if col in cohort.columns else 0
+        stats.append({"label": label, "value": round(float(value), 2), "percentile": pct, "unit": unit})
+    return stats
+
+
 def build_all_categories(row: dict, position: str, season: str, df: pd.DataFrame) -> list[dict]:
     """row: the player's own record from the advanced parquet (as a dict).
     Returns a list of {key, label, desc, rows: [{player_name, team, photo, stats}]}
@@ -155,26 +245,9 @@ def build_all_categories(row: dict, position: str, season: str, df: pd.DataFrame
 
     out = []
     for cat_key in CATEGORY_ORDER:
+        if not _category_visible(cat_key, is_gk):
+            continue
         cat = CATEGORIES[cat_key]
-        if cat["gk_only"] and not is_gk:
-            continue
-        if not cat["gk_only"] and is_gk and cat_key not in GK_VISIBLE_OUTFIELD_CATEGORIES:
-            continue
-
-        if cat_key == "final_third":
-            stats = _build_final_third_stats(row, cohort)
-        elif cat_key == "linkup":
-            stats = []  # rendered by the frontend from the linkup endpoints, not this stat table
-        else:
-            stats = []
-            for col, label, unit in cat["metrics"]:
-                value = row.get(col)
-                if value is None or (isinstance(value, float) and pd.isna(value)):
-                    stats.append({"label": label, "value": 0, "percentile": 0, "unit": unit, "no_data": True})
-                    continue
-                pct = _percentile_rank(value, cohort[col], invert=col in INVERTED_METRICS) if col in cohort.columns else 0
-                stats.append({"label": label, "value": round(float(value), 2), "percentile": pct, "unit": unit})
-
         out.append({
             "key": cat_key,
             "label": cat["label"],
@@ -183,8 +256,31 @@ def build_all_categories(row: dict, position: str, season: str, df: pd.DataFrame
                 "player_name": row.get("player_name"),
                 "team": row.get("team_name"),
                 "photo": "",
-                "stats": stats,
+                "stats": _build_category_stats(cat_key, row, cohort, df, season),
             }],
         })
 
     return out
+
+
+def build_one_category(row: dict, position: str, season: str, df: pd.DataFrame, cat_key: str) -> dict | None:
+    """Same shape as one entry of build_all_categories(), but ranks only
+    cat_key against the cohort instead of all 12 — the cheap path for
+    callers (category_percentile_trend) that only need one category's
+    number, not the full stat-card set."""
+    is_gk = pos_group(position) == "goalkeeper"
+    if not _category_visible(cat_key, is_gk):
+        return None
+    cohort = _cohort(df, position, season)
+    cat = CATEGORIES[cat_key]
+    return {
+        "key": cat_key,
+        "label": cat["label"],
+        "desc": cat.get("desc", ""),
+        "rows": [{
+            "player_name": row.get("player_name"),
+            "team": row.get("team_name"),
+            "photo": "",
+            "stats": _build_category_stats(cat_key, row, cohort, df, season),
+        }],
+    }
