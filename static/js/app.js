@@ -370,7 +370,57 @@ const CHART_FILTERS = {
 const _chartCache = {};        // "${catKey}:${filterStr}" -> {charts:[base64,...]}
 const _chartFilterState = {};  // catKey -> current filter value (string for radio, array for checkbox)
 
+// Tab-order prefetch: chart generation is real server-side work (matplotlib
+// rendering, especially slow on Render's free-tier CPU), so switching to a
+// tab you haven't opened yet always pays full cost once. After a tab has
+// been sitting open for a couple seconds (a proxy for "the user is reading
+// this one, not about to immediately click through"), quietly fetch the
+// NEXT tab in order in the background so a click that follows a normal
+// reading pause lands on a warm cache instead of waiting again. Only ever
+// one prefetch in flight and only ever the very next tab — the backend here
+// is a single worker (see render.yaml), so firing several requests at once
+// would just queue behind each other and could make a real click wait
+// BEHIND a prefetch instead of ahead of it.
+let _categoryOrder = [];
+let _prefetchTimer = null;
+const PREFETCH_DELAY_MS = 2500;
+
+function _cancelPrefetch() {
+  if (_prefetchTimer) { clearTimeout(_prefetchTimer); _prefetchTimer = null; }
+}
+
+function _scheduleNextTabPrefetch(catKey) {
+  _cancelPrefetch();
+  const idx = _categoryOrder.indexOf(catKey);
+  if (idx === -1) return;
+  const next = _categoryOrder.slice(idx + 1).find(k => k !== "linkup" && CHART_CATEGORIES.has(k));
+  if (!next) return;
+  _prefetchTimer = setTimeout(() => _prefetchCategoryChart(next), PREFETCH_DELAY_MS);
+}
+
+async function _prefetchCategoryChart(catKey) {
+  if (!primaryPlayer) return;
+  const cfg = CHART_FILTERS[catKey];
+  const filterVal = _chartFilterState[catKey] !== undefined ? _chartFilterState[catKey] : (cfg ? cfg.default : null);
+  const filterStr = Array.isArray(filterVal) ? filterVal.join(",") : (filterVal || "");
+  const cacheKey = `${catKey}:${filterStr}`;
+  if (_chartCache[cacheKey]) return;
+  try {
+    const res = await fetch("/api/category-chart", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        player_id: primaryPlayer.id, league: primaryLeague, season: primarySeason,
+        category: catKey, filter: filterStr,
+      }),
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data.charts) _chartCache[cacheKey] = data;
+  } catch { /* silent — this is a background optimization, not a user-facing load */ }
+}
+
 function renderAdvancedStats(categories) {
+  _categoryOrder = categories.map(c => c.key);
   advTabs.innerHTML = categories.map((cat, i) =>
     `<button class="adv-tab-btn${i === 0 ? " active" : ""}" data-cat="${cat.key}">${cat.label}</button>`
   ).join("");
@@ -405,6 +455,7 @@ function renderAdvancedStats(categories) {
 
   advTabs.querySelectorAll(".adv-tab-btn").forEach(btn => {
     btn.addEventListener("click", () => {
+      _cancelPrefetch();  // a real click always wins over a queued background prefetch
       advTabs.querySelectorAll(".adv-tab-btn").forEach(b => b.classList.remove("active"));
       btn.classList.add("active");
       // The strip scrolls horizontally instead of wrapping now, so a tab
@@ -430,6 +481,7 @@ function activateTab(catKey) {
     wireChartFilterControls(catKey);
     loadCategoryChart(catKey);
   }
+  _scheduleNextTabPrefetch(catKey);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
