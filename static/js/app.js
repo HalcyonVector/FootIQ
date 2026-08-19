@@ -183,6 +183,15 @@ async function selectPrimaryPlayer(player) {
   chartsLoading.style.display = "flex";
   advancedSection.style.display = "none";
 
+  // "passing" is always the first Advanced Metrics tab shown, for every
+  // player regardless of position (CATEGORY_ORDER + GK gating both put/keep
+  // it first) — start generating it now, in PARALLEL with advanced-stats,
+  // instead of waiting for advanced-stats to resolve and only then finding
+  // out (via activateTab, once the tab DOM exists) that a chart needs
+  // fetching too. Same _chartCache the tab-switch prefetch already uses, so
+  // by the time activateTab("passing") runs it's usually already warm.
+  _prefetchCategoryChart("passing");
+
   // Stats are precomputed (fast parquet lookup) — reveal them immediately.
   // Charts (Combination Play now, per-category charts later) load lazily
   // per-tab from activateTab(), so a slow chart never blocks the page.
@@ -398,25 +407,52 @@ function _scheduleNextTabPrefetch(catKey) {
   _prefetchTimer = setTimeout(() => _prefetchCategoryChart(next), PREFETCH_DELAY_MS);
 }
 
+// Shared by loadCategoryChart() (renders on arrival) and _prefetchCategoryChart()
+// (fills _chartCache silently) — routing BOTH through one in-flight registry
+// closes a real race the first version of this prefetch had: firing the
+// "passing" prefetch in parallel with advanced-stats meant loadCategoryChart
+// could run before that prefetch's response landed, see an empty cache, and
+// fire its OWN identical request — two concurrent requests for the same
+// chart, which on a single-worker backend (render.yaml) makes the SECOND
+// one queue behind the first instead of the two ever running usefully in
+// parallel. Concurrent callers for the same (catKey, filterStr) now share
+// one underlying fetch instead of duplicating it.
+const _chartFetchesInFlight = {};  // cacheKey -> Promise<data|null>
+
+function _fetchCategoryChartData(catKey, filterStr) {
+  const cacheKey = `${catKey}:${filterStr}`;
+  if (_chartCache[cacheKey]) return Promise.resolve(_chartCache[cacheKey]);
+  if (_chartFetchesInFlight[cacheKey]) return _chartFetchesInFlight[cacheKey];
+
+  const promise = (async () => {
+    try {
+      const res = await fetch("/api/category-chart", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          player_id: primaryPlayer.id, league: primaryLeague, season: primarySeason,
+          category: catKey, filter: filterStr,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.charts) return null;
+      _chartCache[cacheKey] = data;
+      return data;
+    } catch {
+      return null;
+    } finally {
+      delete _chartFetchesInFlight[cacheKey];
+    }
+  })();
+  _chartFetchesInFlight[cacheKey] = promise;
+  return promise;
+}
+
 async function _prefetchCategoryChart(catKey) {
   if (!primaryPlayer) return;
   const cfg = CHART_FILTERS[catKey];
   const filterVal = _chartFilterState[catKey] !== undefined ? _chartFilterState[catKey] : (cfg ? cfg.default : null);
   const filterStr = Array.isArray(filterVal) ? filterVal.join(",") : (filterVal || "");
-  const cacheKey = `${catKey}:${filterStr}`;
-  if (_chartCache[cacheKey]) return;
-  try {
-    const res = await fetch("/api/category-chart", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        player_id: primaryPlayer.id, league: primaryLeague, season: primarySeason,
-        category: catKey, filter: filterStr,
-      }),
-    });
-    if (!res.ok) return;
-    const data = await res.json();
-    if (data.charts) _chartCache[cacheKey] = data;
-  } catch { /* silent — this is a background optimization, not a user-facing load */ }
+  await _fetchCategoryChartData(catKey, filterStr);  // result unused here — this call is only for its _chartCache side effect
 }
 
 function renderAdvancedStats(categories) {
@@ -548,25 +584,14 @@ async function loadCategoryChart(catKey, forceReload = false) {
     renderChartImages(catKey, _chartCache[cacheKey]);
     return;
   }
+  if (forceReload) delete _chartCache[cacheKey];  // a filter change revisiting an old value should still re-render, not silently reuse it
 
   const grid = document.getElementById(`adv-chart-grid-${catKey}`);
   if (grid) grid.innerHTML = _chartGridSpinner();
 
-  try {
-    const res = await fetch("/api/category-chart", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        player_id: primaryPlayer.id, league: primaryLeague, season: primarySeason,
-        category: catKey, filter: filterStr,
-      }),
-    });
-    const data = await res.json();
-    if (!res.ok || !data.charts) { renderChartError(catKey); return; }
-    _chartCache[cacheKey] = data;
-    renderChartImages(catKey, data);
-  } catch {
-    renderChartError(catKey);
-  }
+  const data = await _fetchCategoryChartData(catKey, filterStr);
+  if (!data) { renderChartError(catKey); return; }
+  renderChartImages(catKey, data);
 }
 
 function renderChartImages(catKey, data) {
