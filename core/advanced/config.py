@@ -1,4 +1,51 @@
 import os
+from datetime import date
+
+# First domestic season this app has data for — the fixed end of the rolling
+# window all_domestic_seasons() computes below.
+DOMESTIC_SEASON_START_YEAR = 2023
+
+
+def current_season() -> str:
+    """The domestic season currently in progress, e.g. '2026-27' — computed
+    from today's date rather than hardcoded. A hardcoded season string is
+    exactly what caused the app to silently keep re-scraping "2025-26" for
+    weeks after the 2026-27 season had already started: scraping/auto_update.py
+    had CURRENT_SEASON = "2025-26" as a literal, the weekly job kept
+    "succeeding" against that same wrong season indefinitely, and nothing
+    ever caught it since a successful-but-stale scrape looks identical to a
+    successful up-to-date one. Seasons start ~August; before that (Jan-Jul)
+    we're still in the second half of the PREVIOUS season."""
+    today = date.today()
+    start_year = today.year if today.month >= 8 else today.year - 1
+    return f"{start_year}-{str(start_year + 1)[-2:]}"
+
+
+def all_domestic_seasons() -> list[str]:
+    """Every domestic season from DOMESTIC_SEASON_START_YEAR through the
+    current one, newest first — e.g. ['2026-27','2025-26','2024-25','2023-24'].
+    Grows by one entry each year as the season rolls over instead of a fixed
+    list someone has to remember to update (and nothing then depends on
+    remembering — this is the single source of truth for that window)."""
+    today = date.today()
+    current_start_year = today.year if today.month >= 8 else today.year - 1
+    return [f"{y}-{str(y + 1)[-2:]}" for y in range(current_start_year, DOMESTIC_SEASON_START_YEAR - 1, -1)]
+
+
+def season_sort_key(season: str) -> int:
+    """Chronological sort key spanning both domestic seasons ('2023-24') and
+    single-year tournament seasons ('2022', '2024', WC/Euros) — a plain
+    `sorted()` or `reversed()` on a dropdown-ordered list doesn't produce a
+    real timeline since tournaments sit strictly *between* two domestic
+    seasons, not adjacent to either by string comparison. Domestic 'YYYY-YY'
+    keys on its start year (Aug); a tournament 'YYYY' (played the following
+    summer) keys 5 units after the season that started the PRIOR August, so
+    it always sorts after that season and before the one starting that same
+    calendar year."""
+    if "-" in season:
+        return int(season.split("-")[0]) * 10
+    return (int(season) - 1) * 10 + 5
+
 
 # Where the raw WhoScored match-event JSON cache lives (soccerdata's default
 # layout: {WHOSCORED_CACHE_DIR}/{League-Key}_{SeasonKey}/{match_id}.json).

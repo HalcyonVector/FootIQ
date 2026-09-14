@@ -11,6 +11,7 @@ import traceback
 from flask import Flask, render_template, request, jsonify
 from flask_cors import CORS
 
+from core.advanced import config as advanced_config
 from core.advanced.lookup import search_players, search_players_global, get_player_stats
 from core.media import get_wikimedia_image
 
@@ -51,11 +52,15 @@ LEAGUES = [
     {"id": "European Championship",     "name": "European Championship",   "country": "International", "logo": "https://media.api-sports.io/football/leagues/4.png"},
 ]
 
-# Only seasons we actually have scraped Advanced Metrics data for. The two
-# single-year competitions (World Cup 2022, Euro 2024) get their own entries
-# here too — picking one of the top-3 rows with, say, "Champions League"
-# just yields an honest "no data" until that season/league combo exists.
-SEASONS = ["2025-26", "2024-25", "2023-24", "2022", "2024"]
+# Domestic seasons computed from today's date (see core/advanced/config.py's
+# all_domestic_seasons() docstring for why this used to be a hardcoded list
+# and why that was a real bug), plus the two single-year competitions we
+# have scraped data for (World Cup 2022, Euro 2024) — picking one of the
+# top-3 rows with, say, "Champions League" just yields an honest "no data"
+# until that season/league combo exists. World Cup 2026 already happened as
+# of this writing but hasn't been scraped yet, so it's deliberately not
+# listed here — an entry with no backing data is worse UX than no entry.
+SEASONS = advanced_config.all_domestic_seasons() + ["2022", "2024"]
 
 # The original 5-league scope, kept around for Scout's "top 5 only" pool
 # option — narrowing to these avoids a smaller domestic league (e.g.
@@ -466,7 +471,14 @@ def api_category_chart():
         from core.advanced.metrics_master import CATEGORIES
         from visuals.chart_utils import generate_trend_chart
 
-        trend_seasons = list(reversed(SEASONS))  # oldest -> newest for a left-to-right timeline
+        # Chronological oldest -> newest for a left-to-right timeline. SEASONS
+        # is dropdown-display order (newest domestic season first, tournament
+        # one-offs tacked on the end), NOT a timeline — reversing it just
+        # produces "2024, 2022, 2023-24, 2024-25, 2025-26" since a tournament
+        # season like "2024" (Euro 2024) sits strictly BETWEEN two domestic
+        # seasons chronologically, not before or after all of them. Sort by
+        # the real calendar order instead (see season_sort_key's docstring).
+        trend_seasons = sorted(SEASONS, key=advanced_config.season_sort_key)
         trend_values = category_percentile_trend(player_id, category, trend_seasons, df)
         charts.append({
             "key": "trend",

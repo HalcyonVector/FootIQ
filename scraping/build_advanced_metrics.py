@@ -37,12 +37,15 @@ from core.advanced import config
 from core.advanced.aggregator import build_all, CHART_CATEGORIES
 
 LEAGUES = list(config.LEAGUE_DIR_MAP.keys())
-# "2022"/"2024" are World Cup 2022 and Euro 2024 — single-year competitions
-# alongside the regular 3-season domestic-league cycle. build_all() tries
-# every (league, season) combo and just logs "0 matches" for ones that don't
-# exist (e.g. "Premier League" x "2022"), so it's safe to include both lists
-# here rather than needing a per-league season map.
-SEASONS = ["2023-24", "2024-25", "2025-26", "2022", "2024"]
+# Domestic seasons computed from today's date (config.all_domestic_seasons(),
+# grows by one every year instead of needing a manual update — a hardcoded
+# list here is exactly what let this rebuild silently keep excluding 2026-27
+# for weeks after that season started) plus "2022"/"2024" (World Cup 2022,
+# Euro 2024 — single-year competitions outside the domestic cycle). build_all()
+# tries every (league, season) combo and just logs "0 matches" for ones that
+# don't exist (e.g. "Premier League" x "2022"), so it's safe to include both
+# lists here rather than needing a per-league season map.
+SEASONS = config.all_domestic_seasons() + ["2022", "2024"]
 
 
 def _write_partitioned(df: pd.DataFrame, out_dir: str) -> None:

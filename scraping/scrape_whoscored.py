@@ -18,12 +18,16 @@ check how far along it is without wading through Selenium/Chrome noise.
 import argparse
 import json as _json
 import re
+import sys
 import time
 import traceback
 from datetime import datetime
 from pathlib import Path
 
 import soccerdata.whoscored as ws_mod
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from core.advanced.config import all_domestic_seasons
 
 LOG_PATH = Path(__file__).parent / "scrape_progress.log"
 
@@ -34,7 +38,12 @@ TOP5_LEAGUES = [
     "GER-Bundesliga",
     "FRA-Ligue 1",
 ]
-DEFAULT_SEASONS = ["2023-24", "2024-25", "2025-26"]
+# Computed from today's date (all_domestic_seasons()) rather than hardcoded —
+# only matters for a manual `python scrape_whoscored.py` with no --seasons
+# flag (auto_update.py always passes an explicit [CURRENT_SEASON]), but a
+# stale hardcoded list here would be the same silent-staleness bug that hit
+# CURRENT_SEASON, just for anyone running this by hand instead.
+DEFAULT_SEASONS = all_domestic_seasons()
 
 # Pinned to stable Chrome explicitly: this machine's Chrome Dev channel runs
 # ahead of seleniumbase's bundled driver (which matches stable Chrome), and

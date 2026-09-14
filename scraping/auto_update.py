@@ -33,7 +33,14 @@ from scraping.build_advanced_metrics import main as rebuild_parquet
 from scraping.check_data_health import check_league_seasons
 
 LOG_PATH = Path(__file__).parent / "auto_update.log"
-CURRENT_SEASON = "2025-26"
+# Computed from today's date every time this script runs (see
+# core/advanced/config.py's current_season() docstring) -- this used to be
+# a hardcoded "2025-26" literal, which is exactly why the weekly job kept
+# scraping last season's already-finished data for weeks after 2026-27
+# started: a hardcoded season never advances, and a "successful" scrape of
+# the wrong season looks identical to a successful scrape of the right one,
+# so nothing ever surfaced it as broken.
+CURRENT_SEASON = config.current_season()
 WORKERS = 2  # matches the value already validated as safe in this session
 
 
@@ -58,7 +65,22 @@ def run(push: bool = True) -> None:
     log("=== auto_update starting ===")
 
     try:
-        leagues = list(config.LEAGUE_DIR_MAP.keys())
+        # scrape()/_scrape_one() construct soccerdata.WhoScored(leagues=...)
+        # directly, which validates against ITS OWN key format ("ENG-Premier
+        # League", not "Premier League") and raises before anything is
+        # fetched otherwise -- config.LEAGUE_DIR_MAP.keys() is FootIQ's own
+        # display names (used everywhere else in this app), .values() is the
+        # soccerdata keys scrape() actually needs. This was passing .keys()
+        # here, which means every single (league, season) task has been
+        # crashing at the WhoScored() constructor, before fetching a single
+        # match, since this script was written -- confirmed by re-running it
+        # and watching all 15 leagues fail identically. scrape()'s own
+        # per-task error handling swallowed each crash and let the run
+        # "complete" and log "No failures", so nothing ever surfaced this:
+        # every prior weekly auto-update commit rebuilt from whatever was
+        # ALREADY cached (from manual scrapes earlier in development), not
+        # from anything that week's run itself fetched.
+        leagues = list(config.LEAGUE_DIR_MAP.values())
         log(f"Scraping {len(leagues)} leagues, season {CURRENT_SEASON}, {WORKERS} workers")
         scrape(leagues, [CURRENT_SEASON], headless=False, workers=WORKERS)
         log("Scrape done")

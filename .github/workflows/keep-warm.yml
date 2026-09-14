@@ -1,0 +1,26 @@
+name: Keep Render instance warm
+
+# Render's free tier spins the whole app down after ~15 min with no traffic,
+# and the first request after that pays a real cold-start cost (matplotlib's
+# font cache, the chart dataset objects, an uncached Wikipedia lookup all
+# building at once) that can take 20+ seconds. Someone landing on the site
+# after a quiet period has no way to know that's what's happening -- it just
+# looks broken. A periodic ping from outside keeps a real request landing
+# often enough that the instance never gets the chance to spin down, so real
+# visitors almost never hit a cold one. Free either way (public repo =
+# unlimited included Actions minutes), and this job is a few seconds each.
+on:
+  schedule:
+    # Every 10 minutes -- comfortably under the ~15 min spin-down threshold
+    # even if GitHub's own scheduler runs a few minutes late under load
+    # (documented behavior for cron-triggered workflows, not something this
+    # job can control).
+    - cron: "*/10 * * * *"
+  workflow_dispatch: {}  # manual "Run workflow" button in the Actions tab, for testing
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping the live app
+        run: curl -sf --max-time 30 https://footiq.onrender.com/ -o /dev/null

@@ -183,6 +183,20 @@ async function selectPrimaryPlayer(player) {
   chartsLoading.style.display = "flex";
   advancedSection.style.display = "none";
 
+  // Scroll down to the profile section IMMEDIATELY — before advanced-stats
+  // or any chart has loaded, not after. A click that doesn't visibly do
+  // ANYTHING until a slow request resolves (this backend runs on a free
+  // tier that can take several seconds, especially right after a period of
+  // inactivity) reads as "the page is broken," not "it's loading." The
+  // photo/name header (rendered just above) and the chartsLoading spinner
+  // are both already on screen the instant this fires, so there's always
+  // something real to scroll to and look at while the rest loads in.
+  setTimeout(() => {
+    const navH = document.querySelector(".navbar")?.offsetHeight || 70;
+    const top = profileSection.getBoundingClientRect().top + window.scrollY - navH - 16;
+    window.scrollTo({ top, behavior: "smooth" });
+  }, 50);
+
   // "passing" is always the first Advanced Metrics tab shown, for every
   // player regardless of position (CATEGORY_ORDER + GK gating both put/keep
   // it first) — start generating it now, in PARALLEL with advanced-stats,
@@ -197,12 +211,6 @@ async function selectPrimaryPlayer(player) {
   // per-tab from activateTab(), so a slow chart never blocks the page.
   await fetchAdvancedStats(player);
   chartsLoading.style.display = "none";
-
-  setTimeout(() => {
-    const navH = document.querySelector(".navbar")?.offsetHeight || 70;
-    const top = profileSection.getBoundingClientRect().top + window.scrollY - navH - 16;
-    window.scrollTo({ top, behavior: "smooth" });
-  }, 100);
 }
 
 function resetPrimaryPlayer() {

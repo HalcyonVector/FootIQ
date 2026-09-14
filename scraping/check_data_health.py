@@ -21,7 +21,7 @@ from core.advanced import config
 from core.advanced.raw_loader import iter_match_files, load_match_json
 
 DEFAULT_NULL_RATE_WARN = 0.05  # flag any league-season with >5% unusable matches
-ALL_SEASONS = ["2023-24", "2024-25", "2025-26", "2022", "2024"]
+ALL_SEASONS = config.all_domestic_seasons() + ["2022", "2024"]
 
 
 def check_league_seasons(threshold: float, leagues=None, seasons=None) -> list[dict]:
