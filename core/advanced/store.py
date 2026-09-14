@@ -153,3 +153,21 @@ def reload():
     _CHART_DATASETS = {}
     _LINKUP_RECEPTIONS_DATASET = None
     return get_advanced_df()
+
+
+def warm_up() -> None:
+    """Pre-loads everything a chart/stats request would otherwise load lazily
+    on first use — called once at app startup (app.py) so a fresh gunicorn
+    worker (a cold Render spin-up, or this app's own --max-requests worker
+    recycling) pays this cost once at boot, not on whichever real visitor's
+    request happens to be first. Measured live: a category-chart request
+    hitting a genuinely cold worker took 40s; the categories after it, with
+    everything already built, took under 6s. Building all 12 categories'
+    Dataset objects up front (each one is a directory scan across every
+    league/season partition) accounts for most of that gap."""
+    from core.advanced.aggregator import CHART_CATEGORIES
+    get_advanced_df()
+    get_linkup_summary_df()
+    for category in CHART_CATEGORIES:
+        _chart_dataset(category)
+    _linkup_receptions_dataset()

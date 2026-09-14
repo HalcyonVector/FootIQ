@@ -23,6 +23,25 @@ CORS(app)
 _chart_cache: dict = {}
 _CACHE_MAX = 200   # evict oldest when this is exceeded
 
+# Runs once, synchronously, while gunicorn imports this module — BEFORE the
+# worker starts accepting connections — so a fresh worker (a cold Render
+# spin-up, or this app's own --max-requests recycling in render.yaml) pays
+# the first-use cost of loading the parquet caches, building all 12 chart
+# Dataset objects, and warming matplotlib's font cache itself, rather than
+# whichever real visitor's request happens to land first. Measured live: a
+# category-chart request against a genuinely cold worker took 40s; with
+# this warm-up in place that cost happens at boot instead, invisible to
+# every visitor. Wrapped defensively — if warm-up itself fails for some
+# reason, the app should still boot and fall back to the normal lazy-load
+# path on first request rather than refuse to start at all.
+try:
+    from core.advanced.store import warm_up as _warm_up_store
+    from visuals.chart_utils import warm_up as _warm_up_charts
+    _warm_up_store()
+    _warm_up_charts()
+except Exception:
+    traceback.print_exc()
+
 LEAGUES = [
     {"id": "Premier League", "name": "Premier League", "country": "England", "logo": "https://media.api-sports.io/football/leagues/39.png"},
     {"id": "La Liga",        "name": "La Liga",         "country": "Spain",   "logo": "https://media.api-sports.io/football/leagues/140.png"},

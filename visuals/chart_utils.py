@@ -28,6 +28,18 @@ def fig_to_b64(fig) -> str:
     return encoded
 
 
+def warm_up() -> None:
+    """Renders one real (if empty) chart through the normal pipeline —
+    mplsoccer's Pitch construction and matplotlib's font manager both do
+    real first-use work (building a font cache from scratch was directly
+    visible as `findfont` log warnings on a cold worker) that a fresh
+    gunicorn worker would otherwise pay on whichever visitor's request
+    happens to land first. Called once at app startup (app.py), alongside
+    core/advanced/store.warm_up() for the data side of the same problem."""
+    from visuals.passing import generate_passing_chart
+    generate_passing_chart("Warm-up", "Warm-up FC", "2025-26", [], mode="progressive")
+
+
 def layout_pitch_axes(ax, top: float = 0.82, bottom: float = 0.10) -> None:
     """Reserve space above/below a freshly-drawn mplsoccer pitch axes for a
     title block and a bottom legend, by repositioning the axes directly
