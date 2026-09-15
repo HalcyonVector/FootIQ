@@ -11,10 +11,14 @@ name: Keep Render instance warm
 # unlimited included Actions minutes), and this job is a few seconds each.
 on:
   schedule:
-    # Every 10 minutes -- comfortably under the ~15 min spin-down threshold
-    # even if GitHub's own scheduler runs a few minutes late under load
-    # (documented behavior for cron-triggered workflows, not something this
-    # job can control).
+    # Every 10 minutes requested -- but GitHub's scheduler is best-effort for
+    # cron triggers and throttles low-traffic public repos hard: observed
+    # actual gaps between runs on this repo were 2-5 HOURS, not 10 minutes.
+    # That's far longer than Render's ~15 min spin-down window, so this alone
+    # does not reliably keep the instance warm -- see the app's own startup
+    # warm-up (app.py) for the fix that matters regardless of ping cadence,
+    # and use a real uptime monitor (UptimeRobot free tier etc.) for anything
+    # that actually needs a precise 5 min interval.
     - cron: "*/10 * * * *"
   workflow_dispatch: {}  # manual "Run workflow" button in the Actions tab, for testing
 
@@ -23,4 +27,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Ping the live app
-        run: curl -sf --max-time 30 https://footiq.onrender.com/ -o /dev/null
+        # 90s not 30s -- a cold Render instance can take longer than 30s to
+        # finish spinning up and responding, and curl reporting a timeout as
+        # a workflow "failure" was misleading: the request still reaches
+        # Render and the instance keeps booting either way, so a too-short
+        # timeout just makes a real wake-up look like a broken job.
+        run: curl -sf --max-time 90 https://footiq.onrender.com/ -o /dev/null
