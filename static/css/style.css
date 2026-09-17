@@ -1194,6 +1194,16 @@ footer{
   .stat-card-row{flex-wrap:wrap;gap:3px 0;align-items:baseline}
   .scr-label{white-space:normal;overflow:visible;text-overflow:clip;flex:1 1 100%}
   .scr-right{max-width:none;width:100%;flex-basis:100%}
+
+  /* ── Bigger touch targets ── these pill buttons/icons are comfortably
+     clickable with a mouse pointer at their desktop size, but several sit
+     well under the ~40-44px minimum a finger can reliably hit (adv-tab-btn
+     was ~28px tall, adv-chart-filter-btn ~21px, slot-clear 24x24) — bumped
+     up for phone only, desktop keeps the tighter, denser sizing. */
+  .adv-tab-btn{padding:11px 20px;font-size:13px}
+  .adv-chart-filter-btn{padding:9px 15px;font-size:12px}
+  .slot-clear{width:36px;height:36px}
+  .dd-item{padding:13px 14px}
 }
 .dd-mini-logo{width:16px;height:12px;object-fit:contain;margin-right:8px;border-radius:2px;background:rgba(255,255,255,0.05)}
 .slot-mini-logo{width:18px;height:18px;object-fit:contain;border-radius:2px;background:white;padding:2px;border:1px solid rgba(0,0,0,0.1)}
@@ -1757,4 +1767,68 @@ footer {
 .scroll-from-right.in-view,
 .scroll-from-bottom.in-view,
 .scroll-scale-in.in-view { opacity: 1; transform: none; }
+
+/* ══ Phone-specific polish ══ */
+
+/* ── No stuck hover on touch ── a tap has no "mouse leaving" to end a
+   :hover state, so every lift/scale hover effect below would otherwise
+   stay visually "pressed up" after a tap until the user touches somewhere
+   else — looks like a glitch, not a hover. (hover: none) is true for
+   devices that cannot hover at all (touchscreens without an attached
+   mouse/trackpad), so this only neutralizes the effect where it would
+   actually misbehave; a phone/tablet with a real pointer keeps it. Colour
+   and border hover changes are left alone since those don't read as
+   "stuck" the way a raised card does. */
+@media (hover: none) {
+  .glass-card:hover,
+  .feature-card:hover,
+  .stat-item:hover,
+  .step:hover,
+  .league-badge:hover,
+  .cap-chip:hover,
+  .hint-btn:hover,
+  .adv-tab-btn:hover,
+  .scout-match-card:hover,
+  .add-compare-btn:hover,
+  .compare-go-btn:hover:not(:disabled),
+  .profile-photo:hover,
+  .hub-card:hover,
+  .sim-chip:hover,
+  .insight-chip:hover {
+    transform: none;
+  }
+}
+
+/* ── Respect "reduce motion" ── the decorative orb drift, entrance
+   fade-ups, shimmer, and counter-pop are all real animation-driven
+   repaints; a phone honoring the OS-level "reduce motion" setting (an
+   accessibility preference, and one some people set specifically to save
+   battery) should get near-instant transitions instead, not skip straight
+   to reduced visuals while still paying the animation cost. Standard
+   "kill switch" pattern: forces every animation/transition to ~0 duration
+   so elements still reach their correct end state, just without motion. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ── Faster reveals on phone ── the scroll-in-view fade/slide (opacity +
+   transform, both 1.6-1.8s on desktop) is long enough that scrolling to a
+   section on a phone — where people scroll faster and the whole point of
+   the gesture is "get me to the content" — can genuinely catch a card
+   still half-transparent, which reads as "this hasn't loaded" rather than
+   "this is arriving." Shortened for narrow viewports only; desktop's
+   pace is unchanged. */
+@media (max-width: 600px) {
+  .scroll-from-left,
+  .scroll-from-right,
+  .scroll-from-bottom,
+  .scroll-scale-in {
+    transition-duration: .5s !important;
+  }
+}
 
