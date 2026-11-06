@@ -197,7 +197,12 @@ footer .footer-inner { max-width: 1200px !important; padding: 0 40px !important;
     -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
   }
   .hub-theme-toggle{ position: static; top: auto; right: auto; }
-  .hub-hero{ padding-top: 78px; }
+  /* Desktop's justify-content:center on .container naturally leaves room
+     below the cards before the footer; switching to flex-start above so
+     the page can scroll removes that free spacing, and nothing was added
+     back -- the last card (Explore) ends up sitting flush against the
+     footer's own 14px padding with no real gap. */
+  .hub-hero{ padding-top: 78px; padding-bottom: 32px; }
 }
 @media (max-width: 480px) {
   .hub-title { font-size: 30px; letter-spacing: -1px; }
