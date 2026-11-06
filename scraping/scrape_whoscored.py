@@ -85,7 +85,26 @@ _orig_init_webdriver = common_mod.BaseSeleniumReader._init_webdriver
 
 
 def _init_webdriver_offscreen(self):
-    driver = _orig_init_webdriver(self)
+    """Same driver soccerdata builds, but the window is CREATED off-screen
+    (window_position at launch) instead of being moved there after it already
+    flashed onto the desktop and grabbed focus for a moment. Falls back to the
+    stock init if this SeleniumBase version rejects the arguments."""
+    import seleniumbase as sb
+    try:
+        if hasattr(self, "_driver"):
+            self._driver.quit()
+        proxy_str = self.proxy()
+        driver = sb.Driver(
+            uc=True,
+            headless=self.headless,
+            binary_location=self.path_to_browser,
+            host_resolver_rules="MAP * ~NOTFOUND , EXCLUDE 127.0.0.1" if proxy_str is not None else None,
+            proxy=proxy_str,
+            window_position="-32000,-32000",
+            window_size="1280,900",
+        )
+    except TypeError:
+        driver = _orig_init_webdriver(self)
     try:
         driver.set_window_position(-32000, -32000)
     except Exception:
