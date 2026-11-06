@@ -25,6 +25,10 @@ env/
 # Data cache (large, regenerated at runtime)
 data/cache/
 
+# Parquet datasets live in a GitHub Release, not in git: `python
+# scraping/data_release.py fetch` installs them, data/DATA_VERSION pins which.
+data/advanced/
+
 # Data scripts output (intermediate files)
 downloaded_files/
 understat_players.csv

@@ -4,7 +4,10 @@ services:
     runtime: python
     plan: free
     branch: main
-    buildCommand: "pip install -r requirements.txt"
+    # The parquet isn't in git: data/DATA_VERSION points at a GitHub Release
+    # asset, which the second step downloads + checksum-verifies. If it fails
+    # the build fails, so Render keeps serving the previous working deploy.
+    buildCommand: "pip install -r requirements.txt && python scraping/data_release.py fetch"
     # 1 worker: Render's free tier caps the whole instance at 512MB RAM, and
     # each worker is a separate process with its own full copy of the cached
     # dataframes (~300-400MB) plus matplotlib/mplsoccer/pandas import

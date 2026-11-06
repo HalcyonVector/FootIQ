@@ -32,6 +32,7 @@ from scraping.scrape_whoscored import scrape
 from scraping.build_advanced_metrics import main as rebuild_parquet
 from scraping.build_overview_data import main as rebuild_overview
 from scraping.check_data_health import check_league_seasons
+from scraping.data_release import publish as publish_data
 
 LOG_PATH = Path(__file__).parent / "auto_update.log"
 # Computed from today's date every time this script runs (see
@@ -139,14 +140,25 @@ def run(push: bool = True) -> None:
         log("=== auto_update complete ===")
         return
 
-    status = git("status", "--porcelain", "data/advanced/")
-    if not status.stdout.strip():
-        log("No data changes this run (no new matches since last week) — nothing to commit")
+    # The parquet is no longer in git (see scraping/data_release.py for why):
+    # it's uploaded as a GitHub Release asset FIRST, then only the tiny
+    # data/DATA_VERSION pointer is committed -- so a deploy can never see a
+    # pointer to an asset that doesn't exist yet. publish() hashes a
+    # deterministic zip, so "no new matches" uploads nothing.
+    try:
+        changed = publish_data()
+    except Exception:
+        log("!!! data upload failed, NOT pushing (the live site keeps last week's data)")
+        import traceback
+        log(traceback.format_exc())
+        return
+    if not changed:
+        log("No data changes this run (no new matches since last week) — nothing to publish")
         log("=== auto_update complete ===")
         return
 
-    log("Data changed, committing and pushing...")
-    git("add", "data/advanced/")
+    log("Data published, committing the version pointer and pushing...")
+    git("add", "data/DATA_VERSION")
     commit_msg = f"Weekly auto-update: refresh {CURRENT_SEASON} data ({datetime.now():%Y-%m-%d})"
     commit = git("commit", "-m", commit_msg)
     if commit.returncode != 0:

@@ -150,6 +150,15 @@ python scraping/build_overview_data.py         # Season Overview tables + xG mod
                                                # the xG/xA columns to player_season_advanced.parquet
 ```
 
+The parquet is **not in git** (it was in Git LFS, which doesn't fit GitHub's free 1 GB storage + bandwidth once every deploy re-downloads it). `data/DATA_VERSION` pins a checksummed zip stored as a GitHub Release asset (release tag `data`):
+
+```bash
+python scraping/data_release.py fetch     # fresh clone / new machine: download, verify, install data/advanced
+python scraping/data_release.py publish   # after a rebuild: upload the zip, rewrite data/DATA_VERSION (needs `gh` logged in)
+```
+
+Render's build step runs `fetch`; `scraping/auto_update.py` runs `publish` and commits only `data/DATA_VERSION`. Assets are immutable and named by content hash, the last two are kept (so rolling back a deploy still finds its data), and an unchanged dataset uploads nothing.
+
 Add `--workers N` to `scrape_whoscored.py` to run multiple leagues and seasons concurrently, each in its own Chrome instance. Defaults to 1 (sequential).
 
 `data/advanced/player_season_advanced.parquet` and `linkup_summary.parquet` are loaded fully into memory (small, no per-event data). `linkup_receptions/` and `chart_events/<category>/` are Hive-partitioned by league/season — each request reads only its own player/league/season slice off disk, not the whole dataset, so per-tab chart rendering stays within a modest memory footprint. `player_matches/`, `shots/` and `heatmaps/` (Season Overview) follow the same partitioned, per-request-slice pattern. The raw event cache never touches the running app.
