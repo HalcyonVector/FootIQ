@@ -11,6 +11,7 @@ comparing two players only on the metrics BOTH have data for (rather than
 treating a missing metric as 0, which would penalize players for gaps in
 event coverage rather than genuine statistical difference).
 """
+import numpy as np
 import pandas as pd
 
 from core.advanced import config
@@ -99,25 +100,26 @@ def find_similar(df: pd.DataFrame, target_pid: int, target_league: str, target_s
     if target_row.name not in pct.index:
         return [], False
 
-    target_vec = pct.loc[target_row.name].dropna()
-    if target_vec.empty:
+    target_vec = pct.loc[target_row.name]
+    if target_vec.dropna().empty:
         return [], False
 
     pid_by_idx = cohort["whoscored_player_id"]
 
-    scored = []
-    for idx, row_pct in pct.iterrows():
-        if int(pid_by_idx.loc[idx]) == target_pid_int:
-            continue  # exclude EVERY season of the target's own — not just this exact row
-        common = target_vec.index.intersection(row_pct.dropna().index)
-        if len(common) < MIN_COMMON_METRICS:
-            continue
-        a = target_vec[common].to_numpy()
-        b = row_pct[common].to_numpy()
-        denom = (a @ a) ** 0.5 * (b @ b) ** 0.5
-        if denom == 0:
-            continue
-        scored.append((float((a @ b) / denom), idx))
+    # Cosine similarity of the percentile vectors, restricted per candidate to
+    # the metrics BOTH have (NaN = no data, never treated as 0). Vectorized over
+    # the whole cohort: this runs on profile views, so it has to be fast.
+    M = pct.to_numpy(dtype=float)
+    t = target_vec.reindex(pct.columns).to_numpy(dtype=float)
+    valid = ~np.isnan(M) & ~np.isnan(t)[None, :]
+    a = np.where(valid, t[None, :], 0.0)
+    b = np.where(valid, M, 0.0)
+    norm = np.sqrt((a * a).sum(axis=1)) * np.sqrt((b * b).sum(axis=1))
+    with np.errstate(divide="ignore", invalid="ignore"):
+        sim = (a * b).sum(axis=1) / norm
+    not_target = pid_by_idx.to_numpy().astype("int64") != target_pid_int   # excludes EVERY season of the target's own
+    eligible = (valid.sum(axis=1) >= MIN_COMMON_METRICS) & (norm > 0) & not_target
+    scored = [(float(sim[i]), pct.index[i]) for i in np.flatnonzero(eligible)]
 
     scored.sort(key=lambda t: t[0], reverse=True)
 
@@ -144,7 +146,8 @@ def find_similar(df: pd.DataFrame, target_pid: int, target_league: str, target_s
             return False
         return True
 
-    filtered = [(s, idx) for s, idx in deduped if _passes(idx)]
+    # no filters (the profile page's call): skip the per-candidate row lookups entirely
+    filtered = [(s, idx) for s, idx in deduped if _passes(idx)] if (max_age is not None or leagues) else deduped
     widened = False
     if not filtered and (max_age is not None or leagues) and deduped:
         filtered = deduped
