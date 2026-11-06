@@ -33,6 +33,7 @@ CATEGORIES = {
             ("pass_cross_accuracy_pct", "Cross accuracy", "%"),
             ("pass_key_passes_count_p90", "Key passes", ""),
             ("pass_assists_count_p90", "Assists", ""),
+            ("pass_xa_p90", "Open-play xA", ""),
             ("pass_median_release_s", "Median release time", "s"),
             ("pass_quick_pct", "Quick passes (<2s)", "%"),
             ("pass_one_touch_pct", "One-touch tempo (<1s)", "%"),
@@ -46,6 +47,8 @@ CATEGORIES = {
         "metrics": [
             ("shoot_shots_count_p90", "Shots", ""),
             ("shoot_goals_count_p90", "Goals", ""),
+            ("shoot_xg_p90", "Open-play xG", ""),
+            ("shoot_xg_per_shot", "xG per shot", ""),
             ("shoot_sot_count_p90", "Shots on target", ""),
             ("shoot_in_box_count_p90", "Shots in box", ""),
             ("shoot_big_chance_count_p90", "Big-chance shots", ""),

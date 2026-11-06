@@ -138,6 +138,37 @@ def api_leagues():
     return jsonify(LEAGUES)
 
 
+@app.route("/api/player")
+def api_player():
+    """One player for a given league/season (same shape the search results
+    use) plus every season they appear in. Backs shareable /player?id=...
+    links and the profile's season switcher. Falls back to another season
+    in the same league if the requested one has no row (see
+    get_player_stats), so the caller should read `player.season`."""
+    try:
+        player_id = int(request.args["id"])
+    except (KeyError, ValueError):
+        return jsonify({"error": "id required"}), 400
+    league = request.args.get("league", "Premier League")
+    season = request.args.get("season", "")
+    from core.advanced.lookup import get_player_seasons
+    seasons = get_player_seasons(player_id)
+    player = get_player_stats(player_id, league, season)
+    if not player and seasons:
+        # unknown league/season combo: land on the player's newest season instead
+        player = get_player_stats(player_id, seasons[0]["league"], seasons[0]["season"])
+    if not player:
+        return jsonify({"player": None, "seasons": []}), 404
+
+    from core.advanced import store
+    from core.advanced.summary import sample_info
+    played_for = {r["team"] for r in store.get_player_matches(player["id"], player["league"], player["season"])}
+    counts = store.get_team_match_counts(player["league"], player["season"])
+    team_matches = max((counts.get(t, 0) for t in played_for), default=0)
+    return jsonify({"player": player, "seasons": seasons,
+                    "sample": sample_info(player["minutes"], team_matches)})
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # API — search
 # ─────────────────────────────────────────────────────────────────────────────
@@ -199,7 +230,50 @@ def api_advanced_stats():
         # header has styled-but-unused CSS for this (.profile-score/.score-num
         # in style.css) that was never wired up on this page.
         composite = compute_composite(categories, raw.get("position", ""))
-        return jsonify({"player": raw, "categories": categories, "composite": composite})
+        from core.advanced.summary import insights
+        return jsonify({"player": raw, "categories": categories, "composite": composite,
+                        "insights": insights(categories)})
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/player-overview", methods=["POST"])
+def api_player_overview():
+    """Season stat line, form, career table, shot map (with xG) and
+    heatmaps for one player-season -- the "paid-site" overview. Reads only
+    this player's slice of the partitioned Overview tables."""
+    try:
+        body      = request.get_json(force=True)
+        player_id = int(body["player_id"])
+        league    = body.get("league", "Premier League")
+        season    = body.get("season", "2024-25")
+
+        # Resolve the season the stats card actually shows (lookup falls
+        # back to another season if this one has no row).
+        raw = get_player_stats(player_id, league, season)
+        if raw:
+            season = raw["season"]
+
+        from core.advanced import store, summary
+        from core.advanced.overview import GRID_X, GRID_Y
+
+        rows = store.get_player_matches(player_id, league, season)
+        if not rows:
+            return jsonify({"available": False})
+
+        shots = store.get_player_shots(player_id, league, season)
+        heat = store.get_player_heat(player_id, league, season)
+        return jsonify({
+            "available": True,
+            "season": season,
+            "line": summary.season_line(rows),
+            "form": summary.form(rows),
+            "career": summary.career(store.get_player_matches(player_id)),
+            "shots": shots,
+            "heat": heat,
+            "grid": {"x": GRID_X, "y": GRID_Y},
+        })
     except Exception as e:
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500

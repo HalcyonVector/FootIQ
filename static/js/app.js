@@ -169,16 +169,39 @@ function _syncPrimaryFilters(player) {
   }
 }
 
+// Native `scrollTo({behavior:"smooth"})` has no controllable duration —
+// browsers are free to implement it however fast they like, and in
+// practice it can look almost like a snap/jump rather than a scroll,
+// especially right after a tap when the user hasn't "followed" the motion
+// yet the way they do with a scroll gesture they drove themselves. Rolling
+// a manual rAF version so the pace is deliberate and explicit instead of
+// whatever the browser happens to pick.
+function smoothScrollTo(targetY, duration = 900) {
+  const startY = window.scrollY;
+  const diff = targetY - startY;
+  if (Math.abs(diff) < 1) return;
+  const startTime = performance.now();
+  function step(now) {
+    const t = Math.min((now - startTime) / duration, 1);
+    const eased = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; // easeInOutCubic
+    window.scrollTo(0, startY + diff * eased);
+    if (t < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Select primary player → fetch Advanced Metrics + Combination Play
 // ─────────────────────────────────────────────────────────────────────────────
-async function selectPrimaryPlayer(player) {
+async function selectPrimaryPlayer(player, { scroll = true } = {}) {
   primaryPlayer = player;
   _syncPrimaryFilters(player);
   resetLinkupState();
+  _writeShareUrl(player);
 
   profileSection.style.display = "block";
   renderProfileHeader(player);
+  loadSeasonSwitcher(player);
 
   chartsLoading.style.display = "flex";
   advancedSection.style.display = "none";
@@ -191,10 +214,10 @@ async function selectPrimaryPlayer(player) {
   // photo/name header (rendered just above) and the chartsLoading spinner
   // are both already on screen the instant this fires, so there's always
   // something real to scroll to and look at while the rest loads in.
-  setTimeout(() => {
+  if (scroll) setTimeout(() => {
     const navH = document.querySelector(".navbar")?.offsetHeight || 70;
     const top = profileSection.getBoundingClientRect().top + window.scrollY - navH - 16;
-    window.scrollTo({ top, behavior: "smooth" });
+    smoothScrollTo(top, 900);
   }, 50);
 
   // "passing" is always the first Advanced Metrics tab shown, for every
@@ -206,6 +229,10 @@ async function selectPrimaryPlayer(player) {
   // by the time activateTab("passing") runs it's usually already warm.
   _prefetchCategoryChart("passing");
 
+  // Overview (stat line, form, shot map, heatmaps, career) loads in parallel
+  // and shows itself when ready; it hides silently if no overview data exists.
+  FootIQOverview.load(player, primaryLeague, primarySeason);
+
   // Stats are precomputed (fast parquet lookup) — reveal them immediately.
   // Charts (Combination Play now, per-category charts later) load lazily
   // per-tab from activateTab(), so a slow chart never blocks the page.
@@ -213,8 +240,67 @@ async function selectPrimaryPlayer(player) {
   chartsLoading.style.display = "none";
 }
 
+// Shareable link: the same ?player_id=&league=&season= params Explore's
+// "View Profile" links already use, kept in the address bar so copying the
+// URL reopens exactly this player-season.
+function _shareUrl(player) {
+  const p = new URLSearchParams({ player_id: player.id, league: player.league || primaryLeague, season: player.season || primarySeason });
+  return `${location.origin}${location.pathname}?${p}`;
+}
+function _writeShareUrl(player) {
+  try { history.replaceState(null, "", _shareUrl(player)); } catch { /* non-fatal */ }
+}
+
+// Season switcher: every league/season this player has data for. Picking one
+// reloads the profile in place (no scroll jump, no need to re-search).
+async function loadSeasonSwitcher(player) {
+  const slot = document.getElementById("season-switch-slot");
+  if (!slot) return;
+  try {
+    const res = await fetch(`/api/player?id=${player.id}&league=${encodeURIComponent(player.league)}&season=${encodeURIComponent(player.season)}`);
+    const data = await res.json();
+    if (!res.ok || primaryPlayer !== player) return;   // stale: user already moved on
+
+    // "Limited sample" is decided server-side relative to the minutes the
+    // team actually played in this competition (a flat minutes floor would
+    // wrongly flag a regular in a short competition like the Europa League).
+    const row = document.getElementById("season-stats-row");
+    if (row && data.sample && data.sample.limited && !row.querySelector(".warn-chip")) {
+      const chip = document.createElement("span");
+      chip.className = "profile-stat-chip warn-chip";
+      chip.textContent = "Limited sample";
+      chip.title = data.sample.note;
+      row.appendChild(chip);
+    }
+
+    const seasons = data.seasons || [];
+    if (seasons.length < 2) { slot.innerHTML = ""; return; }
+    const cur = `${player.league}|${player.season}`;
+    slot.innerHTML = `
+      <label class="season-switch">
+        <span>Season</span>
+        <select id="season-switch-select" aria-label="Switch season">
+          ${seasons.map(s => {
+            const v = `${s.league}|${s.season}`;
+            return `<option value="${v}" ${v === cur ? "selected" : ""}>${s.season} · ${s.league} · ${s.team} (${s.minutes.toLocaleString()} min)</option>`;
+          }).join("")}
+        </select>
+      </label>`;
+    document.getElementById("season-switch-select").addEventListener("change", async e => {
+      const [league, season] = e.target.value.split("|");
+      try {
+        const r = await fetch(`/api/player?id=${player.id}&league=${encodeURIComponent(league)}&season=${encodeURIComponent(season)}`);
+        const d = await r.json();
+        if (d.player) selectPrimaryPlayer(d.player, { scroll: false });
+      } catch { showToast("Could not switch season."); }
+    });
+  } catch { slot.innerHTML = ""; }
+}
+
 function resetPrimaryPlayer() {
   primaryPlayer = null;
+  try { history.replaceState(null, "", location.pathname); } catch { /* non-fatal */ }
+  FootIQOverview.reset();
   profileSection.style.display = "none";
 }
 
@@ -241,7 +327,10 @@ function renderProfileHeader(player) {
         ${player.league ? `<span style="color:var(--muted)">&middot; ${player.league}</span>` : ""}
       </div>
       <div class="profile-season-stats" id="season-stats-row">
-        <span class="profile-stat-chip apps-chip">${player.minutes || "–"} min &middot; ${primarySeason}</span>
+        <span class="profile-stat-chip apps-chip">${player.minutes || "–"} min &middot; ${player.season || primarySeason}</span>
+      </div>
+      <div class="profile-actions">
+        <span id="season-switch-slot"></span>
       </div>
     </div>
     <div class="score-placeholder-pulse" id="profile-score-slot"></div>
@@ -349,6 +438,7 @@ async function fetchAdvancedStats(player) {
     }
     renderAdvancedStats(data.categories);
     renderProfileScore(data.composite);
+    FootIQOverview.renderInsights(data.insights);
     advancedSection.style.display = "block";
   } catch {
     showToast("Could not load advanced stats.");
@@ -783,12 +873,11 @@ async function initFromQuery() {
   const league = params.get("league") || primaryLeague;
   const season = params.get("season") || primarySeason;
   try {
-    const res = await fetch("/api/advanced-stats", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ player_id: pid, league, season }),
-    });
+    // /api/player falls back to the player's newest season if this exact
+    // league/season has no row, so a stale link still lands somewhere real.
+    const res = await fetch(`/api/player?id=${encodeURIComponent(pid)}&league=${encodeURIComponent(league)}&season=${encodeURIComponent(season)}`);
     const data = await res.json();
-    if (data.player) selectPrimaryPlayer({ ...data.player, league, season });
+    if (data.player) selectPrimaryPlayer(data.player);
   } catch { /* silent — deep link just won't pre-select */ }
 }
 

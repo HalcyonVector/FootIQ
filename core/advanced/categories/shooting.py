@@ -12,7 +12,13 @@ P90_KEYS = {
 }
 
 SHOT_TYPES = {"Goal", "MissedShots", "SavedShot", "ShotOnPost"}
-ON_TARGET_TYPES = {"Goal", "SavedShot"}  # a shot saved by the keeper or scored was on target
+
+
+def is_on_target(event_type: str, qm: dict) -> bool:
+    """A goal, or a shot saved by the keeper. WhoScored files shots blocked by
+    an outfield player under SavedShot too (tagged "Blocked"); those never
+    reached the goal frame, so they are NOT on target."""
+    return event_type == "Goal" or (event_type == "SavedShot" and "Blocked" not in qm)
 
 
 def compute_shooting(events: list[dict], rosters: list[dict]) -> dict:
@@ -34,7 +40,7 @@ def compute_shooting(events: list[dict], rosters: list[dict]) -> dict:
         x, y = e.get("x"), e.get("y")
 
         acc.add(pid, "shots")
-        if e["type"] in ON_TARGET_TYPES:
+        if is_on_target(e["type"], qm):
             acc.add(pid, "shots_on_target")
         if e["type"] == "Goal":
             acc.add(pid, "goals")

@@ -142,9 +142,14 @@
         };
       }
 
+      // 45 plain dots, no per-dot shadowBlur: 120 dots with a canvas shadow
+      // each cost a blur pass per frame and competed with scrolling for
+      // the main thread. Honors "reduce motion" by not animating at all.
+      const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
       function init() {
         resize();
-        particles = Array.from({ length: 120 }, mkParticle);
+        particles = Array.from({ length: 45 }, mkParticle);
       }
 
       function draw() {
@@ -155,14 +160,12 @@
           ctx.beginPath();
           ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
           ctx.fillStyle = p.col + a + ')';
-          ctx.shadowBlur = 8;
-          ctx.shadowColor = p.col + '0.8)';
           ctx.fill();
           p.x += p.dx; p.y += p.dy;
           if (p.x < 0 || p.x > W) p.dx *= -1;
           if (p.y < 0 || p.y > H) p.dy *= -1;
         });
-        requestAnimationFrame(draw);
+        if (!reduceMotion) requestAnimationFrame(draw);
       }
 
       window.addEventListener('resize', resize, { passive: true });
@@ -171,52 +174,39 @@
     })();
 
     // ── Scroll reveal ──
+    // One effect for everything below the fold (see .reveal in style.css).
+    // Stagger is per *batch*: whatever scrolls into view together is
+    // staggered 60ms apart (capped at 240ms), instead of a page-wide index
+    // that made later items wait seconds for their turn.
     const revealObs = new IntersectionObserver((entries) => {
-      entries.forEach(e => {
-        if (e.isIntersecting) {
-          const delay = parseInt(e.target.dataset.delay || 0);
-          setTimeout(() => e.target.classList.add('in-view', 'scroll-animate-visible'), delay);
+      entries
+        .filter(e => e.isIntersecting)
+        .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top ||
+                        a.boundingClientRect.left - b.boundingClientRect.left)
+        .forEach((e, i) => {
+          e.target.style.setProperty('--reveal-delay', Math.min(i * 60, 240) + 'ms');
+          e.target.classList.add('in-view');
           revealObs.unobserve(e.target);
-        }
-      });
-    }, { threshold: 0.08, rootMargin: '0px 0px -40px 0px' });
+        });
+    }, { threshold: 0.1, rootMargin: '0px 0px -6% 0px' });
 
-    function obs(el, cls, delay) {
+    function obs(el) {
       if (el.dataset.scrollInit) return;
       el.dataset.scrollInit = '1';
-      el.classList.add(cls);
-      el.dataset.delay = delay;
+      el.classList.add('reveal');
       revealObs.observe(el);
     }
 
     function initScrollAnimations() {
-      // Feature cards: all rise from the bottom, row by row (3 per row).
-      // Top row finishes before the bottom row starts.
-      document.querySelectorAll('.feature-card').forEach((el, i) => {
-        const row = Math.floor(i / 3);
-        obs(el, 'scroll-from-bottom', row * 260 + (i % 3) * 90);
-      });
-
-      // League badges: scale pop
-      document.querySelectorAll('.league-badge').forEach((el, i) =>
-        obs(el, 'scroll-scale-in', i * 180));
-
-      // Steps: all slide in from the left, staggered so they sweep left-to-right in reading order.
-      document.querySelectorAll('.step').forEach((el, i) => obs(el, 'scroll-from-left', i * 320));
-
-      // Section headings
-      document.querySelectorAll('.section-intro').forEach(el =>
-        obs(el, 'scroll-from-bottom', 0));
-
-      // Stats strip
-      document.querySelectorAll('.stat-item').forEach((el, i) =>
-        obs(el, 'scroll-from-bottom', i * 190));
-
-      // Generic remaining glass cards
       document.querySelectorAll(
-        '.glass-card:not(.feature-card):not(.search-card)' +
-        ':not(.scroll-from-left):not(.scroll-from-right):not(.scroll-from-bottom):not(.scroll-scale-in)'
-      ).forEach((el, i) => obs(el, 'scroll-from-bottom', Math.min(i * 160, 700)));
+        '.section-intro, .feature-card, .league-badge, .step, .stat-item'
+      ).forEach(obs);
+
+      // Any other glass cards present at load, except the search card
+      // (hero, has its own load entrance) and the post-search profile
+      // panels (they animate in when results arrive, not on scroll).
+      document.querySelectorAll('.glass-card:not(.feature-card):not(.search-card)')
+        .forEach(el => { if (!el.closest('#profile-section')) obs(el); });
     }
 
     if (document.readyState === 'loading') {

@@ -84,6 +84,11 @@ def main():
     print(f"Wrote {len(linkup_receptions_df)} reception events to {config.LINKUP_RECEPTIONS_DIR}")
     print(f"Wrote {total_chart_rows} chart-event rows across {len(CHART_CATEGORIES)} categories to {config.CHART_EVENTS_DIR}")
 
+    # xG / xA columns come from the Season Overview data (see xg_merge.py);
+    # a no-op if that hasn't been built yet.
+    from core.advanced.xg_merge import merge_xg_columns
+    merge_xg_columns()
+
 
 if __name__ == "__main__":
     main()

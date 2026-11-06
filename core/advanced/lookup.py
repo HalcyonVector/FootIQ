@@ -117,3 +117,19 @@ def get_player_stats(player_id: int, league: str, season: str) -> dict | None:
         "minutes": _clean_minutes(row["total_minutes"]),
         "age": _clean_age(row.get("age")),
     }
+
+
+def get_player_seasons(player_id: int) -> list[dict]:
+    """Every (league, season) this player has a row for, newest first --
+    powers the profile's season switcher."""
+    from core.advanced.config import season_sort_key
+    df = get_advanced_df()
+    if df.empty:
+        return []
+    rows = df[df["whoscored_player_id"] == int(player_id)]
+    out = [{
+        "league": r["league"], "season": r["season"],
+        "team": r["team_name"], "minutes": _clean_minutes(r["total_minutes"]),
+    } for _, r in rows.iterrows()]
+    out.sort(key=lambda s: (season_sort_key(s["season"]), s["minutes"]), reverse=True)
+    return out

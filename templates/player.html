@@ -217,6 +217,51 @@
         <span>Fetching stats…</span>
       </div>
 
+      <!-- Season overview: stat line, form, shot map + xG, heatmaps, career
+           (filled by static/js/overview.js; stays hidden until data exists) -->
+      <section id="overview-section" class="glass-card ov-section" style="display:none">
+        <div class="pct-title-row">
+          <span class="section-label">Season Overview <span style="color:var(--muted);font-weight:500">: <span id="ov-sub"></span></span></span>
+        </div>
+        <div class="ov-tiles" id="ov-tiles"></div>
+        <div class="ov-insights" id="ov-insights"></div>
+
+        <div class="ov-card">
+          <div class="ov-card-title">Form <span>match rating, every game</span></div>
+          <div id="ov-form"></div>
+        </div>
+
+        <div class="ov-two">
+          <div class="ov-card" id="ov-shot-card">
+            <div class="ov-card-title">Shot map <span>circle size = xG</span></div>
+            <div class="ov-toggles" id="ov-shot-filters">
+              <button data-f="all" class="active">All</button><button data-f="goals">Goals</button>
+              <button data-f="open">Open play</button><button data-f="setpiece">Set pieces</button>
+            </div>
+            <div id="ov-shots"></div>
+            <div class="ov-shot-sum" id="ov-shot-sum"></div>
+            <div class="ov-legend">
+              <span><i class="ov-sw" style="background:#22c55e"></i>Goal</span><span><i class="ov-sw" style="background:#3b82f6"></i>Saved</span>
+              <span><i class="ov-sw" style="background:#94a3b8"></i>Blocked</span><span><i class="ov-sw" style="background:#f59e0b"></i>Post</span>
+              <span><i class="ov-sw" style="background:#ef4444"></i>Off target</span>
+            </div>
+            <div id="ov-goal"></div>
+          </div>
+          <div class="ov-card">
+            <div class="ov-card-title">Heatmap</div>
+            <div class="ov-toggles" id="ov-heat-modes">
+              <button data-m="touches" class="active">Touches</button><button data-m="defs">Defensive actions</button>
+            </div>
+            <div id="ov-heat"></div>
+          </div>
+        </div>
+
+        <div class="ov-card">
+          <div class="ov-card-title">Career <span>every season in the dataset</span></div>
+          <div class="ov-table-wrap" id="ov-career"></div>
+        </div>
+      </section>
+
       <!-- Advanced Metrics (Opta/WhoScored event data) -->
       <section id="advanced-section" class="glass-card" style="display:none; padding:20px 24px; margin-top:18px">
         <div class="pct-title-row">
@@ -239,8 +284,8 @@
   </div>
   <script>
     window.LEAGUES = {{ leagues | tojson }};
-    window.SEASONS = {{ seasons | tojson }};
-    document.getElementById("nav-player").classList.add("active");
+    window.SEASONS = {{ seasons | tojson }};    document.getElementById("nav-player").classList.add("active");
   </script>
+  <script src="/static/js/overview.js"></script>
   <script src="/static/js/app.js"></script>
 {% endblock %}

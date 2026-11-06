@@ -94,6 +94,16 @@ LINKUP_RECEPTIONS_DIR = os.path.join(ADVANCED_DATA_DIR, "linkup_receptions")
 # category instead of the whole dataset.
 CHART_EVENTS_DIR = os.path.join(ADVANCED_DATA_DIR, "chart_events")
 
+# Player Overview data (stat line, form, shot map, heatmaps) -- built by
+# scraping/build_overview_data.py. Same Hive league/season partitioning as
+# the chart events above so a request reads one player's slice, never the
+# whole table. PLAYER_MATCHES: one row per player per match played.
+# SHOTS: one row per shot (with xG). HEATMAPS: one row per player-season
+# holding touch / defensive-action counts on a coarse pitch grid.
+PLAYER_MATCHES_DIR = os.path.join(ADVANCED_DATA_DIR, "player_matches")
+SHOTS_DIR = os.path.join(ADVANCED_DATA_DIR, "shots")
+HEATMAPS_DIR = os.path.join(ADVANCED_DATA_DIR, "heatmaps")
+
 # Minimum minutes for a player-season to be included in percentile cohorts.
 # Mirrors config.MIN_MINUTES used by the existing FBref-based system.
 ADV_MIN_MINUTES = 450

@@ -57,7 +57,7 @@ def parse_events(match_json: dict) -> list[dict]:
     for e in match_json.get("events", []):
         out.append({
             "event_id": e.get("id"),
-            "seq_id": e.get("eventId"),  # small per-match counter; RelatedEventId/OppositeRelatedEvent reference THIS, not "id"
+            "seq_id": e.get("eventId"),  # small per-TEAM counter (not unique per match); RelatedEventId/OppositeRelatedEvent reference THIS with the same team_id, not "id"
             "period": (e.get("period") or {}).get("displayName"),
             "minute": e.get("minute"),
             "second": e.get("second") or 0,

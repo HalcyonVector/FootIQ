@@ -10,9 +10,11 @@ from core.advanced.carries import NON_TOUCH_TYPES
 
 
 def index_by_seq(events: list[dict]) -> dict:
-    """seq_id -> event, for resolving RelatedEventId/OppositeRelatedEvent qualifiers
-    (which reference the small per-match eventId counter, not the global event id)."""
-    return {e["seq_id"]: e for e in events if e.get("seq_id") is not None}
+    """(team_id, seq_id) -> event, for resolving RelatedEventId/OppositeRelatedEvent
+    qualifiers. eventId is a per-TEAM counter (both sides reuse the same
+    numbers), so seq_id alone is NOT unique within a match; look up with
+    (the referencing event's team_id, int(RelatedEventId))."""
+    return {(e["team_id"], e["seq_id"]): e for e in events if e.get("seq_id") is not None}
 
 
 def trace_forward(events: list[dict], start_idx: int, max_depth: int = 6) -> list[dict]:

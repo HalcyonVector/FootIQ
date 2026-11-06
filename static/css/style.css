@@ -659,7 +659,7 @@ input::placeholder{color:var(--muted)}
   pointer-events:none;
 }
 .stat-item{display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 32px;flex:1;min-width:100px;transition:transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.3s;border-radius:12px}
-.stat-item:hover{transform: translateY(-4px) scale(1.05);background:rgba(255,255,255,.02)}
+.stat-item:hover{transform: translateY(-3px);background:rgba(255,255,255,.02)}
 .stat-num{font-size:32px;font-weight:900;letter-spacing:-1px;background:linear-gradient(135deg,var(--c0),#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;text-shadow:0 0 20px rgba(59,130,246,0.2)}
 .stat-lbl{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;white-space:nowrap}
 .stat-divider{width:1px;height:40px;background:var(--border);flex-shrink:0}
@@ -1176,6 +1176,16 @@ footer{
   .features-grid{grid-template-columns:1fr}
   .stats-strip{gap:0;padding:16px}
   .stat-item{padding:8px 16px}
+  /* .stat-lbl's nowrap is fine down to ~375px (fits on one line with room
+     to spare) but on genuinely narrow phones (~320px, still a real device
+     class -- iPhone SE, budget Android) "Leagues & Competitions"/"Matches
+     Parsed" don't fit and were overflowing past the card edge and getting
+     clipped by the viewport ("LEAGUES & COMPETITIONS" rendering as
+     ".EAGUES & COMPETITIONS") instead of wrapping -- looks exactly like a
+     misalignment bug. Letting it wrap only changes anything where it
+     genuinely doesn't fit; at 375px+ this is a no-op since the text already
+     fits on one line. */
+  .stat-lbl{white-space:normal;text-align:center}
   .filter-row{flex-direction:column;align-items:stretch}
   .filter-row .filter-group,.filter-row .filter-group-season{width:100%;min-width:0}
   .search-card-label{justify-content:center;text-align:center}
@@ -1217,6 +1227,7 @@ footer{
    ═══════════════════════════════════════════════════════════════ */
 
 /* ── Enhanced background orbs with smoother motion ── */
+.bg-orb { will-change: transform; }
 .orb-1 { animation: floatOrb1 18s ease-in-out infinite; }
 .orb-2 { animation: floatOrb2 22s ease-in-out infinite; }
 .orb-3 { animation: floatOrb3 26s ease-in-out infinite; }
@@ -1236,16 +1247,18 @@ footer{
   50%      { transform: translate(60px,-20px) scale(1.05); }
 }
 
-/* ── Staggered fade-up for hero elements ── */
+/* ── Hero entrance (page load only, above the fold) ──
+   One short fade+rise, no blur filter (animating filter is expensive and
+   made text look smeared mid-flight). Everything below the fold uses the
+   single scroll-reveal system further down instead. */
 @keyframes fadeUpSmooth {
-  from { opacity:0; transform:translateY(32px); filter:blur(4px); }
-  to   { opacity:1; transform:translateY(0);    filter:blur(0); }
+  from { opacity:0; transform:translateY(16px); }
+  to   { opacity:1; transform:translateY(0); }
 }
-.hero-title    { animation: fadeUpSmooth .8s cubic-bezier(.16,1,.3,1) both; }
-.hero-desc     { animation: fadeUpSmooth .8s .12s cubic-bezier(.16,1,.3,1) both; }
-.capability-chips { animation: fadeUpSmooth .8s .22s cubic-bezier(.16,1,.3,1) both; }
-.search-card   { animation: fadeUpSmooth .8s .32s cubic-bezier(.16,1,.3,1) both; }
-.stats-strip   { animation: fadeUpSmooth .8s .42s cubic-bezier(.16,1,.3,1) both; }
+.hero-title    { animation: fadeUpSmooth .6s cubic-bezier(.16,1,.3,1) both; }
+.hero-desc     { animation: fadeUpSmooth .6s .08s cubic-bezier(.16,1,.3,1) both; }
+.capability-chips { animation: fadeUpSmooth .6s .16s cubic-bezier(.16,1,.3,1) both; }
+.search-card   { animation: fadeUpSmooth .6s .24s cubic-bezier(.16,1,.3,1) both; }
 
 /* ── Gradient text shimmer ── */
 .gradient-text {
@@ -1269,14 +1282,15 @@ footer{
   border-bottom-color: rgba(59,130,246,.2) !important;
 }
 
-/* ── Glass card enhanced hover ── */
+/* ── Glass card hover: glow only. No lift here — this class is also on big
+   containers (profile header, metric panels, search card) that shouldn't
+   jump under the cursor; individual card types add their own lift. ── */
 .glass-card {
-  transition: border-color .3s, box-shadow .3s, transform .3s, background .3s;
+  transition: border-color .3s, box-shadow .3s, background .3s;
 }
 .glass-card:hover {
   border-color: rgba(59,130,246,.35);
   box-shadow: 0 12px 48px rgba(0,0,0,.15), 0 0 0 1px rgba(59,130,246,.15);
-  transform: translateY(-2px);
 }
 
 /* ── Capability chips enhanced ── */
@@ -1309,43 +1323,21 @@ footer{
   box-shadow: 0 4px 12px rgba(59,130,246,.2);
 }
 
-/* ── Stats strip counter animation ── */
-.stat-num {
-  display: inline-block;
-  animation: countPop .6s cubic-bezier(.34,1.56,.64,1) both;
-}
-@keyframes countPop {
-  from { transform: scale(0.5); opacity: 0; }
-  to   { transform: scale(1);   opacity: 1; }
-}
-.stat-item:nth-child(1) .stat-num { animation-delay: .1s; }
-.stat-item:nth-child(3) .stat-num { animation-delay: .2s; }
-.stat-item:nth-child(5) .stat-num { animation-delay: .3s; }
-.stat-item:nth-child(7) .stat-num { animation-delay: .4s; }
-.stat-item:nth-child(9) .stat-num { animation-delay: .5s; }
-
-/* ── Feature cards stagger ── */
+/* ── Feature cards / league badges: hover only (entrance is the shared
+   scroll-reveal below). One consistent lift, no scale. ── */
 .feature-card {
-  animation: fadeUpSmooth .6s cubic-bezier(.16,1,.3,1) both;
   transition: border-color .3s, box-shadow .3s, transform .3s;
 }
-.feature-card:nth-child(1) { animation-delay: .05s; }
-.feature-card:nth-child(2) { animation-delay: .10s; }
-.feature-card:nth-child(3) { animation-delay: .15s; }
-.feature-card:nth-child(4) { animation-delay: .20s; }
-.feature-card:nth-child(5) { animation-delay: .25s; }
-.feature-card:nth-child(6) { animation-delay: .30s; }
 .feature-card:hover {
-  transform: translateY(-6px) scale(1.01);
+  transform: translateY(-3px);
   border-color: rgba(59,130,246,.4);
   box-shadow: 0 20px 60px rgba(0,0,0,.2), 0 0 0 1px rgba(59,130,246,.2);
 }
-/* ── League badges ── */
 .league-badge {
   transition: transform .25s, box-shadow .25s, border-color .25s;
 }
 .league-badge:hover {
-  transform: translateY(-4px) scale(1.04);
+  transform: translateY(-3px);
   box-shadow: 0 12px 32px rgba(0,0,0,.2);
   border-color: rgba(59,130,246,.3);
 }
@@ -1483,18 +1475,6 @@ footer{
   to   { transform: scale(1); opacity: 1; }
 }
 
-/* ── Scroll animate enhanced ── */
-.scroll-animate {
-  opacity: 0;
-  transform: translateY(24px);
-  transition: opacity 1.6s cubic-bezier(.22,.61,.36,1),
-              transform 1.6s cubic-bezier(.22,.61,.36,1);
-}
-.scroll-animate-visible {
-  opacity: 1;
-  transform: translateY(0);
-}
-
 /* ── Loading spinner ── */
 .spinner {
   border-color: rgba(59,130,246,.2);
@@ -1577,15 +1557,6 @@ footer {
   animation: gradShift 4s ease infinite;
   filter: drop-shadow(0 0 12px rgba(0,212,255,.3));
 }
-
-.scroll-animate.in-view { opacity:1; transform: none; }
-
-/* Stagger delays */
-.delay-1 { transition-delay: .1s !important; }
-.delay-2 { transition-delay: .2s !important; }
-.delay-3 { transition-delay: .3s !important; }
-.delay-4 { transition-delay: .4s !important; }
-.delay-5 { transition-delay: .5s !important; }
 
 /* ── Neon orb upgrades (more vivid) ── */
 .orb-1 { background: radial-gradient(circle, rgba(0,212,255,.22) 0%, transparent 70%); }
@@ -1736,37 +1707,21 @@ footer {
   width: 100%;
 }
 
-/* ── Scroll animations: kill immediate CSS animations on feature cards ── */
-/* (JS IntersectionObserver handles them instead) */
-.feature-card { animation: none !important; }
-.league-badge { animation: none !important; }
-.step         { animation: none !important; }
-
-/* ── Scroll reveal — improved distances ── */
-.scroll-from-left  {
-  opacity: 0; transform: translateX(-50px) translateY(10px);
-  transition: opacity 1.8s cubic-bezier(.22,.61,.36,1),
-              transform 1.8s cubic-bezier(.22,.61,.36,1);
+/* ── Scroll reveal: the ONLY below-the-fold entrance effect ──
+   One direction (up), one distance, one duration, one easing. Done as a
+   backwards-fill *animation* rather than a transform/opacity transition:
+   once it ends, the element goes back to its normal styles, so card hover
+   lifts and border/shadow transitions keep working (the previous
+   `transform:none` + long transition rules were silently disabling them).
+   Hidden state only exists while JS has tagged the element .reveal, so
+   no-JS visitors still see everything. */
+.reveal:not(.in-view) { opacity: 0; }
+.reveal.in-view {
+  animation: revealUp .5s cubic-bezier(.16,1,.3,1) var(--reveal-delay, 0ms) backwards;
 }
-.scroll-from-right {
-  opacity: 0; transform: translateX(50px) translateY(10px);
-  transition: opacity 1.8s cubic-bezier(.22,.61,.36,1),
-              transform 1.8s cubic-bezier(.22,.61,.36,1);
+@keyframes revealUp {
+  from { opacity: 0; transform: translateY(16px); }
 }
-.scroll-from-bottom {
-  opacity: 0; transform: translateY(50px);
-  transition: opacity 1.6s cubic-bezier(.22,.61,.36,1),
-              transform 1.6s cubic-bezier(.22,.61,.36,1);
-}
-.scroll-scale-in {
-  opacity: 0; transform: scale(.85) translateY(20px);
-  transition: opacity 1.5s cubic-bezier(.22,.61,.36,1),
-              transform 1.5s cubic-bezier(.22,.61,.36,1);
-}
-.scroll-from-left.in-view,
-.scroll-from-right.in-view,
-.scroll-from-bottom.in-view,
-.scroll-scale-in.in-view { opacity: 1; transform: none; }
 
 /* ══ Phone-specific polish ══ */
 
@@ -1816,19 +1771,93 @@ footer {
   }
 }
 
-/* ── Faster reveals on phone ── the scroll-in-view fade/slide (opacity +
-   transform, both 1.6-1.8s on desktop) is long enough that scrolling to a
-   section on a phone — where people scroll faster and the whole point of
-   the gesture is "get me to the content" — can genuinely catch a card
-   still half-transparent, which reads as "this hasn't loaded" rather than
-   "this is arriving." Shortened for narrow viewports only; desktop's
-   pace is unchanged. */
-@media (max-width: 600px) {
-  .scroll-from-left,
-  .scroll-from-right,
-  .scroll-from-bottom,
-  .scroll-scale-in {
-    transition-duration: .5s !important;
-  }
+
+
+/* ══ Player Overview (stat line, form, shot map, heatmap, career) ══ */
+.ov-section{padding:20px 24px;margin-top:18px}
+.ov-tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:10px;margin:6px 0 16px}
+.ov-tile{background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
+.ov-tile-val{font-size:24px;font-weight:800;letter-spacing:-.5px;color:var(--text);line-height:1.1}
+.ov-tile-sep{color:var(--muted);font-weight:500;margin:0 2px}
+.ov-tile-lbl{font-size:11.5px;font-weight:600;color:var(--dim);margin-top:3px;text-transform:uppercase;letter-spacing:.6px}
+.ov-tile-sub{font-size:11px;color:var(--muted);margin-top:2px}
+
+.ov-insights{display:flex;flex-wrap:wrap;gap:8px 28px;margin-bottom:16px}
+.ov-insights:empty{display:none}
+.ov-ins-title{font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px}
+.ov-good{color:#22c55e}.ov-bad{color:#f87171}
+.ov-chips{display:flex;flex-wrap:wrap;gap:6px}
+.ov-chip{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600;padding:5px 6px 5px 12px;border-radius:20px;border:1px solid}
+.ov-chip b{font-size:11px;padding:2px 7px;border-radius:12px;color:#fff}
+.ov-chip-good{background:rgba(34,197,94,.08);border-color:rgba(34,197,94,.3);color:var(--text)}
+.ov-chip-good b{background:#16a34a}
+.ov-chip-bad{background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.3);color:var(--text)}
+.ov-chip-bad b{background:#dc2626}
+.ov-ins-note{flex-basis:100%;font-size:11px;color:var(--muted)}
+
+.ov-card{background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:14px;padding:16px 18px;margin-top:14px;min-width:0}
+.ov-card-title{font-size:13px;font-weight:700;color:var(--text);margin-bottom:10px}
+.ov-card-title span{color:var(--muted);font-weight:500;margin-left:6px}
+.ov-two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.ov-two .ov-card{margin-top:14px}
+.ov-svg{width:100%;height:auto;display:block}
+.ov-pitch{border-radius:10px}
+.ov-grass{fill:#0b1a14}
+[data-theme="light"] .ov-grass{fill:#e7f3ec}
+.ov-line{stroke:rgba(255,255,255,.28);stroke-width:2}
+[data-theme="light"] .ov-line{stroke:rgba(15,23,42,.3)}
+.ov-spot{fill:rgba(255,255,255,.5)}
+.ov-arrow{stroke:rgba(255,255,255,.4);stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+.ov-goalframe{stroke:rgba(255,255,255,.55);stroke-width:3}
+.ov-shot{transition:fill-opacity .15s}
+.ov-shot:hover{fill-opacity:1}
+.ov-grid{stroke:rgba(255,255,255,.07);stroke-width:1}
+.ov-axis{fill:var(--muted);font-size:10px}
+.ov-avg{stroke:rgba(255,255,255,.5);stroke-width:1.2;stroke-dasharray:4 4}
+.ov-avg-lbl{fill:var(--dim);font-size:10px}
+.ov-bar{transition:opacity .15s}
+.ov-bar:hover{opacity:.75}
+.ov-dot-goal{fill:#fff}
+.ov-dot-assist{fill:none;stroke:#fff;stroke-width:1.6}
+.ov-legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:8px;font-size:11.5px;color:var(--dim);align-items:center}
+.ov-legend span{display:inline-flex;align-items:center;gap:5px}
+.ov-legend-note{color:var(--muted)}
+.ov-sw{width:10px;height:10px;border-radius:3px;display:inline-block}
+.ov-dot-goal-sw{width:9px;height:9px;border-radius:50%;background:#fff;display:inline-block}
+.ov-dot-assist-sw{width:9px;height:9px;border-radius:50%;border:1.6px solid #fff;display:inline-block}
+.ov-toggles{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.ov-toggles button{background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:50px;color:var(--dim);
+  font-family:'Outfit',sans-serif;font-size:12px;font-weight:600;padding:6px 14px;cursor:pointer;transition:background .15s,border-color .15s,color .15s}
+.ov-toggles button:hover{border-color:rgba(59,130,246,.4);color:var(--text)}
+.ov-toggles button.active{background:rgba(59,130,246,.15);border-color:rgba(59,130,246,.5);color:var(--c0)}
+.ov-shot-sum{margin-top:10px;font-size:12.5px;color:var(--dim)}
+.ov-shot-sum b{color:var(--text)}
+.ov-sub-title{font-size:12px;font-weight:700;color:var(--text);margin:14px 0 6px}
+.ov-sub-title span{color:var(--muted);font-weight:500}
+.ov-empty{color:var(--muted);font-size:13px;padding:18px 0}
+.ov-table-wrap{overflow-x:auto}
+.ov-table{width:100%;border-collapse:collapse;font-size:13px;min-width:560px}
+.ov-table th{text-align:right;font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);font-weight:700;padding:6px 10px;border-bottom:1px solid var(--border)}
+.ov-table td{text-align:right;padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.04);color:var(--text);font-variant-numeric:tabular-nums}
+.ov-table th:nth-child(-n+3),.ov-table td:nth-child(-n+3){text-align:left}
+.ov-table tbody tr:hover{background:rgba(59,130,246,.05)}
+@media (max-width:900px){
+  .ov-two{grid-template-columns:1fr}
+  .ov-section{padding:16px 14px}
+  .ov-tiles{grid-template-columns:repeat(auto-fill,minmax(104px,1fr))}
+  .ov-tile-val{font-size:21px}
 }
 
+/* ── Profile header extras: limited-sample badge, season switcher ── */
+.warn-chip{color:#fbbf24;border-color:rgba(251,191,36,.35);background:rgba(251,191,36,.08);cursor:help}
+.profile-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px}
+.profile-actions:has(#season-switch-slot:empty) #season-switch-slot{display:none}
+.season-switch{display:inline-flex;align-items:center;gap:8px;font-size:11.5px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.6px}
+.season-switch select{
+  max-width:100%;background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:10px;
+  color:var(--text);font-family:'Outfit',sans-serif;font-size:12.5px;font-weight:500;text-transform:none;letter-spacing:0;
+  padding:7px 10px;cursor:pointer;transition:border-color .2s;
+}
+.season-switch select:hover,.season-switch select:focus{border-color:rgba(59,130,246,.5);outline:none}
+.season-switch select option{background:#0d1220;color:#f1f5f9}
+@media (max-width:600px){.season-switch{flex-wrap:wrap}.season-switch select{width:100%}}

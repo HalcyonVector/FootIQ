@@ -46,8 +46,8 @@ def compute_final_third(events: list[dict], carries: list[dict]) -> dict:
             acc.add(pid, "ft_shots")
             if etype == "Goal":
                 acc.add(pid, "ft_goals")
-            if etype in ("Goal", "SavedShot"):
-                acc.add(pid, "ft_sot")
+            if etype == "Goal" or (etype == "SavedShot" and "Blocked" not in qm):
+                acc.add(pid, "ft_sot")  # blocked shots never reached the frame
 
         elif etype == "Pass":
             qm = q.qmap(e["qualifiers"])

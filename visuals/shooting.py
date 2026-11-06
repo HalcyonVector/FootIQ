@@ -52,7 +52,7 @@ def generate_shooting_chart(player_name: str, team: str, season: str, shots: lis
         plt.Line2D([0], [0], marker="o", color="none", markerfacecolor=ON_TARGET_COLOR, markersize=9, markeredgecolor="white"),
         plt.Line2D([0], [0], marker="o", color="none", markerfacecolor="none", markersize=9, markeredgecolor=OFF_TARGET_COLOR),
     ]
-    labels = [f"Goals: {counts['goal']}", f"On target: {counts['on_target']}", f"Off target: {counts['off_target']}"]
+    labels = [f"Goals: {counts['goal']}", f"On target: {counts['on_target']}", f"Off target / blocked: {counts['off_target']}"]
     fig.legend(handles, labels, loc="lower center", ncol=3, frameon=False,
                labelcolor="#cbd5e1", fontsize=8.5, bbox_to_anchor=(0.5, 0.02))
     return fig_to_b64(fig)

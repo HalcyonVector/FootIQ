@@ -30,6 +30,7 @@ sys.path.insert(0, str(REPO_ROOT))
 from core.advanced import config
 from scraping.scrape_whoscored import scrape
 from scraping.build_advanced_metrics import main as rebuild_parquet
+from scraping.build_overview_data import main as rebuild_overview
 from scraping.check_data_health import check_league_seasons
 
 LOG_PATH = Path(__file__).parent / "auto_update.log"
@@ -100,6 +101,20 @@ def run(push: bool = True) -> None:
         import traceback
         log(traceback.format_exc())
         return
+
+    # Player Overview tables (stat line / form / shot map / xG / heatmaps).
+    # Independent of the percentile parquet above, so a failure here must not
+    # block shipping the main data -- last week's overview just stays in place.
+    try:
+        log("Rebuilding overview data...")
+        t0 = time.time()
+        sys.argv = sys.argv[:1]  # build_overview_data parses argv; run it with its defaults
+        rebuild_overview()
+        log(f"Overview rebuild done in {time.time()-t0:.1f}s")
+    except Exception:
+        log("!!! overview rebuild failed (non-fatal, continuing with last week's overview)")
+        import traceback
+        log(traceback.format_exc())
 
     # A flagged health check should never block this week's data from
     # shipping -- it's a signal to look into later, not a reason to hold

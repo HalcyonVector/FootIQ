@@ -23,10 +23,14 @@ Open **http://127.0.0.1:5000**
 
 **Player page**
 - Search across 15 leagues and competitions, percentile-ranked within same-position cohorts
+- Season switcher on the profile (every league/season a player appears in) and shareable URLs (the address bar always holds the current player-season) (`/player?player_id=&league=&season=`)
+- A "Limited sample" badge when a player has under 450 minutes AND under a third of the minutes their team played in that competition (so a Europa League regular is not flagged, a league fringe player is)
+- Open-play xG, xG per shot and xA are real percentile metrics (Shooting and Passing tabs), so Compare, Scout and Explore use them too
 - 12 Advanced Metrics tabs (Goalkeeping swaps in for keepers)
 - Position-weighted Composite Rating: a single headline number combining every category with a power mean, so a player's strongest categories are rewarded rather than diluted by ones that were never their job
 - **Final Third**: Completeness (geometric-mean floor across 4 pillars) and Impact (per-touch value from a player's 2 strongest pillars)
 - **Combination Play**: most-found teammates, plus a pitch chart of exactly what a chosen teammate does after receiving a pass
+- **Season Overview**: stat line (apps, goals, assists, xG, xA, average rating, cards...), auto-generated strengths and areas to improve, a per-match form chart, a shot map sized by xG with goal-placement view, touch and defensive-action heatmaps, and a career table across every season in the dataset. xG comes from a home-grown logistic model fitted on the dataset's own shots (see `core/advanced/xg.py`)
 
 **Compare**
 - 2 to 4 players side by side, any league, any season
@@ -78,6 +82,9 @@ FootIQ/
 │       ├── linkup.py              Combination Play pairwise pass/reception pipeline
 │       ├── aggregator.py          Orchestrates match parsing into a per-player-season rollup
 │       ├── chart_events.py        Per-category raw event coordinates behind the charts
+│       ├── overview.py            Per-match stat line, shots and heatmap grids (Season Overview)
+│       ├── xg.py                  Expected-goals model (numpy logistic regression, coefficients in xg_model.json)
+│       ├── summary.py             Season line, form, career and strengths shaping at request time
 │       ├── composite.py           Position-weighted Composite Rating (power mean)
 │       ├── scout.py               Cross-league, cross-season similarity search
 │       ├── explore.py             Single-metric ranked stat browsing
@@ -92,7 +99,8 @@ FootIQ/
 │
 ├── scraping/
 │   ├── scrape_whoscored.py        Resumable WhoScored match-JSON scraper, optional parallel workers
-│   └── build_advanced_metrics.py  Rebuilds data/advanced/*.parquet from the raw cache
+│   ├── build_advanced_metrics.py  Rebuilds data/advanced/*.parquet from the raw cache
+│   └── build_overview_data.py     Builds player_matches/, shots/, heatmaps/ and xg_model.json
 │
 ├── templates/
 │   ├── base.html                  Nav, particles, scroll animations
@@ -120,6 +128,8 @@ FootIQ/
 |---|---|---|---|
 | `/api/search` | GET | `name`, `league`, `season` | Matching players |
 | `/api/advanced-stats` | POST | `player_id`, `league`, `season` | 12 metric categories, percentile-ranked |
+| `/api/player` | GET | `id`, `league`, `season` | One player-season plus every season they appear in |
+| `/api/player-overview` | POST | `player_id`, `league`, `season` | Stat line, form, career, shots with xG, heatmaps |
 | `/api/linkup-teammates` | POST | `player_id`, `league`, `season` | Top 10 most-passed-to teammates |
 | `/api/linkup-detail` | POST | `passer_id`, `teammate_id`, `league`, `season` | Reception-outcome stats and pitch chart |
 | `/api/category-chart` | POST | `player_id`, `league`, `season`, `category` | Per-category chart grid |
@@ -136,11 +146,13 @@ The raw match-event JSON lives outside the repo (`core/advanced/config.py`'s `WH
 ```bash
 python scraping/scrape_whoscored.py            # resumable, safe to re-run or interrupt
 python scraping/build_advanced_metrics.py      # parses the raw cache into data/advanced/*.parquet
+python scraping/build_overview_data.py         # Season Overview tables + xG model (about 15 minutes); also adds
+                                               # the xG/xA columns to player_season_advanced.parquet
 ```
 
 Add `--workers N` to `scrape_whoscored.py` to run multiple leagues and seasons concurrently, each in its own Chrome instance. Defaults to 1 (sequential).
 
-`data/advanced/player_season_advanced.parquet` and `linkup_summary.parquet` are loaded fully into memory (small, no per-event data). `linkup_receptions/` and `chart_events/<category>/` are Hive-partitioned by league/season — each request reads only its own player/league/season slice off disk, not the whole dataset, so per-tab chart rendering stays within a modest memory footprint. The raw event cache never touches the running app.
+`data/advanced/player_season_advanced.parquet` and `linkup_summary.parquet` are loaded fully into memory (small, no per-event data). `linkup_receptions/` and `chart_events/<category>/` are Hive-partitioned by league/season — each request reads only its own player/league/season slice off disk, not the whole dataset, so per-tab chart rendering stays within a modest memory footprint. `player_matches/`, `shots/` and `heatmaps/` (Season Overview) follow the same partitioned, per-request-slice pattern. The raw event cache never touches the running app.
 
 ---
 

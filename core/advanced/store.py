@@ -145,13 +145,76 @@ def get_chart_events(category: str, player_id: int, league: str, season: str) ->
     return table.to_pylist()
 
 
+# ── Player Overview datasets (scraping/build_overview_data.py) ──────────────
+# Same per-request partition-slice pattern as get_chart_events(): one cached
+# Dataset object per table, every filter pushed into the Arrow scan.
+
+_OVERVIEW_DATASETS: dict[str, pa_ds.Dataset | None] = {}
+
+
+def _overview_dataset(name: str, path: str) -> pa_ds.Dataset | None:
+    if name not in _OVERVIEW_DATASETS:
+        _OVERVIEW_DATASETS[name] = pa_ds.dataset(path, format="parquet", partitioning="hive") \
+            if os.path.isdir(path) and os.listdir(path) else None
+    return _OVERVIEW_DATASETS[name]
+
+
+def get_player_matches(player_id: int, league: str | None = None, season: str | None = None) -> list[dict]:
+    """A player's per-match rows. With league+season: that one partition.
+    Without: every league/season the player appears in (career view)."""
+    ds = _overview_dataset("matches", config.PLAYER_MATCHES_DIR)
+    if ds is None:
+        return []
+    flt = _f("whoscored_player_id") == int(player_id)
+    if league is not None:
+        flt = flt & (_f("league") == league)
+    if season is not None:
+        flt = flt & (_f("season") == season)
+    return ds.to_table(filter=flt).to_pylist()
+
+
+def get_team_match_counts(league: str, season: str) -> dict[str, int]:
+    """{team name: matches played} in one competition-season, from the
+    per-match table (one partition scan, a few thousand rows)."""
+    ds = _overview_dataset("matches", config.PLAYER_MATCHES_DIR)
+    if ds is None:
+        return {}
+    t = ds.to_table(columns=["team", "match_key"],
+                    filter=(_f("league") == league) & (_f("season") == season)).to_pandas()
+    return t.drop_duplicates().groupby("team")["match_key"].nunique().to_dict()
+
+
+def get_player_shots(player_id: int, league: str, season: str) -> list[dict]:
+    ds = _overview_dataset("shots", config.SHOTS_DIR)
+    if ds is None:
+        return []
+    cols = [f.name for f in ds.schema if f.name not in ("whoscored_player_id", "league", "season")]
+    return ds.to_table(
+        columns=cols,
+        filter=(_f("league") == league) & (_f("season") == season) & (_f("whoscored_player_id") == int(player_id)),
+    ).to_pylist()
+
+
+def get_player_heat(player_id: int, league: str, season: str) -> dict | None:
+    """{touches: [GRID_X*GRID_Y], defs: [...]} flattened column-major by x (see overview._cell)."""
+    ds = _overview_dataset("heat", config.HEATMAPS_DIR)
+    if ds is None:
+        return None
+    rows = ds.to_table(
+        columns=["touches", "defs"],
+        filter=(_f("league") == league) & (_f("season") == season) & (_f("whoscored_player_id") == int(player_id)),
+    ).to_pylist()
+    return rows[0] if rows else None
+
+
 def reload():
     """Force a re-read from disk (e.g. after rebuilding the parquet)."""
-    global _DF, _LINKUP_SUMMARY_DF, _CHART_DATASETS, _LINKUP_RECEPTIONS_DATASET
+    global _DF, _LINKUP_SUMMARY_DF, _CHART_DATASETS, _LINKUP_RECEPTIONS_DATASET, _OVERVIEW_DATASETS
     _DF = None
     _LINKUP_SUMMARY_DF = None
     _CHART_DATASETS = {}
     _LINKUP_RECEPTIONS_DATASET = None
+    _OVERVIEW_DATASETS = {}
     return get_advanced_df()
 
 
@@ -171,3 +234,6 @@ def warm_up() -> None:
     for category in CHART_CATEGORIES:
         _chart_dataset(category)
     _linkup_receptions_dataset()
+    _overview_dataset("matches", config.PLAYER_MATCHES_DIR)
+    _overview_dataset("shots", config.SHOTS_DIR)
+    _overview_dataset("heat", config.HEATMAPS_DIR)

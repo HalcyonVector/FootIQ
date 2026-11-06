@@ -22,7 +22,7 @@ built straight from the already-computed per-player-season row/cohort.
 
 from core.advanced import geometry as g, qualifiers as q, timing
 from core.advanced.carries import NON_TOUCH_TYPES, MAX_CARRY_SECONDS, MIN_CARRY_DISTANCE_UNITS
-from core.advanced.categories.shooting import SHOT_TYPES, ON_TARGET_TYPES
+from core.advanced.categories.shooting import SHOT_TYPES, is_on_target
 from core.advanced.categories.holdup import (
     MIN_HOLD_SECONDS, MAX_HOLD_SECONDS, DANGEROUS_WINDOW_SECONDS,
     OPPONENT_SHOT_TYPES, zone_of, _find_hold, _is_dangerous_aftermath,
@@ -98,7 +98,7 @@ def extract_shooting(events: list[dict]) -> dict:
             continue
         if e["type"] == "Goal":
             outcome = "goal"
-        elif e["type"] in ON_TARGET_TYPES:
+        elif is_on_target(e["type"], qm):
             outcome = "on_target"
         else:
             outcome = "off_target"
