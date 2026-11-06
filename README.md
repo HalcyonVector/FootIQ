@@ -58,7 +58,7 @@ Open **http://127.0.0.1:5000**
 |---|---|
 | Backend | Python 3.x, Flask, Flask-CORS |
 | Data | pandas, pyarrow, `data/advanced/*.parquet` |
-| Charts | Matplotlib + mplsoccer (server-side, rendered to base64 PNG) |
+| Charts | Client-side SVG (`static/js/charts.js`) drawn from JSON specs built in `visuals/specs.py` |
 | Frontend | HTML, CSS, vanilla JS, no build step |
 | Images | Wikipedia REST API with a local JSON cache |
 | Testing | pytest |
@@ -102,7 +102,7 @@ FootIQ/
 │       ├── metrics_master.py      Category to metric list, labels, units
 │       └── categories/            One module per metric category
 │
-├── visuals/                     One chart module per category, plus linkup and compare
+├── visuals/specs.py             Chart specs (JSON) for every Advanced Metrics tab, Combination Play and Compare
 │
 ├── scraping/
 │   ├── scrape_whoscored.py        Resumable WhoScored match-JSON scraper, optional parallel workers

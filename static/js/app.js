@@ -579,7 +579,7 @@ function renderAdvancedStats(categories) {
         <div id="linkup-stats-row" class="profile-season-stats" style="margin-bottom:10px"></div>
         <div class="linkup-chart-wrap">
           <div class="mini-spinner" id="linkup-chart-spinner" style="display:none"></div>
-          <img id="linkup-chart-img" class="chart-img" alt="Combination play chart" />
+          <div id="linkup-chart" class="linkup-chart"></div>
         </div>
       `;
     } else {
@@ -698,14 +698,7 @@ async function loadCategoryChart(catKey, forceReload = false) {
 
 function renderChartImages(catKey, data) {
   const grid = document.getElementById(`adv-chart-grid-${catKey}`);
-  if (grid) {
-    grid.innerHTML = (data.charts || []).map(c => `
-      <div class="adv-chart-tile">
-        <div class="adv-chart-tile-title">${c.title}</div>
-        <div class="adv-chart-tile-body"><img class="chart-img" src="data:image/png;base64,${c.image}" alt="${c.title}" /></div>
-      </div>
-    `).join("");
-  }
+  if (grid) FootIQCharts.renderTiles(grid, data.charts);
   if (data.stats && catKey === "carrying") {
     const s = data.stats;
     const statsRow = document.getElementById(`adv-chart-stats-${catKey}`);
@@ -809,9 +802,9 @@ async function selectLinkupTeammate(teammateId) {
   }
 
   const spinner = document.getElementById("linkup-chart-spinner");
-  const img = document.getElementById("linkup-chart-img");
+  const chartEl = document.getElementById("linkup-chart");
   if (spinner) spinner.style.display = "block";
-  if (img) img.style.display = "none";
+  if (chartEl) chartEl.style.display = "none";
   try {
     const res = await fetch("/api/linkup-detail", {
       method: "POST", headers: { "Content-Type": "application/json" },
@@ -821,7 +814,7 @@ async function selectLinkupTeammate(teammateId) {
       }),
     });
     const data = await res.json();
-    if (!res.ok || !data.chart) return;
+    if (!res.ok || !data.spec) return;
     _linkupDetailCache[teammateId] = data;
     renderLinkupDetail(data);
   } catch { /* silent */ }
@@ -837,8 +830,8 @@ function renderLinkupDetail(data) {
     <span class="profile-stat-chip assist-chip">Take-Ons: ${s.take_ons_won}</span>
     <span class="profile-stat-chip apps-chip">Shots: ${s.shots}</span>
   `;
-  const img = document.getElementById("linkup-chart-img");
-  if (img) { img.src = `data:image/png;base64,${data.chart}`; img.style.display = "block"; }
+  const chartEl = document.getElementById("linkup-chart");
+  if (chartEl) { FootIQCharts.render(chartEl, data.spec); chartEl.style.display = "block"; }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

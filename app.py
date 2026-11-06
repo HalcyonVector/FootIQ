@@ -56,15 +56,15 @@ def _gzip_static(resp):
 
 
 # In-memory chart cache: key = whatever the caller builds it as.
-# Stores pre-rendered base64 chart PNGs so repeat lookups are instant.
+# Stores chart specs (small JSON, drawn client-side by static/js/charts.js).
 _chart_cache: dict = {}
 _CACHE_MAX = 200   # evict oldest when this is exceeded
 
 # Runs once, synchronously, while gunicorn imports this module — BEFORE the
 # worker starts accepting connections — so a fresh worker (a cold Render
 # spin-up, or this app's own --max-requests recycling in render.yaml) pays
-# the first-use cost of loading the parquet caches, building all 12 chart
-# Dataset objects, and warming matplotlib's font cache itself, rather than
+# the first-use cost of loading the parquet caches and building all 12 chart
+# Dataset objects, rather than
 # whichever real visitor's request happens to land first. Measured live: a
 # category-chart request against a genuinely cold worker took 40s; with
 # this warm-up in place that cost happens at boot instead, invisible to
@@ -73,9 +73,7 @@ _CACHE_MAX = 200   # evict oldest when this is exceeded
 # path on first request rather than refuse to start at all.
 try:
     from core.advanced.store import warm_up as _warm_up_store
-    from visuals.chart_utils import warm_up as _warm_up_charts
     _warm_up_store()
-    _warm_up_charts()
 except Exception:
     traceback.print_exc()
 
@@ -468,13 +466,13 @@ def api_linkup_detail():
 
         cache_key = ("linkup", passer_id, teammate_id, league, season)
         if cache_key not in _chart_cache:
-            from visuals.linkup import generate_linkup_chart
-            chart = generate_linkup_chart(pair["passer_name"], pair["receiver_name"], receptions)
+            from visuals import specs as _specs
+            spec = _specs.linkup_map(pair["passer_name"], receptions)
             if len(_chart_cache) >= _CACHE_MAX:
                 _chart_cache.pop(next(iter(_chart_cache)))
-            _chart_cache[cache_key] = chart
+            _chart_cache[cache_key] = spec
         else:
-            chart = _chart_cache[cache_key]
+            spec = _chart_cache[cache_key]
 
         return jsonify({
             "stats": {
@@ -485,7 +483,7 @@ def api_linkup_detail():
                 "shots": counts.get("shot", 0),
                 "receptions": len(receptions),
             },
-            "chart": chart,
+            "spec": spec,
         })
     except Exception as e:
         traceback.print_exc()
@@ -545,173 +543,131 @@ def api_category_chart():
                 _stats_cache[cat_key] = cat["rows"][0]["stats"] if cat else []
             return _stats_cache[cat_key]
 
-        chart_stats = None  # only Carrying returns this — its counts render as HTML, not baked into the image
-        charts = []  # list of {key, title, image}
+        from visuals import specs as sp
+
+        chart_stats = None  # only Carrying returns this -- its counts render as HTML chips
+        charts = []  # list of {key, title, spec}
+
+        def chart(key, title, spec):
+            charts.append({"key": key, "title": title, "spec": spec})
 
         if category == "passing":
-            from visuals.passing import generate_passing_chart, generate_pass_outcome_chart, generate_release_time_chart, generate_pass_zone_chart
             passes = recs("passing", ["x", "y", "end_x", "end_y", "completed", "progressive", "into_box", "release_s"])
             mode = filt or "progressive"
-            # Every companion chart respects the same filter as the map —
-            # "Progressive & into box" mode looks at just that subset, not
-            # the whole season, so the tile grid never shows 3+ charts that
-            # look identical regardless of which toggle is picked.
+            # Every companion chart respects the same filter as the map --
+            # "Progressive & into box" looks at just that subset, not the whole
+            # season, so the tile grid never shows charts that look identical
+            # regardless of which toggle is picked.
             filtered_passes = [p for p in passes if p["progressive"] or p["into_box"]] if mode == "progressive" else passes
-            charts = [
-                {"key": "map", "title": "Pass Map", "image": generate_passing_chart(player_name, team, season, passes, mode=mode)},
-                {"key": "outcome", "title": "Outcome Breakdown", "image": generate_pass_outcome_chart(player_name, team, season, filtered_passes)},
-                {"key": "release", "title": "Release Times", "image": generate_release_time_chart(player_name, team, season, filtered_passes)},
-                {"key": "zone", "title": "Pass Origin by Third", "image": generate_pass_zone_chart(player_name, team, season, filtered_passes)},
-            ]
+            chart("map", "Pass Map", sp.passing_map(passes, mode))
+            chart("outcome", "Outcome Breakdown", sp.pass_outcomes(filtered_passes))
+            chart("release", "Release Times", sp.release_times(filtered_passes))
+            chart("zone", "Pass Origin by Third", sp.pass_zones(filtered_passes))
 
         elif category == "shooting":
-            from visuals.shooting import generate_shooting_chart, generate_shot_distance_chart, generate_body_part_chart, generate_shot_funnel_chart
             shots = recs("shooting", ["x", "y", "outcome", "body_part"])
-            charts = [
-                {"key": "map", "title": "Shot Map", "image": generate_shooting_chart(player_name, team, season, shots)},
-                {"key": "distance", "title": "Shot Distance", "image": generate_shot_distance_chart(player_name, team, season, shots)},
-                {"key": "body_part", "title": "Body Part", "image": generate_body_part_chart(player_name, team, season, shots)},
-                {"key": "funnel", "title": "Conversion Funnel", "image": generate_shot_funnel_chart(player_name, team, season, shots)},
-            ]
+            chart("map", "Shot Map", sp.shot_map(shots))
+            chart("distance", "Shot Distance", sp.shot_distance(shots))
+            chart("body_part", "Body Part", sp.shot_body_parts(shots))
+            chart("funnel", "Conversion Funnel", sp.shot_funnel(shots))
 
         elif category == "carrying":
-            from visuals.carrying import generate_carrying_chart, generate_carry_angle_rose, generate_carry_distance_chart, generate_takeon_chart
             show = tuple(filt.split(",")) if filt else ("prog_pass", "takeon_won", "takeon_lost")
             carries = recs("carrying", ["start_x", "start_y", "end_x", "end_y", "progressive", "followup"])
             takeons = recs("takeons", ["x", "y", "outcome"])
-            map_chart, map_stats = generate_carrying_chart(player_name, team, season, carries, show=show)
-            rose_chart, rose_stats = generate_carry_angle_rose(player_name, carries)
+            map_spec, map_stats = sp.carry_map(carries, show=show)
+            rose_spec, rose_stats = sp.carry_rose(carries)
             chart_stats = {**map_stats, **rose_stats}
-            charts = [
-                {"key": "map", "title": "Progressive Carries", "image": map_chart},
-                {"key": "rose", "title": "Carry Angle Rose", "image": rose_chart},
-                {"key": "distance", "title": "Carry Distance", "image": generate_carry_distance_chart(player_name, team, season, carries)},
-                {"key": "takeons", "title": "Take-Ons", "image": generate_takeon_chart(player_name, team, season, takeons)},
-            ]
+            chart("map", "Progressive Carries", map_spec)
+            chart("rose", "Carry Angle Rose", rose_spec)
+            chart("distance", "Carry Distance", sp.carry_distance(carries))
+            chart("takeons", "Take-Ons", sp.takeon_map(takeons))
 
         elif category == "aerial":
-            from visuals.aerial import generate_aerial_chart, generate_aerial_outcome_chart, generate_aerial_phase_chart
             phases = tuple(filt.split(",")) if filt else ("open_play", "set_piece")
             duels = recs("aerial", ["x", "y", "won", "phase"])
             stats = stats_for("aerial")
-            charts = [
-                {"key": "map", "title": "Duel Locations", "image": generate_aerial_chart(player_name, team, season, duels, phases=phases)},
-                {"key": "outcome", "title": "After Winning a Duel", "image": generate_aerial_outcome_chart(player_name, team, season, stats)},
-                {"key": "phase", "title": "Win Rate by Phase", "image": generate_aerial_phase_chart(player_name, team, season, stats, phases=phases)},
-            ]
+            chart("map", "Duel Locations", sp.aerial_map(duels, phases))
+            chart("outcome", "After Winning a Duel", sp.aerial_outcomes(stats))
+            chart("phase", "Win Rate by Phase", sp.aerial_phases(stats, phases))
 
         elif category == "holdup":
-            from visuals.holdup import generate_holdup_chart, generate_holdup_outcome_chart, generate_holdup_zone_volume_chart
             zone = filt or "final"
             all_episodes = recs("holdup", ["x", "y", "zone", "outcome"])
             episodes = all_episodes if zone == "whole" else [ep for ep in all_episodes if ep["zone"] == zone]
-            charts = [
-                {"key": "map", "title": "Hold-Up Episodes", "image": generate_holdup_chart(player_name, team, season, episodes, zone=zone)},
-                {"key": "outcome", "title": "Outcome Breakdown", "image": generate_holdup_outcome_chart(player_name, team, season, episodes)},
-                {"key": "zone_volume", "title": "Episodes by Zone", "image": generate_holdup_zone_volume_chart(player_name, team, season, all_episodes)},
-            ]
+            chart("map", "Hold-Up Episodes", sp.holdup_map(episodes))
+            chart("outcome", "Outcome Breakdown", sp.holdup_outcomes(episodes))
+            chart("zone_volume", "Episodes by Zone", sp.holdup_zones(all_episodes))
 
         elif category == "half_spaces":
-            from visuals.half_spaces import generate_half_space_chart, generate_half_space_zone_split_chart, generate_half_space_percentile_chart
             hs_mode = filt or "offensive"
             offense = recs("half_space_off", ["x", "y", "end_x", "end_y", "kind"])
             defense = recs("half_space_def", ["x", "y", "kind"])
             stats = stats_for("half_spaces")
-            # Side Split mixes both regardless of mode (deliberately — "which
-            # side is this player's half-space work concentrated on" doesn't
-            # depend on offense/defense), but Percentiles switches with the map.
-            charts = [
-                {"key": "map", "title": "Half-Space Play", "image": generate_half_space_chart(player_name, team, season, offense, defense, mode=hs_mode)},
-                {"key": "side_split", "title": "Side Split", "image": generate_half_space_zone_split_chart(player_name, team, season, offense, defense)},
-                {"key": "percentiles", "title": "Percentiles", "image": generate_half_space_percentile_chart(player_name, team, season, stats, mode=hs_mode)},
-            ]
+            # Side Split mixes both regardless of mode (deliberately), but
+            # Percentiles switches with the map.
+            chart("map", "Half-Space Play", sp.half_space_map(offense, defense, hs_mode))
+            chart("side_split", "Side Split", sp.half_space_sides(offense, defense))
+            chart("percentiles", "Percentiles", sp.half_space_percentiles(stats, hs_mode))
 
         elif category == "tempo":
-            from visuals.tempo import generate_tempo_chart, generate_tempo_release_chart, generate_tempo_balance_chart
             actions = recs("tempo", ["x", "y", "end_x", "end_y", "kind", "release_s"])
-            charts = [
-                {"key": "map", "title": "Tempo Actions", "image": generate_tempo_chart(player_name, team, season, actions)},
-                {"key": "release", "title": "Release Times", "image": generate_tempo_release_chart(player_name, team, season, actions)},
-                {"key": "balance", "title": "Injector vs Reset", "image": generate_tempo_balance_chart(player_name, team, season, actions)},
-            ]
+            chart("map", "Tempo Actions", sp.tempo_map(actions))
+            chart("release", "Release Times", sp.tempo_release(actions))
+            chart("balance", "Injector vs Reset", sp.tempo_balance(actions))
 
         elif category == "defending":
-            from visuals.defending import generate_defending_chart, generate_defending_zone_chart, generate_defending_type_chart
             actions = recs("defending", ["x", "y", "action", "outcome"])
-            charts = [
-                {"key": "map", "title": "Defensive Actions", "image": generate_defending_chart(player_name, team, season, actions)},
-                {"key": "zone", "title": "Actions by Zone", "image": generate_defending_zone_chart(player_name, team, season, actions)},
-                {"key": "type", "title": "Action-Type Breakdown", "image": generate_defending_type_chart(player_name, team, season, actions)},
-            ]
+            chart("map", "Defensive Actions", sp.defending_map(actions))
+            chart("zone", "Actions by Zone", sp.defending_zones(actions))
+            chart("type", "Action-Type Breakdown", sp.defending_types(actions))
 
         elif category == "post_recovery":
-            from visuals.post_recovery import generate_post_recovery_chart, generate_post_recovery_outcome_chart, generate_post_recovery_zone_chart
             recoveries = recs("post_recovery", ["x", "y", "end_x", "end_y", "outcome"])
-            charts = [
-                {"key": "map", "title": "Post-Recovery Sequences", "image": generate_post_recovery_chart(player_name, team, season, recoveries)},
-                {"key": "outcome", "title": "Outcome Breakdown", "image": generate_post_recovery_outcome_chart(player_name, team, season, recoveries)},
-                {"key": "zone", "title": "Recoveries by Third", "image": generate_post_recovery_zone_chart(player_name, team, season, recoveries)},
-            ]
+            chart("map", "Post-Recovery Sequences", sp.post_recovery_map(recoveries))
+            chart("outcome", "Outcome Breakdown", sp.post_recovery_outcomes(recoveries))
+            chart("zone", "Recoveries by Third", sp.post_recovery_zones(recoveries))
 
         elif category == "goalkeeping":
-            from visuals.goalkeeping import generate_goalkeeping_chart, generate_gk_outcome_chart, generate_gk_distribution_chart
             shots = recs("goalkeeping", ["x", "y", "outcome"])
             stats = stats_for("goalkeeping")
-            charts = [
-                {"key": "map", "title": "Shots Faced", "image": generate_goalkeeping_chart(player_name, team, season, shots)},
-                {"key": "outcome", "title": "Shot Outcome", "image": generate_gk_outcome_chart(player_name, team, season, shots)},
-                {"key": "distribution", "title": "Distribution Profile", "image": generate_gk_distribution_chart(player_name, team, season, stats)},
-            ]
+            chart("map", "Shots Faced", sp.gk_map(shots))
+            chart("outcome", "Shot Outcome", sp.gk_outcomes(shots))
+            chart("distribution", "Distribution Profile", sp.gk_distribution(stats))
 
         elif category == "decision_making":
-            from visuals.decision_making import generate_decision_bloom_chart, generate_decision_bar_chart
             stats = stats_for("decision_making")
-            charts = [
-                {"key": "bloom", "title": "Decision-Making Bloom", "image": generate_decision_bloom_chart(player_name, team, season, stats)},
-                {"key": "bar", "title": "Percentile Ranking", "image": generate_decision_bar_chart(player_name, team, season, stats)},
-            ]
+            chart("bloom", "Decision-Making Bloom", sp.decision_bloom(stats))
+            chart("bar", "Percentile Ranking", sp.decision_bars(stats))
 
         elif category == "final_third":
-            from visuals.final_third import generate_final_third_scatter, generate_pillar_bar_chart, generate_completeness_distribution_chart
             position = row.get("position", "")
             points = pct_mod.build_final_third_scatter(position, season, df, player_id)
             cohort = pct_mod.build_cohort(df, position, season)
             floor_pct, per_touch_pct, _, _ = pct_mod.final_third_pillar_percentiles(row, cohort, df, season)
             target = next((p for p in points if p["is_target"]), None)
             player_completeness = target["completeness"] if target else None
-            charts = [
-                {"key": "scatter", "title": "Completeness vs Impact", "image": generate_final_third_scatter(player_name, team, season, points)},
-                {"key": "pillars", "title": "Four Pillars", "image": generate_pillar_bar_chart(player_name, team, season, floor_pct, per_touch_pct)},
-                {"key": "distribution", "title": "Cohort Distribution", "image": generate_completeness_distribution_chart(player_name, team, season, points, player_completeness)},
-            ]
+            chart("scatter", "Completeness vs Impact", sp.final_third_scatter(player_name, points))
+            chart("pillars", "Four Pillars", sp.pillar_bars(floor_pct, per_touch_pct))
+            chart("distribution", "Cohort Distribution", sp.completeness_distribution(player_name, points, player_completeness))
 
         else:
             return jsonify({"error": f"Unknown category '{category}'"}), 400
 
-        # Shared across every category — "is this player trending up or down
+        # Shared across every category -- "is this player trending up or down
         # relative to their cohort", something multi-season data already
         # supports but nothing else in the app surfaces.
         from core.advanced.composite import category_percentile_trend
         from core.advanced.metrics_master import CATEGORIES
-        from visuals.chart_utils import generate_trend_chart
 
         # Chronological oldest -> newest for a left-to-right timeline. SEASONS
         # is dropdown-display order (newest domestic season first, tournament
-        # one-offs tacked on the end), NOT a timeline — reversing it just
-        # produces "2024, 2022, 2023-24, 2024-25, 2025-26" since a tournament
-        # season like "2024" (Euro 2024) sits strictly BETWEEN two domestic
-        # seasons chronologically, not before or after all of them. Sort by
-        # the real calendar order instead (see season_sort_key's docstring).
+        # one-offs tacked on the end), NOT a timeline -- sort by the real
+        # calendar order instead (see season_sort_key's docstring).
         trend_seasons = sorted(SEASONS, key=advanced_config.season_sort_key)
         trend_values = category_percentile_trend(player_id, category, trend_seasons, df)
-        charts.append({
-            "key": "trend",
-            "title": "Season Trend",
-            "image": generate_trend_chart(
-                player_name, f"{CATEGORIES[category]['label']} · percentile by season",
-                trend_seasons, trend_values,
-            ),
-        })
+        chart("trend", "Season Trend",
+              sp.trend(trend_seasons, trend_values, sub=f"{CATEGORIES[category]['label']} · percentile by season"))
 
         result = {"charts": charts}
         if chart_stats is not None:
@@ -742,7 +698,7 @@ def api_compare_stats():
         from core.advanced.lookup import _clean_position, _clean_minutes
         from core.advanced.percentiles import build_all_categories
         from core.advanced.composite import compute_composite
-        from visuals.compare import generate_comparison_radar, generate_composite_bar_chart, generate_category_comparison_chart
+        from visuals import specs as sp
 
         df = get_advanced_df()
         if df.empty:
@@ -779,9 +735,9 @@ def api_compare_stats():
             charts = _chart_cache[cache_key]
         else:
             charts = [
-                {"key": "composite", "title": "Composite Rating", "image": generate_composite_bar_chart(players)},
-                {"key": "radar", "title": "Headline Comparison", "image": generate_comparison_radar(players)},
-                {"key": "categories", "title": "Category Percentile Comparison", "image": generate_category_comparison_chart(players)},
+                {"key": "composite", "title": "Composite Rating", "spec": sp.compare_composite(players)},
+                {"key": "radar", "title": "Headline Comparison", "spec": sp.compare_radar(players)},
+                {"key": "categories", "title": "Category Percentile Comparison", "spec": sp.compare_categories(players)},
             ]
             if len(_chart_cache) >= _CACHE_MAX:
                 _chart_cache.pop(next(iter(_chart_cache)))

@@ -3,9 +3,7 @@ flask-cors
 python-dotenv
 pandas
 requests
-matplotlib
 numpy
 pyarrow
-mplsoccer
 gunicorn
 flask-compress

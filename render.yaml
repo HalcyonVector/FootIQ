@@ -10,7 +10,7 @@ services:
     buildCommand: "pip install -r requirements.txt && python scraping/data_release.py fetch"
     # 1 worker: Render's free tier caps the whole instance at 512MB RAM, and
     # each worker is a separate process with its own full copy of the cached
-    # dataframes (~300-400MB) plus matplotlib/mplsoccer/pandas import
+    # dataframes (~300-400MB) plus pandas/pyarrow import
     # overhead — 2 workers would double that and blow the ceiling on a
     # single request. Single-worker is fine for this app's actual traffic.
     # --max-requests recycles the worker periodically as a safety net: even

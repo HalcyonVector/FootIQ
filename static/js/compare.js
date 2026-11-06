@@ -280,12 +280,7 @@ function renderResults(data) {
   });
 
   const chartGrid = document.getElementById("compare-chart-grid");
-  chartGrid.innerHTML = (data.charts || []).map(c => `
-    <div class="adv-chart-tile">
-      <div class="adv-chart-tile-title">${c.title}</div>
-      <div class="adv-chart-tile-body"><img class="chart-img" src="data:image/png;base64,${c.image}" alt="${c.title}" /></div>
-    </div>
-  `).join("");
+  FootIQCharts.renderTiles(chartGrid, data.charts);
 
   const presentCats = CATEGORY_ORDER.filter(key => players.some(p => p.cats.some(c => c.key === key)));
 
