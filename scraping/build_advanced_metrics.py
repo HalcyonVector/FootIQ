@@ -35,6 +35,7 @@ import pandas as pd
 
 from core.advanced import config
 from core.advanced.aggregator import build_all, CHART_CATEGORIES
+from core.advanced.partition_io import write_partitioned
 
 LEAGUES = list(config.LEAGUE_DIR_MAP.keys())
 # Domestic seasons computed from today's date (config.all_domestic_seasons(),
@@ -49,15 +50,12 @@ SEASONS = config.all_domestic_seasons() + ["2022", "2024"]
 
 
 def _write_partitioned(df: pd.DataFrame, out_dir: str) -> None:
-    """Hive-partitions by league/season and rewrites the directory from
-    scratch each time (safe to re-run; avoids stale partitions from leagues/
-    seasons that no longer produce rows)."""
-    if os.path.exists(out_dir):
-        shutil.rmtree(out_dir)
-    if df.empty:
-        os.makedirs(out_dir, exist_ok=True)
-        return
-    df.to_parquet(out_dir, index=False, partition_cols=["league", "season"])
+    """Hive-partitions by league/season and replaces the directory (safe to
+    re-run; drops stale partitions from leagues/seasons that no longer
+    produce rows). Partitions whose data didn't change keep their old file
+    byte-for-byte, so an unchanged dataset hashes identically -- see
+    core/advanced/partition_io.py."""
+    write_partitioned(df, out_dir)
 
 
 def main():

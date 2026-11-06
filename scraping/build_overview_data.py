@@ -32,6 +32,7 @@ import pyarrow.parquet as pq
 
 from core.advanced import config, minutes as mn, raw_loader as rl, xg
 from core.advanced.overview import GRID_X, GRID_Y, extract_match
+from core.advanced.partition_io import write_partitioned
 
 ALL_LEAGUES = list(config.LEAGUE_DIR_MAP.keys())
 ALL_SEASONS = config.all_domestic_seasons() + ["2022", "2024"]
@@ -51,17 +52,9 @@ def _features(shots: pd.DataFrame) -> np.ndarray:
 
 
 def _write_partitioned(df_or_table, out_dir: str) -> None:
-    """Writes next to the target and swaps it in, so a crash mid-write leaves
-    the previous dataset intact instead of a half-deleted one."""
-    tmp = out_dir + ".new"
-    if os.path.exists(tmp):
-        shutil.rmtree(tmp)
-    os.makedirs(tmp, exist_ok=True)
-    table = df_or_table if isinstance(df_or_table, pa.Table) else pa.Table.from_pandas(df_or_table, preserve_index=False)
-    pq.write_to_dataset(table, tmp, partition_cols=["league", "season"], compression="zstd")
-    if os.path.exists(out_dir):
-        shutil.rmtree(out_dir)
-    os.rename(tmp, out_dir)
+    """Atomic swap + unchanged partitions keep their old bytes (so the
+    release zip hashes the same when nothing changed) -- see core/advanced/partition_io.py."""
+    write_partitioned(df_or_table, out_dir, compression="zstd")
 
 
 def _scan(leagues, seasons):
