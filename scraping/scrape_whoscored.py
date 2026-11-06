@@ -126,8 +126,30 @@ def _scrape_one(league: str, season: str, headless: bool) -> tuple[str, str, lis
 
     sched_reset = schedule.reset_index()
     sched_reset["game_id"] = sched_reset["game_id"].astype(int)
-    match_ids = sched_reset["game_id"].tolist()
     season_key = sched_reset["season"].iloc[0]  # soccerdata's normalized key, e.g. "2526"
+
+    # Skip fixtures that haven't been played yet WITHOUT costing a single
+    # request for them -- WhoScored's own schedule payload already carries
+    # home_score/away_score per fixture (populated only once a match has
+    # a final score), so "has this been played" is a column check against
+    # data already in hand from the ONE schedule fetch above, not something
+    # that needs guessing from today's date or a kickoff-time buffer.
+    # Checked directly against the cached schedule for an in-progress season
+    # (Eredivisie 2026-27): of 306 scheduled fixtures, exactly the 54 with a
+    # recorded score matched the 54 that genuinely had event data, and all
+    # 252 without one were exactly the ones WhoScored has nothing for yet --
+    # a fully reliable split, not a heuristic. This is what actually fixes
+    # the "recheck the whole season every run" cost for the WEEKLY job: a
+    # future fixture now costs nothing at all, rather than the same one
+    # real request a played match needs, just to learn it's empty.
+    if "home_score" in sched_reset.columns and "away_score" in sched_reset.columns:
+        played = sched_reset["home_score"].notna() & sched_reset["away_score"].notna()
+        n_unplayed = int((~played).sum())
+        if n_unplayed:
+            log(f"{league} {season}: skipping {n_unplayed} fixture(s) with no final score yet (not requested at all)")
+        sched_reset = sched_reset[played]
+
+    match_ids = sched_reset["game_id"].tolist()
     log(f"{league} {season}: {len(match_ids)} matches in schedule")
 
     done = 0
@@ -136,7 +158,24 @@ def _scrape_one(league: str, season: str, headless: bool) -> tuple[str, str, lis
         cache_file = ws.data_dir / "events" / f"{league}_{season_key}" / f"{match_id}.json"
         already_cached = cache_file.exists()
         try:
-            ws.read_events(match_id=match_id, output_fmt=None, on_error="raise")
+            # force_cache=True: soccerdata's read_events() re-fetches the
+            # LIVE season schedule from WhoScored on every single call by
+            # default for an in-progress season (read_schedule()'s own
+            # force_cache defaults to False specifically because an ongoing
+            # season's fixture list can shift — postponements, rescheduled
+            # dates). That's the right default for calling read_events() in
+            # isolation, but here it means re-fetching the full paginated
+            # schedule (10+ requests) before EVERY match in a loop that's
+            # already fetched it fresh once, seconds ago, at line ~118 —
+            # measured live as the majority of a ~4 min per-match cost across
+            # a 380-fixture season. force_cache=True reuses that same-run
+            # fetch for the rest of this run's matches instead of redoing it
+            # every time; the schedule itself is still fetched live exactly
+            # once per run (schedule = ws.read_schedule() above), so this
+            # doesn't trade away the freshness read_schedule()'s default is
+            # protecting -- it only removes 379 redundant re-fetches of data
+            # this same run already has.
+            ws.read_events(match_id=match_id, output_fmt=None, on_error="raise", force_cache=True)
             done += 1
             if not already_cached:
                 log(f"{league} {season}: [{done}/{len(match_ids)}] scraped match {match_id}")
