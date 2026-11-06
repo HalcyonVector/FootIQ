@@ -308,6 +308,100 @@ function renderResults(data) {
         p.style.display = p.dataset.cat === btn.dataset.cat ? "block" : "none");
     });
   });
+
+  renderOverview(players);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Season overview: stat line + shot maps + heatmaps, one column per player
+// (the same SVG builders the Player page uses, via FootIQOverview.draw)
+// ─────────────────────────────────────────────────────────────────────────────
+// [label, getter(line), decimals, "high" | "low" | null  (which side wins; null = just show)]
+const OVERVIEW_ROWS = [
+  ["Appearances", l => l.apps, 0, null],
+  ["Minutes", l => l.minutes, 0, null],
+  ["Average rating", l => l.avg_rating, 2, "high"],
+  ["Goals", l => l.goals, 0, "high"],
+  ["Assists", l => l.assists, 0, "high"],
+  ["xG", l => l.xg, 1, "high"],
+  ["Non-penalty xG", l => l.npxg, 1, "high"],
+  ["xA", l => l.xa, 1, "high"],
+  ["Goals / 90", l => l.per90 && l.per90.goals, 2, "high"],
+  ["Assists / 90", l => l.per90 && l.per90.assists, 2, "high"],
+  ["xG / 90", l => l.per90 && l.per90.xg, 2, "high"],
+  ["xA / 90", l => l.per90 && l.per90.xa, 2, "high"],
+  ["Shots / 90", l => l.per90 && l.per90.shots, 2, "high"],
+  ["Key passes / 90", l => l.per90 && l.per90.key_passes, 2, "high"],
+  ["Pass accuracy %", l => l.pass_pct, 1, "high"],
+  ["Tackles won", l => l.tackles_won, 0, "high"],
+  ["Interceptions / 90", l => l.per90 && l.per90.interceptions, 2, "high"],
+  ["Aerials won", l => l.aerials_won, 0, "high"],
+  ["Yellow cards", l => l.yellow, 0, "low"],
+  ["Red cards", l => l.red, 0, "low"],
+];
+const OVERVIEW_GK_ROWS = [
+  ["Saves", l => l.saves, 0, "high"],
+  ["Clean sheets", l => l.clean_sheets, 0, "high"],
+  ["Goals conceded", l => l.goals_conceded, 0, "low"],
+];
+
+function renderOverview(players) {
+  const section = document.getElementById("compare-overview-section");
+  const have = players.filter(p => p.overview && p.overview.line && p.overview.line.apps);
+  if (!section || !have.length || typeof FootIQOverview === "undefined") { if (section) section.style.display = "none"; return; }
+
+  const hasGK = players.some(p => /^GK/i.test(p.position || ""));
+  const rows = OVERVIEW_ROWS.concat(hasGK ? OVERVIEW_GK_ROWS : []);
+  const body = rows.map(([label, get, dp, better]) => {
+    const vals = players.map(p => {
+      const l = p.overview && p.overview.line;
+      const v = l && l.apps ? get(l) : null;
+      return v === null || v === undefined ? null : Number(v);
+    });
+    const real = vals.filter(v => v !== null);
+    const best = better && real.length > 1 ? (better === "high" ? Math.max(...real) : Math.min(...real)) : null;
+    const cells = vals.map((v, i) => {
+      if (v === null) return `<td class="stat-lbl">-</td>`;
+      const win = best !== null && v === best && real.filter(x => x === best).length === 1;
+      const txt = dp === 0 ? v.toLocaleString() : v.toFixed(dp);
+      return `<td class="w-${i % 4}${win ? " winner-cell" : ""}">${txt}</td>`;
+    }).join("");
+    return `<tr><td class="stat-lbl">${label}</td>${cells}</tr>`;
+  }).join("");
+  const head = players.map((p, i) => `<th class="th-name" data-idx="${i % 4}">${p.name}</th>`).join("");
+  document.getElementById("cmp-line").innerHTML = `<div class="stat-table-wrapper"><div class="table-scroll">
+    <table class="stat-table"><thead><tr><th></th>${head}</tr></thead><tbody>${body}</tbody></table></div></div>`;
+
+  // Shot maps (outfield players only; goalkeepers have no shot map)
+  const shotCols = players.map(p => {
+    const shots = (p.overview && p.overview.shots) || [];
+    if (!shots.length) return `<div class="cmp-col"><div class="cmp-col-title">${p.name}</div><div class="ov-empty">No shots recorded.</div></div>`;
+    const xg = shots.reduce((a, s) => a + s.xg, 0), goals = shots.filter(s => s.outcome === "goal").length;
+    return `<div class="cmp-col"><div class="cmp-col-title" data-idx="${players.indexOf(p) % 4}">${p.name}</div>
+      ${FootIQOverview.draw.shotMap(shots, "all", 0.8)}
+      <div class="ov-shot-sum"><b>${shots.length}</b> shots · <b>${goals}</b> goals · <b>${xg.toFixed(1)}</b> xG</div></div>`;
+  });
+  document.getElementById("cmp-shots").innerHTML = shotCols.join("");
+  document.getElementById("cmp-shots-card").style.display = players.every(p => /^GK/i.test(p.position || "")) ? "none" : "";
+
+  const drawHeat = mode => {
+    document.getElementById("cmp-heat").innerHTML = players.map((p, i) => {
+      const h = p.overview && p.overview.heat;
+      const cells = h ? (mode === "touches" ? h.touches : h.defs) : null;
+      const inner = cells && cells.some(v => v) ? FootIQOverview.draw.heat(cells, p.overview.grid.x, p.overview.grid.y,
+        mode === "touches" ? "#3b82f6" : "#f43f5e", `cmp-heat-${i}`) : '<div class="ov-empty">No data.</div>';
+      return `<div class="cmp-col"><div class="cmp-col-title" data-idx="${i % 4}">${p.name}</div>${inner}</div>`;
+    }).join("");
+  };
+  drawHeat("touches");
+  document.querySelectorAll("#cmp-heat-modes [data-m]").forEach(b => {
+    b.classList.toggle("active", b.dataset.m === "touches");
+    b.onclick = () => {
+      document.querySelectorAll("#cmp-heat-modes [data-m]").forEach(x => x.classList.toggle("active", x === b));
+      drawHeat(b.dataset.m);
+    };
+  });
+  section.style.display = "block";
 }
 
 function renderCategoryTable(catKey, players) {

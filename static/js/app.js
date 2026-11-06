@@ -232,6 +232,7 @@ async function selectPrimaryPlayer(player, { scroll = true } = {}) {
   // Overview (stat line, form, shot map, heatmaps, career) loads in parallel
   // and shows itself when ready; it hides silently if no overview data exists.
   FootIQOverview.load(player, primaryLeague, primarySeason);
+  FootIQSimilar.load(player, primaryLeague, primarySeason);   // lazy: fetches once the Advanced block scrolls into view
 
   // Stats are precomputed (fast parquet lookup) — reveal them immediately.
   // Charts (Combination Play now, per-category charts later) load lazily
@@ -301,6 +302,7 @@ function resetPrimaryPlayer() {
   primaryPlayer = null;
   try { history.replaceState(null, "", location.pathname); } catch { /* non-fatal */ }
   FootIQOverview.reset();
+  FootIQSimilar.reset();
   profileSection.style.display = "none";
 }
 
@@ -323,7 +325,9 @@ function renderProfileHeader(player) {
       <div class="profile-name">${player.name}</div>
       <div class="profile-sub">${player.position}</div>
       <div class="profile-team">
-        <span>${player.team || ""}</span>
+        ${player.team
+          ? `<a class="team-link" href="/team?${new URLSearchParams({ league: player.league || primaryLeague, season: player.season || primarySeason, team: player.team })}" title="Results, squad and table position">${player.team}</a>`
+          : "<span></span>"}
         ${player.league ? `<span style="color:var(--muted)">&middot; ${player.league}</span>` : ""}
       </div>
       <div class="profile-season-stats" id="season-stats-row">

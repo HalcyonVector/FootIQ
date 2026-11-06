@@ -166,3 +166,13 @@ def test_above_floor_never_limited():
 def test_unknown_team_matches_falls_back_to_plain_floor():
     assert sample_info(400, 0)["limited"] is True
     assert sample_info(500, 0)["limited"] is False
+
+
+def test_shot_rows_carry_the_assisting_pass_coordinates():
+    mj, events, mins = _match()
+    events[1]["end_x"], events[1]["end_y"] = 92.04, 50.0          # the KeyPass from player 10
+    _, shots, _ = extract_match("m1", mj, events, mins)
+    goal, header = shots[0], shots[1]
+    assert (goal["ax"], goal["ay"], goal["aex"], goal["aey"]) == (80.0, 60.0, 92.0, 50.0)
+    assert header["assist_pid"] is None
+    assert header["ax"] is None and header["aex"] is None          # unassisted shot: no pass to draw

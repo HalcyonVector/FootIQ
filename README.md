@@ -29,16 +29,22 @@ Open **http://127.0.0.1:5000**
 - 12 Advanced Metrics tabs (Goalkeeping swaps in for keepers)
 - Position-weighted Composite Rating: a single headline number combining every category with a power mean, so a player's strongest categories are rewarded rather than diluted by ones that were never their job
 - **Final Third**: Completeness (geometric-mean floor across 4 pillars) and Impact (per-touch value from a player's 2 strongest pillars)
+- **Similar players**: the six closest statistical profiles (same engine as Scout), loaded only when you scroll down to them, each linking to that player and to a pre-filled Compare
 - **Combination Play**: most-found teammates, plus a pitch chart of exactly what a chosen teammate does after receiving a pass
-- **Season Overview**: stat line (apps, goals, assists, xG, xA, average rating, cards...), auto-generated strengths and areas to improve, a per-match form chart, a shot map sized by xG with goal-placement view, touch and defensive-action heatmaps, and a career table across every season in the dataset. xG comes from a home-grown logistic model fitted on the dataset's own shots (see `core/advanced/xg.py`)
+- **Season Overview**: stat line (apps, goals, assists, xG, xA, average rating, cards...), auto-generated strengths and areas to improve, a per-match form chart, a shot map sized by xG with goal-placement view, touch and defensive-action heatmaps, a pass map (chances created, progressive passes, passes into the box, incomplete passes), and a career table across every season in the dataset. xG comes from a home-grown logistic model fitted on the dataset's own shots (see `core/advanced/xg.py`)
 
 **Compare**
 - 2 to 4 players side by side, any league, any season
+- Season Overview side by side: stat line (best value highlighted, per-90 rows), shot maps and heatmaps
 - Full per-category stat table plus a headline radar chart
 
 **Scout**
 - Statistical-twin search across every league and season, or narrowed to the top 5
 - Filterable by max age
+
+**League tables and team pages** (`/league`, `/team`)
+- Points, goal difference, last-5 form and xG for/against for every team in a competition-season, built from the per-match rows (no extra data)
+- Team page: record, goal-difference form chart, sortable squad table (apps, minutes, goals, xG, rating) and every result with xG
 
 **Explore**
 - Rank every player-season by a single chosen metric, no reference player required
@@ -84,6 +90,7 @@ FootIQ/
 │       ├── chart_events.py        Per-category raw event coordinates behind the charts
 │       ├── overview.py            Per-match stat line, shots and heatmap grids (Season Overview)
 │       ├── xg.py                  Expected-goals model (numpy logistic regression, coefficients in xg_model.json)
+│       ├── tables.py              League tables and team pages from the per-match rows
 │       ├── summary.py             Season line, form, career and strengths shaping at request time
 │       ├── composite.py           Position-weighted Composite Rating (power mean)
 │       ├── scout.py               Cross-league, cross-season similarity search
@@ -100,23 +107,27 @@ FootIQ/
 ├── scraping/
 │   ├── scrape_whoscored.py        Resumable WhoScored match-JSON scraper, optional parallel workers
 │   ├── build_advanced_metrics.py  Rebuilds data/advanced/*.parquet from the raw cache
-│   └── build_overview_data.py     Builds player_matches/, shots/, heatmaps/ and xg_model.json
+│   ├── build_overview_data.py     Builds player_matches/, shots/ (with assisting-pass coordinates), heatmaps/ and xg_model.json
+│   ├── data_release.py            Publishes / fetches data/advanced as a GitHub Release asset (data/DATA_VERSION pins it)
+│   └── auto_update.py             Weekly scrape, rebuild, publish, commit the pointer
 │
 ├── templates/
 │   ├── base.html                  Nav, particles, scroll animations
 │   ├── player.html                Search and stats page
 │   ├── compare.html                Side-by-side player comparison
 │   ├── scout.html                  Statistical-twin search
+│   ├── league.html / team.html     League tables and team pages
 │   └── explore.html                Ranked stat browsing
 │
 ├── static/
 │   ├── css/style.css
-│   └── js/                        app.js, compare.js, explore.js, custom-select.js
+│   └── js/                        app.js, overview.js, similar.js, compare.js, league.js, explore.js, custom-select.js
 │
 ├── tests/                        Pytest suite for the core metric math
 │
 └── data/
-    ├── advanced/                  Precomputed parquet, the only data app.py reads
+    ├── DATA_VERSION               Pointer to the checksummed data zip (a GitHub Release asset)
+    ├── advanced/                  Precomputed parquet, the only data app.py reads (not in git; fetched, see Data Refresh)
     └── cache/                     Wikipedia image cache (gitignored)
 ```
 
@@ -130,6 +141,9 @@ FootIQ/
 | `/api/advanced-stats` | POST | `player_id`, `league`, `season` | 12 metric categories, percentile-ranked |
 | `/api/player` | GET | `id`, `league`, `season` | One player-season plus every season they appear in |
 | `/api/player-overview` | POST | `player_id`, `league`, `season` | Stat line, form, career, shots with xG, heatmaps |
+| `/api/pass-map` | POST | `player_id`, `league`, `season` | Passes (progressive / into-box flags) and chances created |
+| `/api/league-table` | GET | `league`, `season` | Standings with xG for/against and form |
+| `/api/team` | GET | `league`, `season`, `team` | Record, results and squad table for one team |
 | `/api/linkup-teammates` | POST | `player_id`, `league`, `season` | Top 10 most-passed-to teammates |
 | `/api/linkup-detail` | POST | `passer_id`, `teammate_id`, `league`, `season` | Reception-outcome stats and pitch chart |
 | `/api/category-chart` | POST | `player_id`, `league`, `season`, `category` | Per-category chart grid |

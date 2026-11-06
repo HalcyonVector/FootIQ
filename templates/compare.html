@@ -30,7 +30,33 @@
     <section id="compare-results" style="display:none;margin-top:24px">
       <div class="compare-players-header" id="compare-players-header"></div>
 
-      <section class="glass-card" style="padding:20px 24px">
+      <section id="compare-overview-section" class="glass-card ov-section" style="display:none;margin-top:20px">
+        <div class="pct-title-row">
+          <span class="section-label">Season Overview <span style="color:var(--muted);font-weight:500">: stat line, shot maps and heatmaps</span></span>
+        </div>
+        <div class="ov-card">
+          <div class="ov-card-title">Stat line <span>best value highlighted; per-90 rows are fair across different minutes</span></div>
+          <div class="ov-table-wrap" id="cmp-line"></div>
+        </div>
+        <div class="ov-card" id="cmp-shots-card">
+          <div class="ov-card-title">Shot maps <span>circle size = xG</span></div>
+          <div class="cmp-grid" id="cmp-shots"></div>
+          <div class="ov-legend">
+            <span><i class="ov-sw" style="background:#22c55e"></i>Goal</span><span><i class="ov-sw" style="background:#3b82f6"></i>Saved</span>
+            <span><i class="ov-sw" style="background:#94a3b8"></i>Blocked</span><span><i class="ov-sw" style="background:#f59e0b"></i>Post</span>
+            <span><i class="ov-sw" style="background:#ef4444"></i>Off target</span>
+          </div>
+        </div>
+        <div class="ov-card">
+          <div class="ov-card-title">Heatmaps</div>
+          <div class="ov-toggles" id="cmp-heat-modes">
+            <button data-m="touches" class="active">Touches</button><button data-m="defs">Defensive actions</button>
+          </div>
+          <div class="cmp-grid" id="cmp-heat"></div>
+        </div>
+      </section>
+
+      <section class="glass-card" style="padding:20px 24px;margin-top:20px">
         <div class="pct-title-row">
           <span class="section-label">Full Breakdown <span style="color:var(--muted);font-weight:500">: every Advanced Metrics tab, side by side</span></span>
         </div>
@@ -53,5 +79,6 @@
     window.SEASONS = {{ seasons | tojson }};
     document.getElementById("nav-compare").classList.add("active");
   </script>
+  <script src="/static/js/overview.js"></script>
   <script src="/static/js/compare.js"></script>
 {% endblock %}

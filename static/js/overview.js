@@ -7,13 +7,14 @@
      FootIQOverview.load(player, league, season)  fetch + render
      FootIQOverview.renderInsights(insights)       strengths / weaknesses chips
      FootIQOverview.reset()
+     FootIQOverview.draw.{shotMap, heat, ratingColor}   pure SVG builders, reused by Compare
    ───────────────────────────────────────────────────────────────────────────── */
 const FootIQOverview = (() => {
   const $ = id => document.getElementById(id);
   const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const fmt = (v, d = 0) => (v === null || v === undefined) ? "–" : Number(v).toFixed(d);
 
-  let state = { data: null, isGK: false, shotFilter: "all", heatMode: "touches", token: 0 };
+  let state = { data: null, pass: null, isGK: false, shotFilter: "all", heatMode: "touches", passMode: "chances", token: 0 };
 
   // ── Rating colours (same bands the big stat sites use) ──
   function ratingColor(r) {
@@ -163,22 +164,31 @@ const FootIQOverview = (() => {
     return true;
   }
 
+  // Pure builders (no DOM access) so Compare can draw the same charts per player.
+  function shotMarks(shots, scale = 1) {
+    let marks = "";
+    // biggest chances last so small circles stay clickable on top
+    [...shots].sort((a, b) => b.xg - a.xg).forEach(s => {
+      const r = (5 + Math.sqrt(s.xg) * 24) * scale;
+      const tip = `${s.minute}' · ${SHOT_LBL[s.outcome]} · ${s.xg.toFixed(2)} xG\n${SIT_LBL[s.situation]} · ${BODY_LBL[s.body]}${s.big_chance ? " · big chance" : ""}`;
+      const col = SHOT_COL[s.outcome];
+      marks += `<circle cx="${sx(s.y).toFixed(1)}" cy="${Math.min(sy(s.x), HP.H - 8).toFixed(1)}" r="${r.toFixed(1)}" fill="${col}"
+                 fill-opacity="${s.outcome === "goal" ? 0.85 : 0.45}" stroke="${col}" stroke-width="${s.outcome === "goal" ? 2.5 : 1.5}" class="ov-shot"><title>${esc(tip)}</title></circle>`;
+    });
+    return marks;
+  }
+
+  function shotMap(shots, filter = "all", scale = 1) {
+    return halfPitchSVG(shotMarks(shots.filter(s => shotPasses(s, filter)), scale));
+  }
+
   function renderShots() {
     const { data, shotFilter } = state;
     const shots = (data.shots || []).filter(s => shotPasses(s, shotFilter));
     const host = $("ov-shots");
     if (!(data.shots || []).length) { host.innerHTML = '<div class="ov-empty">No shots recorded.</div>'; $("ov-goal").innerHTML = ""; return; }
 
-    let marks = "";
-    // biggest chances last so small circles stay clickable on top
-    [...shots].sort((a, b) => b.xg - a.xg).forEach(s => {
-      const r = 5 + Math.sqrt(s.xg) * 24;
-      const tip = `${s.minute}' · ${SHOT_LBL[s.outcome]} · ${s.xg.toFixed(2)} xG\n${SIT_LBL[s.situation]} · ${BODY_LBL[s.body]}${s.big_chance ? " · big chance" : ""}`;
-      const col = SHOT_COL[s.outcome];
-      marks += `<circle cx="${sx(s.y).toFixed(1)}" cy="${Math.min(sy(s.x), HP.H - 8).toFixed(1)}" r="${r.toFixed(1)}" fill="${col}"
-                 fill-opacity="${s.outcome === "goal" ? 0.85 : 0.45}" stroke="${col}" stroke-width="${s.outcome === "goal" ? 2.5 : 1.5}" class="ov-shot"><title>${esc(tip)}</title></circle>`;
-    });
-    host.innerHTML = halfPitchSVG(marks);
+    host.innerHTML = halfPitchSVG(shotMarks(shots));
 
     const n = shots.length, xg = shots.reduce((a, s) => a + s.xg, 0), g = shots.filter(s => s.outcome === "goal").length;
     $("ov-shot-sum").innerHTML = `<b>${n}</b> shots · <b>${g}</b> goals · <b>${xg.toFixed(1)}</b> xG · <b>${n ? (xg / n).toFixed(2) : "–"}</b> xG/shot`;
@@ -202,8 +212,30 @@ const FootIQOverview = (() => {
   }
 
   // ── Heatmap ───────────────────────────────────────────────────────────────
-  function heatSVG(cells, gx, gy, hue) {
-    const W = 1050, H = 680, cw = W / gx, ch = H / gy;
+  const FP = { W: 1050, H: 680 };
+  const fx = x => (x / 100) * FP.W;
+  const fy = y => (1 - y / 100) * FP.H;      // y=0 is the attacker's right touchline = bottom of the screen
+
+  // Full pitch, attacking left → right. `uid` namespaces the SVG ids so several
+  // pitches (Compare shows one per player) can share a page.
+  function fullPitchSVG(inner, uid, defs = "", label = "Pitch") {
+    const { W, H } = FP;
+    return `<svg viewBox="0 0 ${W} ${H}" class="ov-svg ov-pitch" role="img" aria-label="${label}">
+      <defs>${defs}<clipPath id="${uid}-clip"><rect width="${W}" height="${H}"/></clipPath></defs>
+      <rect width="${W}" height="${H}" class="ov-grass"/>
+      ${inner}
+      <g class="ov-line" fill="none">
+        <rect x="2" y="2" width="${W - 4}" height="${H - 4}"/><line x1="${W / 2}" x2="${W / 2}" y1="2" y2="${H - 2}"/>
+        <circle cx="${W / 2}" cy="${H / 2}" r="91.5"/>
+        <rect x="2" y="${(H - 403.2) / 2}" width="165" height="403.2"/><rect x="${W - 167}" y="${(H - 403.2) / 2}" width="165" height="403.2"/>
+        <rect x="2" y="${(H - 183.2) / 2}" width="55" height="183.2"/><rect x="${W - 57}" y="${(H - 183.2) / 2}" width="55" height="183.2"/>
+      </g>
+      <path d="M 40 ${H - 26} H 150 M 134 ${H - 38} L 150 ${H - 26} L 134 ${H - 14}" class="ov-arrow" fill="none"/>
+    </svg>`;
+  }
+
+  function heatSVG(cells, gx, gy, hue, uid = "ov-heat") {
+    const { W, H } = FP, cw = W / gx, ch = H / gy;
     const max = Math.max(1, ...cells);
     let rects = "";
     for (let ix = 0; ix < gx; ix++) {
@@ -215,19 +247,61 @@ const FootIQOverview = (() => {
         rects += `<rect x="${(ix * cw).toFixed(1)}" y="${((gy - 1 - iy) * ch).toFixed(1)}" width="${cw + 0.5}" height="${ch + 0.5}" fill="${hue}" fill-opacity="${(a * 0.92).toFixed(3)}"/>`;
       }
     }
-    return `<svg viewBox="0 0 ${W} ${H}" class="ov-svg ov-pitch" role="img" aria-label="Heatmap">
-      <defs><filter id="ov-blur" x="-5%" y="-5%" width="110%" height="110%"><feGaussianBlur stdDeviation="16"/></filter>
-            <clipPath id="ov-clip"><rect width="${W}" height="${H}"/></clipPath></defs>
-      <rect width="${W}" height="${H}" class="ov-grass"/>
-      <g clip-path="url(#ov-clip)"><g filter="url(#ov-blur)">${rects}</g></g>
-      <g class="ov-line" fill="none">
-        <rect x="2" y="2" width="${W - 4}" height="${H - 4}"/><line x1="${W / 2}" x2="${W / 2}" y1="2" y2="${H - 2}"/>
-        <circle cx="${W / 2}" cy="${H / 2}" r="91.5"/>
-        <rect x="2" y="${(H - 403.2) / 2}" width="165" height="403.2"/><rect x="${W - 167}" y="${(H - 403.2) / 2}" width="165" height="403.2"/>
-        <rect x="2" y="${(H - 183.2) / 2}" width="55" height="183.2"/><rect x="${W - 57}" y="${(H - 183.2) / 2}" width="55" height="183.2"/>
-      </g>
-      <path d="M 40 ${H - 26} H 150 M 134 ${H - 38} L 150 ${H - 26} L 134 ${H - 14}" class="ov-arrow" fill="none"/>
-    </svg>`;
+    return fullPitchSVG(`<g clip-path="url(#${uid}-clip)"><g filter="url(#${uid}-blur)">${rects}</g></g>`, uid,
+      `<filter id="${uid}-blur" x="-5%" y="-5%" width="110%" height="110%"><feGaussianBlur stdDeviation="16"/></filter>`, "Heatmap");
+  }
+
+  // ── Pass map: chances created / progressive / into the box / incomplete ───
+  const PASS_MODES = {
+    chances: { label: "Chances created" },
+    progressive: { pick: f => f & 2 },
+    box: { pick: f => f & 4 },
+    failed: { pick: f => !(f & 1) },
+  };
+  const PASS_COL = { ok: "#38bdf8", fail: "#f87171", goal: "#22c55e", chance: "#fbbf24" };
+
+  function arrow(x1, y1, x2, y2, col, w, op, tip) {
+    return `<line x1="${fx(x1).toFixed(1)}" y1="${fy(y1).toFixed(1)}" x2="${fx(x2).toFixed(1)}" y2="${fy(y2).toFixed(1)}"
+      stroke="${col}" stroke-width="${w}" stroke-opacity="${op}" stroke-linecap="round" marker-end="url(#pm-${col.slice(1)})"><title>${esc(tip)}</title></line>`;
+  }
+
+  function passMapSVG(pm, mode) {
+    let g = "";
+    if (mode === "chances") {
+      [...pm.chances].sort((a, b) => a.xg - b.xg).forEach(c => {
+        const col = c.outcome === "goal" ? PASS_COL.goal : PASS_COL.chance;
+        g += arrow(c.ax, c.ay, c.aex, c.aey, col, c.outcome === "goal" ? 4 : 2.6, 0.9,
+          `${c.minute}' · led to a ${c.outcome.replace("_", " ")} · ${c.xg.toFixed(2)} xG`);
+        g += `<circle cx="${fx(c.aex).toFixed(1)}" cy="${fy(c.aey).toFixed(1)}" r="${(3 + Math.sqrt(c.xg) * 9).toFixed(1)}" fill="${col}" fill-opacity=".35" stroke="${col}"/>`;
+      });
+    } else {
+      const pick = PASS_MODES[mode].pick;
+      pm.passes.filter(p => pick(p[4])).forEach(p => {
+        const ok = p[4] & 1;
+        g += arrow(p[0], p[1], p[2], p[3], ok ? PASS_COL.ok : PASS_COL.fail, 2, ok ? 0.55 : 0.6,
+          `${ok ? "Completed" : "Incomplete"}${p[4] & 2 ? " · progressive" : ""}${p[4] & 4 ? " · into the box" : ""}`);
+      });
+    }
+    const marker = col => `<marker id="pm-${col.slice(1)}" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="${col}"/></marker>`;
+    return fullPitchSVG(g, "pm", Object.values(PASS_COL).map(marker).join(""), "Pass map");
+  }
+
+  function renderPassMap() {
+    const host = $("ov-pass"), pm = state.pass;
+    if (!host || !pm) return;
+    const mode = state.passMode, sum = $("ov-pass-sum");
+    if (mode === "chances") {
+      const n = pm.chances.length, goals = pm.chances.filter(c => c.outcome === "goal").length;
+      if (!n) { host.innerHTML = '<div class="ov-empty">No chances created recorded.</div>'; sum.innerHTML = ""; return; }
+      const xa = pm.chances.reduce((a, c) => a + c.xg, 0);
+      sum.innerHTML = `<b>${n}</b> chances created · <b>${goals}</b> assists · <b>${xa.toFixed(1)}</b> xA`;
+    } else {
+      const shown = pm.passes.filter(p => PASS_MODES[mode].pick(p[4]));
+      if (!shown.length) { host.innerHTML = '<div class="ov-empty">None recorded.</div>'; sum.innerHTML = ""; return; }
+      const done = shown.filter(p => p[4] & 1).length;
+      sum.innerHTML = `<b>${shown.length}</b> passes · <b>${Math.round(100 * done / shown.length)}%</b> completed`;
+    }
+    host.innerHTML = passMapSVG(pm, mode);
   }
 
   function renderHeat() {
@@ -237,7 +311,7 @@ const FootIQOverview = (() => {
     const cells = heatMode === "touches" ? data.heat.touches : data.heat.defs;
     const total = cells.reduce((a, b) => a + b, 0);
     if (!total) { host.innerHTML = '<div class="ov-empty">No actions recorded.</div>'; return; }
-    host.innerHTML = heatSVG(cells, data.grid.x, data.grid.y, heatMode === "touches" ? "#3b82f6" : "#f43f5e")
+    host.innerHTML = heatSVG(cells, data.grid.x, data.grid.y, heatMode === "touches" ? "#3b82f6" : "#f43f5e", "ov-heat")
       + `<div class="ov-legend"><span>${total.toLocaleString()} ${heatMode === "touches" ? "touches" : "defensive actions (tackles, interceptions, clearances, recoveries, blocks)"}</span>
          <span class="ov-legend-note">Attacking direction →</span></div>`;
   }
@@ -260,6 +334,11 @@ const FootIQOverview = (() => {
       document.querySelectorAll("#ov-shot-filters [data-f]").forEach(x => x.classList.toggle("active", x === b));
       renderShots();
     });
+    document.querySelectorAll("#ov-pass-modes [data-p]").forEach(b => b.onclick = () => {
+      state.passMode = b.dataset.p;
+      document.querySelectorAll("#ov-pass-modes [data-p]").forEach(x => x.classList.toggle("active", x === b));
+      renderPassMap();
+    });
     document.querySelectorAll("#ov-heat-modes [data-m]").forEach(b => b.onclick = () => {
       state.heatMode = b.dataset.m;
       document.querySelectorAll("#ov-heat-modes [data-m]").forEach(x => x.classList.toggle("active", x === b));
@@ -270,6 +349,7 @@ const FootIQOverview = (() => {
   function reset() {
     state.token++;
     state.data = null;
+    state.pass = null;
     const s = $("overview-section");
     if (s) s.style.display = "none";
   }
@@ -306,7 +386,30 @@ const FootIQOverview = (() => {
     renderCareer(data.career);
     wireToggles();
     section.style.display = "block";
+    loadPassMap(player, league, data.season, token);
   }
 
-  return { load, reset, renderInsights };
+  async function loadPassMap(player, league, season, token) {
+    const card = $("ov-pass-card");
+    if (!card) return;
+    card.style.display = "none";
+    state.pass = null;
+    let pm;
+    try {
+      const res = await fetch("/api/pass-map", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ player_id: player.id, league, season }),
+      });
+      pm = await res.json();
+    } catch { return; }
+    if (token !== state.token || !pm || !pm.available) return;
+    state.pass = pm;
+    // open on the most interesting layer this player actually has
+    state.passMode = pm.chances.length ? "chances" : "progressive";
+    document.querySelectorAll("#ov-pass-modes [data-p]").forEach(x => x.classList.toggle("active", x.dataset.p === state.passMode));
+    renderPassMap();
+    card.style.display = "";
+  }
+
+  return { load, reset, renderInsights, draw: { shotMap, heat: heatSVG, ratingColor } };
 })();

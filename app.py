@@ -113,6 +113,16 @@ def scout_page():
     return render_template("scout.html", leagues=LEAGUES, seasons=SEASONS)
 
 
+@app.route("/league")
+def league_page():
+    return render_template("league.html", leagues=LEAGUES, seasons=SEASONS)
+
+
+@app.route("/team")
+def team_page():
+    return render_template("team.html", leagues=LEAGUES, seasons=SEASONS)
+
+
 @app.route("/explore")
 def explore_page():
     from core.advanced.explore import explorable_metrics
@@ -256,24 +266,108 @@ def api_player_overview():
             season = raw["season"]
 
         from core.advanced import store, summary
-        from core.advanced.overview import GRID_X, GRID_Y
 
         rows = store.get_player_matches(player_id, league, season)
         if not rows:
             return jsonify({"available": False})
 
-        shots = store.get_player_shots(player_id, league, season)
-        heat = store.get_player_heat(player_id, league, season)
         return jsonify({
             "available": True,
             "season": season,
             "line": summary.season_line(rows),
             "form": summary.form(rows),
             "career": summary.career(store.get_player_matches(player_id)),
-            "shots": shots,
-            "heat": heat,
-            "grid": {"x": GRID_X, "y": GRID_Y},
+            **_overview_visuals(player_id, league, season),
         })
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+
+def _overview_visuals(player_id: int, league: str, season: str) -> dict:
+    """Shot map + heatmap payload shared by the profile Overview and Compare."""
+    from core.advanced import store
+    from core.advanced.overview import GRID_X, GRID_Y
+    return {
+        "shots": store.get_player_shots(player_id, league, season),
+        "heat": store.get_player_heat(player_id, league, season),
+        "grid": {"x": GRID_X, "y": GRID_Y},
+    }
+
+
+@app.route("/api/pass-map", methods=["POST"])
+def api_pass_map():
+    """Passes (with progressive / into-box flags) and the chances this player
+    created, for the profile's pass map. Coordinates are compact arrays; the
+    client filters by mode."""
+    try:
+        body      = request.get_json(force=True)
+        player_id = int(body["player_id"])
+        league    = body.get("league", "Premier League")
+        season    = body.get("season", "2024-25")
+
+        from core.advanced import store
+        events = store.get_chart_events("passing", player_id, league, season)
+        chances = store.get_chances_created(player_id, league, season)
+        if not events and not chances:
+            return jsonify({"available": False})
+
+        # [x, y, end_x, end_y, flags]  flags: 1 = completed, 2 = progressive, 4 = into box
+        passes = []
+        for e in events:
+            if e.get("x") is None or e.get("end_x") is None:
+                continue
+            flags = (1 if e.get("completed") else 0) | (2 if e.get("progressive") else 0) | (4 if e.get("into_box") else 0)
+            passes.append([round(e["x"], 1), round(e["y"], 1), round(e["end_x"], 1), round(e["end_y"], 1), flags])
+        chances = [c for c in chances if c.get("ax") is not None and c.get("aex") is not None]
+        return jsonify({"available": True, "passes": passes, "chances": chances})
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# API — league tables and team pages (built from the per-match rows)
+# ─────────────────────────────────────────────────────────────────────────────
+
+_LEAGUE_IDS = {lg["id"] for lg in LEAGUES}
+_CUP_COMPETITIONS = {lg["id"] for lg in LEAGUES if lg["country"] in ("Europe", "International")}
+
+
+@app.route("/api/league-table")
+def api_league_table():
+    league = request.args.get("league", "Premier League")
+    season = request.args.get("season", "")
+    if league not in _LEAGUE_IDS:
+        return jsonify({"error": "unknown league"}), 400
+    try:
+        from core.advanced import store, tables
+        table = tables.league_table(store.get_season_matches(league, season))
+        return jsonify({"league": league, "season": season, "table": table, "cup": league in _CUP_COMPETITIONS})
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/team")
+def api_team():
+    league = request.args.get("league", "Premier League")
+    season = request.args.get("season", "")
+    team = request.args.get("team", "").strip()
+    if league not in _LEAGUE_IDS or not team:
+        return jsonify({"error": "league and team required"}), 400
+    try:
+        from core.advanced import store, tables
+        rows = store.get_season_matches(league, season)
+        adv = store.get_advanced_df()
+        names = {}
+        if not adv.empty:
+            cur = adv[(adv["league"] == league) & (adv["season"] == season)]
+            names = dict(zip(cur["whoscored_player_id"].astype(int), cur["player_name"]))
+        page = tables.team_page(rows, team, names)
+        if page is None:
+            return jsonify({"error": "team not found"}), 404
+        return jsonify({"league": league, "season": season, "cup": league in _CUP_COMPETITIONS, **page})
     except Exception as e:
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
@@ -631,11 +725,16 @@ def api_compare_stats():
             # the Player and Scout pages.
             position = _clean_position(row.get("position"))
             cats = build_all_categories(row, row.get("position", ""), season, df)
+            from core.advanced import store as _store, summary as _summary
+            mrows = _store.get_player_matches(pid, league, season)
             players.append({
                 "player_id": pid, "name": row.get("player_name"), "team": row.get("team_name"),
                 "league": league, "season": season, "position": position,
                 "minutes": _clean_minutes(row.get("total_minutes")),
                 "cats": cats, "composite": compute_composite(cats, row.get("position", "")),
+                # season stat line + shot map + heatmap (None until the overview tables are built)
+                "overview": ({"line": _summary.season_line(mrows), **_overview_visuals(pid, league, season)}
+                             if mrows else None),
             })
 
         cache_key = ("compare_charts", tuple(sorted((p["player_id"], p["league"], p["season"]) for p in players)))
@@ -668,6 +767,7 @@ def api_scout_similar():
         player_id = int(body["player_id"])
         league    = body.get("league", "Premier League")
         season    = body.get("season", "2024-25")
+        limit     = min(max(int(body.get("limit", 20)), 1), 20)
         max_age   = body.get("max_age")
         max_age   = int(max_age) if max_age not in (None, "", "none") else None
         league_pool = body.get("league_pool", "all")
@@ -694,7 +794,7 @@ def api_scout_similar():
         # (with an initials placeholder) from the /api/search result before
         # this request even started, and lazy-loads the real photo itself.
 
-        matches, widened = find_similar(df, player_id, league, season, limit=20, max_age=max_age, leagues=leagues)
+        matches, widened = find_similar(df, player_id, league, season, limit=limit, max_age=max_age, leagues=leagues)
         return jsonify({
             "target": {
                 "player_id": player_id, "name": target_row.get("player_name"),

@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block content %}
+
+    <section class="hero" style="padding-bottom:12px">
+      <div class="hero-eyebrow">
+        <span class="eyebrow-dot"></span>
+        <span>Standings &amp; Team Form</span>
+        <span class="eyebrow-dot"></span>
+      </div>
+      <h1 class="hero-title" style="font-size:44px">
+        League <span class="gradient-text">Tables</span>
+      </h1>
+      <p class="hero-desc">
+        Points, goal difference, recent form and expected goals for every team,<br/>
+        built from the same match data. Click a team for results and squad.
+      </p>
+
+      <div class="search-card glass-card" style="max-width:640px;margin:24px auto 0">
+        <div class="scout-filter-row" style="margin-top:0">
+          <div class="filter-group">
+            <label>Competition</label>
+            <select class="filter-select" id="lg-league">
+              {% for lg in leagues %}
+              <option value="{{ lg.id }}">{{ lg.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="filter-group">
+            <label>Season</label>
+            <select class="filter-select" id="lg-season">
+              {% for s in seasons %}
+              <option value="{{ s }}" {% if s == seasons[0] %}selected{% endif %}>{{ s }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="lg-section" class="glass-card ov-section" style="display:none">
+      <div class="pct-title-row">
+        <span class="section-label" id="lg-title">Table</span>
+      </div>
+      <div class="lg-note" id="lg-note"></div>
+      <div class="ov-table-wrap" id="lg-table"></div>
+      <div class="ov-legend">
+        <span><i class="ov-sw" style="background:#22c55e"></i>Win</span><span><i class="ov-sw" style="background:#94a3b8"></i>Draw</span>
+        <span><i class="ov-sw" style="background:#ef4444"></i>Loss</span>
+        <span class="ov-legend-note">xG / xGA: expected goals for and against (our own model). Form = last 5, oldest → newest.</span>
+      </div>
+    </section>
+
+{% endblock %}
+{% block extra_js %}
+  <script>
+    window.LEAGUES = {{ leagues | tojson }};
+    window.SEASONS = {{ seasons | tojson }};
+    document.getElementById("nav-league").classList.add("active");
+  </script>
+  <script src="/static/js/league.js"></script>
+{% endblock %}

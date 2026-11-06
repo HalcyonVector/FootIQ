@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block content %}
+
+    <section class="hero" style="padding-bottom:8px">
+      <div class="hero-eyebrow">
+        <span class="eyebrow-dot"></span>
+        <span id="tm-eyebrow">Team</span>
+        <span class="eyebrow-dot"></span>
+      </div>
+      <h1 class="hero-title" style="font-size:44px" id="tm-title">Team</h1>
+      <p class="hero-desc" id="tm-sub"></p>
+    </section>
+
+    <section id="tm-error" class="glass-card ov-section" style="display:none;text-align:center">
+      <div class="ov-empty" id="tm-error-msg"></div>
+      <a class="sim-more" href="/league">Browse league tables →</a>
+    </section>
+
+    <section id="tm-body" style="display:none">
+      <div class="glass-card ov-section">
+        <div class="ov-tiles" id="tm-tiles"></div>
+        <div class="ov-card">
+          <div class="ov-card-title">Form <span>every match, oldest → newest (taller bar = bigger goal difference)</span></div>
+          <div id="tm-form"></div>
+        </div>
+        <div class="ov-card">
+          <div class="ov-card-title">Squad <span>click a header to sort, click a name to open the profile</span></div>
+          <div class="ov-table-wrap" id="tm-squad"></div>
+        </div>
+        <div class="ov-card">
+          <div class="ov-card-title">Results</div>
+          <div class="ov-table-wrap" id="tm-results"></div>
+        </div>
+      </div>
+    </section>
+
+{% endblock %}
+{% block extra_js %}
+  <script>
+    window.LEAGUES = {{ leagues | tojson }};
+    window.SEASONS = {{ seasons | tojson }};
+    document.getElementById("nav-league").classList.add("active");
+  </script>
+  <script src="/static/js/overview.js"></script>
+  <script src="/static/js/league.js"></script>
+{% endblock %}

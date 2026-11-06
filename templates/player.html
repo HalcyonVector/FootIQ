@@ -256,6 +256,20 @@
           </div>
         </div>
 
+        <div class="ov-card" id="ov-pass-card" style="display:none">
+          <div class="ov-card-title">Pass map <span>attacking left → right</span></div>
+          <div class="ov-toggles" id="ov-pass-modes">
+            <button data-p="chances" class="active">Chances created</button><button data-p="progressive">Progressive</button>
+            <button data-p="box">Into the box</button><button data-p="failed">Incomplete</button>
+          </div>
+          <div id="ov-pass"></div>
+          <div class="ov-shot-sum" id="ov-pass-sum"></div>
+          <div class="ov-legend">
+            <span><i class="ov-sw" style="background:#22c55e"></i>Led to a goal</span><span><i class="ov-sw" style="background:#fbbf24"></i>Led to a shot</span>
+            <span><i class="ov-sw" style="background:#38bdf8"></i>Completed</span><span><i class="ov-sw" style="background:#f87171"></i>Incomplete</span>
+          </div>
+        </div>
+
         <div class="ov-card">
           <div class="ov-card-title">Career <span>every season in the dataset</span></div>
           <div class="ov-table-wrap" id="ov-career"></div>
@@ -269,6 +283,15 @@
         </div>
         <div class="adv-tabs" id="adv-tabs"></div>
         <div class="adv-panels" id="adv-panels"></div>
+      </section>
+
+      <!-- Statistical twins (same engine as Scout) -->
+      <section id="similar-section" class="glass-card ov-section" style="display:none">
+        <div class="pct-title-row">
+          <span class="section-label">Similar Players <span style="color:var(--muted);font-weight:500">: closest statistical profiles, any league or season</span></span>
+          <a class="sim-more" id="sim-more" href="/scout">Refine in Scout →</a>
+        </div>
+        <div class="sim-row" id="sim-row"></div>
       </section>
 
     </section>
@@ -287,5 +310,6 @@
     window.SEASONS = {{ seasons | tojson }};    document.getElementById("nav-player").classList.add("active");
   </script>
   <script src="/static/js/overview.js"></script>
+  <script src="/static/js/similar.js"></script>
   <script src="/static/js/app.js"></script>
 {% endblock %}

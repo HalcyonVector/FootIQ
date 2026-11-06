@@ -70,6 +70,10 @@ def _final_rating(stats: dict):
         return None
 
 
+def _r1(v):
+    return None if v is None else round(float(v), 1)
+
+
 def _cell(x: float, y: float) -> int:
     ix = min(max(int(x / 100.0 * GRID_X), 0), GRID_X - 1)
     iy = min(max(int(y / 100.0 * GRID_Y), 0), GRID_Y - 1)
@@ -104,6 +108,7 @@ def _shot_rows(match_key: str, events: list[dict], by_seq: dict) -> list[dict]:
         # at the *other* event's per-match seq id; only trust it when it
         # really is a teammate's pass (it can point at fouls etc. otherwise).
         assist_pid = None
+        pass_ev = None
         if "Assisted" in qm and qm.get("RelatedEventId"):
             try:
                 cand = by_seq.get((e["team_id"], int(qm["RelatedEventId"])))
@@ -112,6 +117,7 @@ def _shot_rows(match_key: str, events: list[dict], by_seq: dict) -> list[dict]:
             if cand and cand["type"] == "Pass" and cand["team_id"] == e["team_id"] \
                     and cand.get("player_id") not in (None, pid):
                 assist_pid = cand["player_id"]
+                pass_ev = cand
 
         if e["type"] == "Goal":
             outcome = "goal"
@@ -129,6 +135,12 @@ def _shot_rows(match_key: str, events: list[dict], by_seq: dict) -> list[dict]:
             "match_key": match_key,
             "whoscored_player_id": pid,
             "assist_pid": assist_pid,
+            # the assisting pass itself (start -> end), so "chances created"
+            # can be drawn on a pass map
+            "ax": _r1(pass_ev.get("x")) if pass_ev else None,
+            "ay": _r1(pass_ev.get("y")) if pass_ev else None,
+            "aex": _r1(pass_ev.get("end_x")) if pass_ev else None,
+            "aey": _r1(pass_ev.get("end_y")) if pass_ev else None,
             "minute": e.get("minute"),
             "x": round(float(x), 1), "y": round(float(y), 1),
             "outcome": outcome,

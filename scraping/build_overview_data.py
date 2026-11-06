@@ -37,8 +37,8 @@ from core.advanced.partition_io import write_partitioned
 ALL_LEAGUES = list(config.LEAGUE_DIR_MAP.keys())
 ALL_SEASONS = config.all_domestic_seasons() + ["2022", "2024"]
 
-SHOT_OUT_COLS = ["whoscored_player_id", "minute", "x", "y", "outcome", "situation", "body",
-                 "big_chance", "gm_y", "gm_z", "xg", "league", "season"]
+SHOT_OUT_COLS = ["whoscored_player_id", "assist_pid", "ax", "ay", "aex", "aey", "minute", "x", "y",
+                 "outcome", "situation", "body", "big_chance", "gm_y", "gm_z", "xg", "league", "season"]
 
 
 def _features(shots: pd.DataFrame) -> np.ndarray:
@@ -175,7 +175,9 @@ def main():
     pm = pm.sort_values(["league", "season", "date"], kind="stable")
 
     _write_partitioned(pm, os.path.join(out, "player_matches"))
-    _write_partitioned(shots[SHOT_OUT_COLS], os.path.join(out, "shots"))
+    shots_out = shots[SHOT_OUT_COLS].copy()
+    shots_out["assist_pid"] = shots_out["assist_pid"].astype("Int64")   # nullable int: shot not set up by a pass
+    _write_partitioned(shots_out, os.path.join(out, "shots"))
     n = GRID_X * GRID_Y
     heat_tbl = pa.table({
         "whoscored_player_id": pa.array(heat.whoscored_player_id.to_numpy(), pa.int64()),

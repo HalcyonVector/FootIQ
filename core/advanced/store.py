@@ -184,14 +184,39 @@ def get_team_match_counts(league: str, season: str) -> dict[str, int]:
     return t.drop_duplicates().groupby("team")["match_key"].nunique().to_dict()
 
 
+def get_season_matches(league: str, season: str):
+    """Every player-match row of one competition-season as a DataFrame (a few
+    thousand rows) -- league tables and team pages are built from this."""
+    import pandas as pd
+    ds = _overview_dataset("matches", config.PLAYER_MATCHES_DIR)
+    if ds is None:
+        return pd.DataFrame()
+    return ds.to_table(filter=(_f("league") == league) & (_f("season") == season)).to_pandas()
+
+
+_ASSIST_COLS = ("assist_pid", "ax", "ay", "aex", "aey")
+
+
 def get_player_shots(player_id: int, league: str, season: str) -> list[dict]:
     ds = _overview_dataset("shots", config.SHOTS_DIR)
     if ds is None:
         return []
-    cols = [f.name for f in ds.schema if f.name not in ("whoscored_player_id", "league", "season")]
+    cols = [f.name for f in ds.schema if f.name not in ("whoscored_player_id", "league", "season") + _ASSIST_COLS]
     return ds.to_table(
         columns=cols,
         filter=(_f("league") == league) & (_f("season") == season) & (_f("whoscored_player_id") == int(player_id)),
+    ).to_pylist()
+
+
+def get_chances_created(player_id: int, league: str, season: str) -> list[dict]:
+    """Shots this player set up with a pass, with the pass's start/end
+    coordinates and the chance's xG / outcome (the "key pass" map)."""
+    ds = _overview_dataset("shots", config.SHOTS_DIR)
+    if ds is None or "assist_pid" not in ds.schema.names:
+        return []
+    return ds.to_table(
+        columns=["ax", "ay", "aex", "aey", "xg", "outcome", "minute"],
+        filter=(_f("league") == league) & (_f("season") == season) & (_f("assist_pid") == int(player_id)),
     ).to_pylist()
 
 
