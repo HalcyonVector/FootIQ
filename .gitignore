@@ -66,3 +66,6 @@ desktop.ini
 # Logs
 *.log
 logs/
+
+# Local scratch (logs, commit-message drafts, helper scripts)
+dev/

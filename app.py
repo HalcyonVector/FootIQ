@@ -10,6 +10,7 @@ simple-stats/Compare/Scout system has been retired.
 import traceback
 from flask import Flask, render_template, request, jsonify
 from flask_cors import CORS
+from flask_compress import Compress
 
 from core.advanced import config as advanced_config
 from core.advanced.lookup import search_players, search_players_global, get_player_stats
@@ -17,6 +18,42 @@ from core.media import get_wikimedia_image
 
 app = Flask(__name__)
 CORS(app)
+# gzip/brotli for HTML, JSON, CSS and JS: the page shell is ~250 KB of text and
+# the stats/overview JSON 15-40 KB each, all of which shrink 4-8x. Matters most
+# on a slow free-tier link and a throttled CPU.
+Compress(app)
+app.config["COMPRESS_MIN_SIZE"] = 500
+# Static files revalidate via ETag after 5 minutes rather than on every page
+# view (Flask's default is "no-cache"). Short on purpose: the JS and the API
+# shape change together on a deploy.
+app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 300
+
+_GZIP_STATIC: dict = {}   # (ETag) -> gzipped body; the static files are small and change only on deploy
+
+
+@app.after_request
+def _gzip_static(resp):
+    """flask-compress skips streamed responses, which is what static files are,
+    so the 90 KB stylesheet and the JS went out raw. gzip them here, cached by
+    ETag so each file is compressed once per deploy."""
+    if request.endpoint != "static" or resp.status_code != 200 or resp.headers.get("Content-Encoding"):
+        return resp
+    if "gzip" not in request.headers.get("Accept-Encoding", "") or resp.mimetype not in (
+            "text/css", "text/javascript", "application/javascript", "image/svg+xml"):
+        return resp
+    etag = resp.headers.get("ETag")
+    body = _GZIP_STATIC.get(etag) if etag else None
+    if body is None:
+        import gzip
+        resp.direct_passthrough = False
+        body = gzip.compress(resp.get_data(), compresslevel=6)
+        if etag:
+            _GZIP_STATIC[etag] = body
+    resp.set_data(body)
+    resp.headers["Content-Encoding"] = "gzip"
+    resp.headers["Vary"] = "Accept-Encoding"
+    return resp
+
 
 # In-memory chart cache: key = whatever the caller builds it as.
 # Stores pre-rendered base64 chart PNGs so repeat lookups are instant.

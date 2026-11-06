@@ -8,3 +8,4 @@ numpy
 pyarrow
 mplsoccer
 gunicorn
+flask-compress
