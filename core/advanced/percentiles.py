@@ -50,7 +50,7 @@ def _cohort(df: pd.DataFrame, position: str, league_agnostic_season: str) -> pd.
     group = pos_group(position)
     subset = df[df["season"] == league_agnostic_season]
     subset = subset[subset["_pos_group"] == group]
-    subset = subset[subset["total_minutes"] >= config.ADV_MIN_MINUTES]
+    subset = subset[subset["total_minutes"] >= config.minutes_floor(subset)]
     return subset
 
 

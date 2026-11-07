@@ -5,6 +5,7 @@ carries only, per the reference glossary.
 """
 
 from core.advanced import geometry as g
+from core.advanced import gates
 from core.advanced.accumulate import PlayerAcc
 
 P90_KEYS = {
@@ -71,7 +72,7 @@ def finalize_carrying(totals: dict) -> dict:
             "carry_penetration_gain_m": round(t.get("carry_penetration_gain_m", 0), 1),
             "carry_into_box_count": t.get("carry_into_box_count", 0),
             "carry_takeons_attempted": takeon_att,
-            "carry_takeon_success_pct": round(100 * takeon_won / takeon_att, 1) if takeon_att >= 15 else None,
+            "carry_takeon_success_pct": round(100 * takeon_won / takeon_att, 1) if takeon_att >= gates.gate(15) else None,
             "carry_mean_distance_m": round(t.get("carry_distance_sum_m", 0) / count, 2) if count else None,
             "carry_distance_sum_m": round(t.get("carry_distance_sum_m", 0), 1),
             "carry_angle_bias_index": round(statistics.mean(angle_list), 2) if angle_list else None,

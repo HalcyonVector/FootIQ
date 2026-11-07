@@ -6,6 +6,7 @@ not a flat "%cut" rule, so it's directly cross-checkable against the
 """
 
 from core.advanced import geometry as g, qualifiers as q, timing
+from core.advanced import gates
 from core.advanced.accumulate import PlayerAcc
 
 # Output keys from finalize_passing() that are raw counts/sums and should be
@@ -103,13 +104,13 @@ def finalize_passing(totals: dict) -> dict:
         out[pid] = {
             "pass_prog_count": prog_comp,
             "pass_progression_rate_pct": round(100 * prog_att / att, 1) if att else None,
-            "pass_prog_accuracy_pct": round(100 * prog_comp / prog_att, 1) if prog_att >= 25 else None,
+            "pass_prog_accuracy_pct": round(100 * prog_comp / prog_att, 1) if prog_att >= gates.gate(25) else None,
             "pass_penetration_gain_m": round(t.get("pass_penetration_gain_m", 0), 1),
             "pass_into_box_count": t.get("pass_into_box", 0),
             "pass_through_balls_count": t.get("pass_through_balls", 0),
             "pass_through_balls_attempted_count": t.get("pass_through_balls_attempted", 0),
             "pass_crosses_count": cross_comp,
-            "pass_cross_accuracy_pct": round(100 * cross_comp / cross_att, 1) if cross_att >= 20 else None,
+            "pass_cross_accuracy_pct": round(100 * cross_comp / cross_att, 1) if cross_att >= gates.gate(20) else None,
             "pass_key_passes_count": t.get("pass_key_passes", 0),
             "pass_assists_count": t.get("pass_assists", 0),
             "pass_median_release_s": round(statistics.median(release_list), 2) if release_list else None,

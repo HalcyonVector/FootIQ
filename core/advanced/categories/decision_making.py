@@ -14,6 +14,7 @@ far up the pitch the pass landed. Labeled as an approximation in the UI.
 """
 
 from core.advanced import geometry as g, qualifiers as q, timing
+from core.advanced import gates
 from core.advanced.accumulate import PlayerAcc
 from core.advanced.possession_chains import trace_forward
 
@@ -114,14 +115,14 @@ def finalize_decision_making(totals: dict) -> dict:
         threat_list = t.get("list__dm_dribble_threat", [])
 
         out[pid] = {
-            "dm_space_finder_pct": round(100 * t.get("dm_space_finder_hits", 0) / space_att, 1) if space_att >= 15 else None,
-            "dm_time_bought_s": round(statistics.mean(time_bought_list), 2) if len(time_bought_list) >= 15 else None,
+            "dm_space_finder_pct": round(100 * t.get("dm_space_finder_hits", 0) / space_att, 1) if space_att >= gates.gate(15) else None,
+            "dm_time_bought_s": round(statistics.mean(time_bought_list), 2) if len(time_bought_list) >= gates.gate(15) else None,
             "dm_shot_creator": t.get("dm_shot_creator", 0),
             "dm_median_release_s": round(statistics.median(release_list), 2) if release_list else None,
-            "dm_press_resist_pct": round(100 * t.get("dm_press_resist_completed", 0) / press_att, 1) if press_att >= 15 else None,
-            "dm_carry_iq_pct": round(100 * t.get("dm_carry_iq_good", 0) / carries, 1) if carries >= 15 else None,
+            "dm_press_resist_pct": round(100 * t.get("dm_press_resist_completed", 0) / press_att, 1) if press_att >= gates.gate(15) else None,
+            "dm_carry_iq_pct": round(100 * t.get("dm_carry_iq_good", 0) / carries, 1) if carries >= gates.gate(15) else None,
             "dm_dribble_threat": round(sum(threat_list), 1) if threat_list else 0,
-            "dm_tempo_setter_pct": round(100 * t.get("dm_tempo_setter_hits", 0) / tempo_att, 1) if tempo_att >= 10 else None,
+            "dm_tempo_setter_pct": round(100 * t.get("dm_tempo_setter_hits", 0) / tempo_att, 1) if tempo_att >= gates.gate(10) else None,
             "dm_direct_threat_actions": t.get("dm_direct_threat_actions", 0),
         }
     return out

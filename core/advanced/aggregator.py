@@ -18,6 +18,7 @@ from core.advanced.categories import (
 )
 from core.advanced.linkup import compute_linkup
 from core.advanced.per90 import per_90
+from core.advanced import gates
 
 # Wave 5 categories (one row per event, NOT one row per player-season with
 # list-columns — see data/advanced/chart_events/<category>/ layout in
@@ -135,7 +136,15 @@ def build_player_season_table(league: str, season: str, collect_linkup: bool = T
             _merge_chart_events(chart_totals, "goalkeeping", ce.extract_goalkeeping(events, rosters, match_minutes))
 
     rows = []
-    finalized_by_category = [finalize_fn(totals) for finalize_fn in ALL_FINALIZERS]
+    # How much of this season has been played decides how strict the minimum-sample
+    # gates are (see core/advanced/gates.py); a finished season keeps the full gates.
+    n_teams = len({m["team_name"] for m in meta.values() if m["team_name"]})
+    progress = gates.season_progress(league, n_matches, n_teams)
+    gates.set_scale(progress)
+    try:
+        finalized_by_category = [finalize_fn(totals) for finalize_fn in ALL_FINALIZERS]
+    finally:
+        gates.set_scale(1.0)
 
     for pid, m in meta.items():
         total_min = m["total_minutes"]
@@ -148,6 +157,7 @@ def build_player_season_table(league: str, season: str, collect_linkup: bool = T
             "position": m["positions"].most_common(1)[0][0] if m["positions"] else None,
             "total_minutes": round(total_min, 1),
             "age": m["age"],
+            "season_progress": progress,
         }
         for cat_final in finalized_by_category:
             player_fields = cat_final.get(pid, {})

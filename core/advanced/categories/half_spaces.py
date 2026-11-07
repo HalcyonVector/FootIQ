@@ -10,6 +10,7 @@ restriction itself, since that's specific to what "half-space" means here.)
 """
 
 from core.advanced import geometry as g, qualifiers as q
+from core.advanced import gates
 from core.advanced.accumulate import PlayerAcc
 
 P90_KEYS = {
@@ -109,13 +110,13 @@ def finalize_half_spaces(totals: dict) -> dict:
             "hs_carries": t.get("hs_carries", 0),
             "hs_prog_carries": t.get("hs_prog_carries", 0),
             "hs_takeons": takeon_att,
-            "hs_takeon_success_pct": round(100 * t.get("hs_takeons_won", 0) / takeon_att, 1) if takeon_att >= 10 else None,
+            "hs_takeon_success_pct": round(100 * t.get("hs_takeons_won", 0) / takeon_att, 1) if takeon_att >= gates.gate(10) else None,
             "hs_key_passes": t.get("hs_key_passes", 0),
             "hs_shots": t.get("hs_shots", 0),
             "hs_into_box": t.get("hs_into_box", 0),
             "hs_def_actions": t.get("hs_def_actions", 0),
             "hs_tackles": tackle_att,
-            "hs_tackle_success_pct": round(100 * t.get("hs_tackles_won", 0) / tackle_att, 1) if tackle_att >= 10 else None,
+            "hs_tackle_success_pct": round(100 * t.get("hs_tackles_won", 0) / tackle_att, 1) if tackle_att >= gates.gate(10) else None,
             "hs_interceptions": t.get("hs_interceptions", 0),
             "hs_recoveries": t.get("hs_recoveries", 0),
             "hs_blocks": t.get("hs_blocks", 0),

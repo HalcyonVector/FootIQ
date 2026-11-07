@@ -4,6 +4,7 @@ shot body-part qualifiers (RightFoot/LeftFoot/Head/OtherBodyPart).
 """
 
 from core.advanced import geometry as g, qualifiers as q
+from core.advanced import gates
 from core.advanced.accumulate import PlayerAcc
 
 P90_KEYS = {
@@ -84,9 +85,9 @@ def finalize_shooting(totals: dict) -> dict:
             "shoot_headed_count": t.get("shots_headed", 0),
             "shoot_in_box_share_pct": round(100 * t.get("shots_in_box", 0) / shots, 1) if shots else None,
             "shoot_mean_distance_m": round(t.get("shot_distance_sum_m", 0) / shots, 1) if shots else None,
-            "shoot_conversion_pct": round(100 * goals / shots, 1) if shots >= 12 else None,
+            "shoot_conversion_pct": round(100 * goals / shots, 1) if shots >= gates.gate(12) else None,
             "shoot_accuracy_pct": round(100 * sot / shots, 1) if shots else None,
             "shoot_weak_foot_share_pct": round(100 * weak_shots / foot_shots, 1) if foot_shots else None,
-            "shoot_weak_foot_conversion_pct": round(100 * weak_goals / weak_shots, 1) if weak_shots >= 12 else None,
+            "shoot_weak_foot_conversion_pct": round(100 * weak_goals / weak_shots, 1) if weak_shots >= gates.gate(12) else None,
         }
     return out

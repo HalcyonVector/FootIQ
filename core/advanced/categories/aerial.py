@@ -8,6 +8,7 @@ immediate clearance if there is one), and passes/shots taken off the duel.
 """
 
 from core.advanced import geometry as g, qualifiers as q
+from core.advanced import gates
 from core.advanced.accumulate import PlayerAcc
 from core.advanced.possession_chains import trace_forward
 
@@ -121,16 +122,16 @@ def finalize_aerial(totals: dict) -> dict:
         duels_sp = t.get("aer_duels_sp", 0)
         out[pid] = {
             "aer_duels_count": t.get("aer_duels", 0),
-            "aer_win_rate_op_pct": round(100 * t.get("aer_won_op", 0) / duels_op, 1) if duels_op >= 10 else None,
-            "aer_win_rate_sp_pct": round(100 * t.get("aer_won_sp", 0) / duels_sp, 1) if duels_sp >= 5 else None,
-            "aer_aq_points_per_duel": round(t.get("aer_aq_points", 0) / won_duels, 2) if won_duels >= 10 else None,
-            "aer_duel_quality_pct": round(100 * (t.get("aer_retains_plays", 0) + t.get("aer_falls_teammate", 0)) / won_duels, 1) if won_duels >= 10 else None,
-            "aer_retains_plays_pct": round(100 * t.get("aer_retains_plays", 0) / won_duels, 1) if won_duels >= 10 else None,
-            "aer_falls_teammate_pct": round(100 * t.get("aer_falls_teammate", 0) / won_duels, 1) if won_duels >= 10 else None,
-            "aer_falls_opponent_pct": round(100 * t.get("aer_falls_opponent", 0) / won_duels, 1) if won_duels >= 10 else None,
-            "aer_cleared_out_pct": round(100 * t.get("aer_cleared_out", 0) / won_duels, 1) if won_duels >= 10 else None,
+            "aer_win_rate_op_pct": round(100 * t.get("aer_won_op", 0) / duels_op, 1) if duels_op >= gates.gate(10) else None,
+            "aer_win_rate_sp_pct": round(100 * t.get("aer_won_sp", 0) / duels_sp, 1) if duels_sp >= gates.gate(5) else None,
+            "aer_aq_points_per_duel": round(t.get("aer_aq_points", 0) / won_duels, 2) if won_duels >= gates.gate(10) else None,
+            "aer_duel_quality_pct": round(100 * (t.get("aer_retains_plays", 0) + t.get("aer_falls_teammate", 0)) / won_duels, 1) if won_duels >= gates.gate(10) else None,
+            "aer_retains_plays_pct": round(100 * t.get("aer_retains_plays", 0) / won_duels, 1) if won_duels >= gates.gate(10) else None,
+            "aer_falls_teammate_pct": round(100 * t.get("aer_falls_teammate", 0) / won_duels, 1) if won_duels >= gates.gate(10) else None,
+            "aer_falls_opponent_pct": round(100 * t.get("aer_falls_opponent", 0) / won_duels, 1) if won_duels >= gates.gate(10) else None,
+            "aer_cleared_out_pct": round(100 * t.get("aer_cleared_out", 0) / won_duels, 1) if won_duels >= gates.gate(10) else None,
             "aer_passes_off_duel": t.get("aer_passes_off_duel", 0),
-            "aer_post_aerial_accuracy_pct": round(100 * t.get("aer_passes_off_duel_completed", 0) / t.get("aer_passes_off_duel", 0), 1) if t.get("aer_passes_off_duel", 0) >= 10 else None,
+            "aer_post_aerial_accuracy_pct": round(100 * t.get("aer_passes_off_duel_completed", 0) / t.get("aer_passes_off_duel", 0), 1) if t.get("aer_passes_off_duel", 0) >= gates.gate(10) else None,
             "aer_prog_passes_off_duel": t.get("aer_prog_passes_off_duel", 0),
             "aer_shots_off_duel": t.get("aer_shots_off_duel", 0),
             "aer_duels_att_third": t.get("aer_duels_att_third", 0),

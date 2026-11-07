@@ -38,6 +38,7 @@ outside the final third.
 """
 
 from core.advanced import geometry as g, qualifiers as q, timing
+from core.advanced import gates
 from core.advanced.accumulate import PlayerAcc
 from core.advanced.carries import NON_TOUCH_TYPES
 from core.advanced.possession_chains import trace_forward_by_time
@@ -220,8 +221,8 @@ def finalize_holdup(totals: dict) -> dict:
             entry[f"{p}_prog_release_pct"] = pct(zd["prog_release"], ep)
             entry[f"{p}_prog_carry_pct"] = pct(zd["prog_carry"], ep)
             entry[f"{p}_shot_from_hold_pct"] = pct(zd["shot_from_hold"], ep)
-            entry[f"{p}_fouls_won_per_hold"] = round(zd["fouls_won"] / ep, 2) if ep >= 10 else None
-            entry[f"{p}_tackles_avoided_per_hold"] = round(zd["tackles_avoided"] / ep, 2) if ep >= 10 else None
+            entry[f"{p}_fouls_won_per_hold"] = round(zd["fouls_won"] / ep, 2) if ep >= gates.gate(10) else None
+            entry[f"{p}_tackles_avoided_per_hold"] = round(zd["tackles_avoided"] / ep, 2) if ep >= gates.gate(10) else None
             entry[f"{p}_dangerous_loss_pct"] = pct(zd["dangerous_loss"], ep)
         out[pid] = entry
     return out

@@ -6,6 +6,7 @@ resulting action (or chain: recovery -> carry -> pass).
 """
 
 from core.advanced import geometry as g, qualifiers as q
+from core.advanced import gates
 from core.advanced.accumulate import PlayerAcc
 from core.advanced.carries import NON_TOUCH_TYPES
 
@@ -91,12 +92,12 @@ def finalize_post_recovery(totals: dict) -> dict:
         pass_comp = t.get("pr_pass_completed", 0)
         out[pid] = {
             "pr_recoveries": recoveries,
-            "pr_retention_pct": round(100 * pass_comp / pass_att, 1) if pass_att >= 10 else None,
-            "pr_prog_pass_pct": round(100 * t.get("pr_prog_passes_off_recovery", 0) / recoveries, 1) if recoveries >= 10 else None,
-            "pr_prog_carry_pct": round(100 * t.get("pr_prog_carries_off_recovery", 0) / recoveries, 1) if recoveries >= 10 else None,
-            "pr_carry_then_progress_pct": round(100 * t.get("pr_carry_then_progress", 0) / recoveries, 1) if recoveries >= 10 else None,
+            "pr_retention_pct": round(100 * pass_comp / pass_att, 1) if pass_att >= gates.gate(10) else None,
+            "pr_prog_pass_pct": round(100 * t.get("pr_prog_passes_off_recovery", 0) / recoveries, 1) if recoveries >= gates.gate(10) else None,
+            "pr_prog_carry_pct": round(100 * t.get("pr_prog_carries_off_recovery", 0) / recoveries, 1) if recoveries >= gates.gate(10) else None,
+            "pr_carry_then_progress_pct": round(100 * t.get("pr_carry_then_progress", 0) / recoveries, 1) if recoveries >= gates.gate(10) else None,
             "pr_prog_passes_off_recovery": t.get("pr_prog_passes_off_recovery", 0),
             "pr_prog_carries_off_recovery": t.get("pr_prog_carries_off_recovery", 0),
-            "pr_backward_release_pct": round(100 * t.get("pr_backward_passes", 0) / pass_comp, 1) if pass_comp >= 10 else None,
+            "pr_backward_release_pct": round(100 * t.get("pr_backward_passes", 0) / pass_comp, 1) if pass_comp >= gates.gate(10) else None,
         }
     return out

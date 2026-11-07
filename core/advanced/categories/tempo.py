@@ -6,6 +6,7 @@ plays backwards.
 """
 
 from core.advanced import geometry as g, qualifiers as q, timing
+from core.advanced import gates
 from core.advanced.accumulate import PlayerAcc
 
 P90_KEYS = {
@@ -80,9 +81,9 @@ def finalize_tempo(totals: dict) -> dict:
             "tempo_injectors": injectors,
             "tempo_injector_passes": t.get("tempo_injector_passes", 0),
             "tempo_injector_carries": t.get("tempo_injector_carries", 0),
-            "tempo_injector_success_pct": round(100 * t.get("tempo_injector_success", 0) / injectors, 1) if injectors >= 10 else None,
+            "tempo_injector_success_pct": round(100 * t.get("tempo_injector_success", 0) / injectors, 1) if injectors >= gates.gate(10) else None,
             "tempo_resets": resets,
-            "tempo_aggression_ratio": round(injectors / denom, 2) if denom >= 10 else None,
+            "tempo_aggression_ratio": round(injectors / denom, 2) if denom >= gates.gate(10) else None,
             "tempo_injectors_into_box": t.get("tempo_injectors_into_box", 0),
             "tempo_median_release_s": round(statistics.median(release_list), 2) if release_list else None,
             "tempo_quick_release_pct": round(100 * t.get("tempo_quick_release", 0) / release_n, 1) if release_n else None,

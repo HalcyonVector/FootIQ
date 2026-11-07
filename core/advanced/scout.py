@@ -47,7 +47,7 @@ def _cross_cohort(df: pd.DataFrame, position: str) -> pd.DataFrame:
     NOT filtered to one season/league, unlike percentiles._cohort()."""
     group = pos_group(position)
     subset = df[df["_pos_group"] == group]
-    subset = subset[subset["total_minutes"] >= config.ADV_MIN_MINUTES]
+    subset = subset[subset["total_minutes"] >= config.minutes_floor(subset)]
     return subset
 
 

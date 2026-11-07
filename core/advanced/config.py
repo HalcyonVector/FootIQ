@@ -107,6 +107,18 @@ HEATMAPS_DIR = os.path.join(ADVANCED_DATA_DIR, "heatmaps")
 # Minimum minutes for a player-season to be included in percentile cohorts.
 # Mirrors config.MIN_MINUTES used by the existing FBref-based system.
 ADV_MIN_MINUTES = 450
+# A season still being played: the floor shrinks with how much of it has gone (the
+# `season_progress` column), but never below ~3 full matches.
+PARTIAL_SEASON_MIN_MINUTES = 270
+
+
+def minutes_floor(df):
+    """Per-row minimum minutes for a percentile cohort: ADV_MIN_MINUTES for a finished
+    season, less while the season is in progress. Index-aligned with `df`."""
+    if "season_progress" not in df.columns:
+        return ADV_MIN_MINUTES
+    p = df["season_progress"].fillna(1.0).clip(0, 1)
+    return (ADV_MIN_MINUTES * p).clip(lower=PARTIAL_SEASON_MIN_MINUTES, upper=ADV_MIN_MINUTES)
 
 
 def season_key(season: str) -> str:
