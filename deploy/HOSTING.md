@@ -14,19 +14,13 @@ Vercel's free functions are serverless with a ~250 MB unzipped bundle limit. Thi
 needs pandas + pyarrow (~100 MB) *and* ~265 MB of data, and a function
 that cold-starts per request would re-import all of it each time. It doesn't fit.
 
-## Better free host: Hugging Face Spaces (Docker)
-A free CPU Space gives 2 vCPU / 16 GB RAM (20x the CPU, 30x the memory of Render
-free) and only sleeps after ~48 h without a visitor. No card needed.
+## Hugging Face Spaces: NOT free any more
+Docker Spaces (and CPU Gradio Spaces) now require a paid HF plan; free accounts only get
+Static Spaces and ZeroGPU Gradio. The `Dockerfile`, `.dockerignore`, `deploy/hf_README.md`
+and `deploy/push_to_hf.sh` are kept only because the same container works on any host that
+runs Docker, but there is currently no free HF route. (Checked Nov 2026.)
 
-1. Create an account and a **new Space** at huggingface.co/new-space: SDK = Docker, hardware = CPU basic (free).
-2. Create an access token with write access (Settings -> Access Tokens).
-3. From this repo:
-   ```bash
-   deploy/push_to_hf.sh https://<hf-user>:<token>@huggingface.co/spaces/<hf-user>/<space>
-   ```
-4. The Space builds the `Dockerfile`, which downloads the data release
-   (`data/DATA_VERSION`) and starts gunicorn on port 7860. Your site is at
-   `https://<hf-user>-<space>.hf.space`.
-
-Re-run step 3 after each push to deploy a new version. Render keeps working
-unchanged (`render.yaml`), so you can run both and switch when you're happy.
+## What to do instead (free tier only)
+Stay on Render. The matplotlib/mplsoccer imports and server-side chart rendering are gone,
+so each request is far cheaper than when this page was written. The remaining cost is the
+cold start after 15 idle minutes (pandas/pyarrow + warming the datasets).
