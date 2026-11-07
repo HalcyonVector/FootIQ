@@ -50,26 +50,73 @@ def _row_to_dict(row) -> dict:
     }
 
 
-def search_players(name: str, league: str, season: str) -> list[dict]:
+# ── Name search index ─────────────────────────────────────────────────────────
+# Searching used to run a pandas string-contains over every one of the ~36k
+# player-season rows (plus league/season compares and iterrows) on EVERY
+# keystroke -- cheap on a laptop, slow on Render's 0.1 CPU. The index is built
+# once per loaded dataset: one tuple per row, grouped by (league, season) and by
+# season, so a query only scans the few hundred names that could match and
+# ranks them (name starts with the query, then a word starts with it, then
+# anywhere; busiest players first within each).
+_SEARCH_IDX: dict = {"df": None, "by_ls": {}, "by_s": {}}
+_SEARCH_COLS = ["_norm_name", "whoscored_player_id", "player_name", "team_name", "league", "season",
+                "position", "total_minutes", "age"]
+
+
+def _search_index() -> dict:
     df = get_advanced_df()
-    if df.empty:
+    if _SEARCH_IDX["df"] is df:
+        return _SEARCH_IDX
+    by_ls: dict = {}
+    by_s: dict = {}
+    if not df.empty:
+        for t in zip(*(df[c].tolist() for c in _SEARCH_COLS)):
+            if not isinstance(t[0], str):
+                continue
+            by_ls.setdefault((t[4], t[5]), []).append(t)
+            by_s.setdefault(t[5], []).append(t)
+    _SEARCH_IDX.update(df=df, by_ls=by_ls, by_s=by_s)
+    return _SEARCH_IDX
+
+
+def build_search_index() -> None:
+    """Called from the boot warm-up so the first keystroke doesn't pay for it."""
+    _search_index()
+
+
+def _tuple_to_dict(t: tuple) -> dict:
+    return {
+        "id": int(t[1]), "name": t[2], "team": t[3], "league": t[4], "season": t[5],
+        "position": _clean_position(t[6]), "minutes": _clean_minutes(t[7]), "age": _clean_age(t[8]),
+    }
+
+
+def _ranked_matches(pool: list, query: str, limit: int = 15) -> list[dict]:
+    hits = []
+    for t in pool:
+        n = t[0]
+        i = n.find(query)
+        if i < 0:
+            continue
+        rank = 0 if i == 0 else (1 if n[i - 1] == " " else 2)
+        mins = t[7]
+        hits.append((rank, -(mins if mins == mins and mins is not None else 0), n, t))
+    hits.sort(key=lambda h: h[:3])
+    return [_tuple_to_dict(h[3]) for h in hits[:limit]]
+
+
+def search_players(name: str, league: str, season: str) -> list[dict]:
+    query = _normalize_str(name)
+    if not query:
         return []
-    norm_name = _normalize_str(name)
-    mask = (
-        df["_norm_name"].str.contains(re.escape(norm_name), na=False)
-        & (df["league"] == league)
-        & (df["season"] == season)
-    )
-    return [_row_to_dict(r) for _, r in df[mask].head(15).iterrows()]
+    return _ranked_matches(_search_index()["by_ls"].get((league, season), []), query)
 
 
 def search_players_global(name: str, season: str) -> list[dict]:
-    df = get_advanced_df()
-    if df.empty:
+    query = _normalize_str(name)
+    if not query:
         return []
-    norm_name = _normalize_str(name)
-    mask = df["_norm_name"].str.contains(re.escape(norm_name), na=False) & (df["season"] == season)
-    return [_row_to_dict(r) for _, r in df[mask].head(15).iterrows()]
+    return _ranked_matches(_search_index()["by_s"].get(season, []), query)
 
 
 def search_players_by_league(league: str, season: str, page: int = 1) -> list[dict]:

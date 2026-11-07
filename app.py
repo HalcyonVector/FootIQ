@@ -15,7 +15,7 @@ from flask_cors import CORS
 from flask_compress import Compress
 
 from core.advanced import config as advanced_config
-from core.advanced.lookup import search_players, search_players_global, get_player_stats
+from core.advanced.lookup import search_players, search_players_global, get_player_stats, build_search_index
 from core.media import get_wikimedia_image
 
 app = Flask(__name__)
@@ -93,6 +93,9 @@ def _warm_up_in_background() -> None:
             _WARM_STATE["step"] = name
             print(f"[warm-up] {time.time() - _WARM_STATE['since']:6.1f}s  {name}", flush=True)
         _warm_up_store(progress)
+        progress("search index")
+        build_search_index()
+        progress("done")
     except Exception:
         _WARM_STATE["step"] = "failed: " + traceback.format_exc().splitlines()[-1]
         traceback.print_exc()
