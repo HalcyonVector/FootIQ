@@ -76,9 +76,18 @@ _WARM_STATE = {"step": "starting", "since": time.time()}
 _NO_DATA_API = ("/api/leagues", "/api/player-image", "/api/health")   # never touch the parquet caches
 
 
+# Import everything the warm-up touches HERE, in the importing (main) thread, before
+# the thread starts. Importing the same modules from two threads at once can
+# deadlock on Python's per-module import locks -- on Render this left the warm-up
+# frozen on its first import forever.
+from core.advanced import store as _store_mod            # noqa: E402
+from core.advanced import aggregator as _aggregator_mod  # noqa: E402,F401
+import core.media, core.position                         # noqa: E402,F401
+
+
 def _warm_up_in_background() -> None:
     try:
-        from core.advanced.store import warm_up as _warm_up_store
+        _warm_up_store = _store_mod.warm_up
 
         def progress(name):
             _WARM_STATE["step"] = name
