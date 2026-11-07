@@ -8,6 +8,7 @@ WhoScored/Opta match data (core/advanced/) — the old FBref-CSV-backed
 simple-stats/Compare/Scout system has been retired.
 """
 import threading
+import time
 import traceback
 from flask import Flask, render_template, request, jsonify
 from flask_cors import CORS
@@ -71,14 +72,20 @@ _CACHE_MAX = 200   # evict oldest when this is exceeded
 # If warm-up itself fails the flag is still set, and requests fall back to
 # the normal lazy-load path rather than hanging.
 _WARM = threading.Event()
-_NO_DATA_API = ("/api/leagues", "/api/player-image")   # never touch the parquet caches
+_WARM_STATE = {"step": "starting", "since": time.time()}
+_NO_DATA_API = ("/api/leagues", "/api/player-image", "/api/health")   # never touch the parquet caches
 
 
 def _warm_up_in_background() -> None:
     try:
         from core.advanced.store import warm_up as _warm_up_store
-        _warm_up_store()
+
+        def progress(name):
+            _WARM_STATE["step"] = name
+            print(f"[warm-up] {time.time() - _WARM_STATE['since']:6.1f}s  {name}", flush=True)
+        _warm_up_store(progress)
     except Exception:
+        _WARM_STATE["step"] = "failed: " + traceback.format_exc().splitlines()[-1]
         traceback.print_exc()
     finally:
         _WARM.set()
@@ -90,7 +97,17 @@ threading.Thread(target=_warm_up_in_background, name="warm-up", daemon=True).sta
 @app.before_request
 def _wait_for_warm_up():
     if not _WARM.is_set() and request.path.startswith("/api/") and request.path not in _NO_DATA_API:
-        _WARM.wait(timeout=100)   # under gunicorn's --timeout 120; after that, fall back to lazy loading
+        if not _WARM.wait(timeout=90):
+            # Don't fall through into the lazy loaders while the warm-up thread is
+            # mid-load: that would build a second copy of the data in 512MB of RAM.
+            return jsonify({"error": "The server is still loading its data, try again in a moment.",
+                            "step": _WARM_STATE["step"]}), 503
+
+
+@app.route("/api/health")
+def api_health():
+    return jsonify({"warm": _WARM.is_set(), "step": _WARM_STATE["step"],
+                    "seconds": round(time.time() - _WARM_STATE["since"], 1)})
 
 
 LEAGUES = [

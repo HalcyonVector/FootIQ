@@ -243,7 +243,7 @@ def reload():
     return get_advanced_df()
 
 
-def warm_up() -> None:
+def warm_up(progress=None) -> None:
     """Pre-loads everything a chart/stats request would otherwise load lazily
     on first use — called once at app startup (app.py) so a fresh gunicorn
     worker (a cold Render spin-up, or this app's own --max-requests worker
@@ -253,12 +253,19 @@ def warm_up() -> None:
     everything already built, took under 6s. Building all 12 categories'
     Dataset objects up front (each one is a directory scan across every
     league/season partition) accounts for most of that gap."""
+    step = progress or (lambda name: None)   # reported by /api/health so a slow boot can be diagnosed
+    step("import aggregator")
     from core.advanced.aggregator import CHART_CATEGORIES
+    step("player-season table")
     get_advanced_df()
+    step("linkup summary")
     get_linkup_summary_df()
     for category in CHART_CATEGORIES:
+        step(f"chart dataset: {category}")
         _chart_dataset(category)
+    step("linkup receptions")
     _linkup_receptions_dataset()
-    _overview_dataset("matches", config.PLAYER_MATCHES_DIR)
-    _overview_dataset("shots", config.SHOTS_DIR)
-    _overview_dataset("heat", config.HEATMAPS_DIR)
+    for name, path in (("matches", config.PLAYER_MATCHES_DIR), ("shots", config.SHOTS_DIR), ("heat", config.HEATMAPS_DIR)):
+        step(f"overview dataset: {name}")
+        _overview_dataset(name, path)
+    step("done")
