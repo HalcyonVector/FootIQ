@@ -1,25 +1,23 @@
-name: Keep Render instance warm
+name: Keep Render instance warm (evenings only)
 
-# DISABLED by default (schedule trigger removed, workflow_dispatch kept for
-# manual on-demand pings). Originally pinged every ~10 min to stop Render's
-# free tier from spinning the instance down after ~15 min idle -- but
-# Render's free tier pools 750 instance-hours per MONTH across the whole
-# workspace (a spun-down service costs nothing; an always-awake one costs
-# ~730 hours/month by itself, i.e. nearly the entire shared pool). This repo
-# shares that pool with other projects on the same Render account, so
-# pinging it awake around the clock would starve them of hours, not just
-# this one app. Letting FootIQ sleep when idle is the correct default for a
-# shared free-tier budget -- the real fix for cold starts is the app's own
-# startup warm-up (app.py), which cuts the cost of an actual cold hit from
-# ~40s to ~7s without costing any extra instance-hours (it only runs during
-# a boot that was happening anyway).
+# Render's free tier sleeps a service after ~15 idle minutes, so the first visitor
+# pays a cold start. This pings the app every 10 minutes ONLY during the hours it
+# is actually used, then lets it sleep overnight.
 #
-# If a light, bounded ping cadence is ever wanted instead (e.g. a few times
-# a day to avoid the worst-case stone-cold hit during likely usage windows,
-# at a small, predictable hours cost -- NOT trying to keep it continuously
-# warm), re-add a sparse cron here and do the math against the 750-hour pool
-# and whatever the other projects on the account actually need first.
+# Budget (Render's free pool is 750 instance-hours per MONTH for the whole
+# workspace, shared with the other projects):
+#   5 hours/day x 30 days = ~150 hours/month   (an always-on instance is ~730)
+# leaving ~600 hours for the other services and for real traffic outside the window.
+# GitHub Actions is free and unmetered for a public repo, and each run takes a few seconds.
+#
+# Window: cron runs in UTC. 12:00-16:50 UTC = 17:30-22:20 IST.
+# To move or widen it, change the hour range below and redo the maths above.
+#
+# Caveats: GitHub may delay or skip a scheduled run under load, and disables
+# scheduled workflows in a repo with no activity for 60 days (any push re-enables).
 on:
+  schedule:
+    - cron: "*/10 12-16 * * *"
   workflow_dispatch: {}  # manual "Run workflow" button in the Actions tab
 
 jobs:
@@ -27,4 +25,5 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Ping the live app
-        run: curl -sf --max-time 90 https://footiq.onrender.com/ -o /dev/null
+        # A cold start can take a minute+, so allow a long first request and one retry.
+        run: curl -sf --max-time 120 --retry 1 --retry-delay 10 https://footiq.onrender.com/ -o /dev/null
