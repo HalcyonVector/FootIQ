@@ -7,6 +7,7 @@ Stats-first: search a player, see their event-derived Advanced Metrics
 WhoScored/Opta match data (core/advanced/) — the old FBref-CSV-backed
 simple-stats/Compare/Scout system has been retired.
 """
+import os
 import threading
 import time
 import traceback
@@ -86,6 +87,7 @@ import core.media, core.position                         # noqa: E402,F401
 
 
 def _warm_up_in_background() -> None:
+    done = _WARM
     try:
         _warm_up_store = _store_mod.warm_up
 
@@ -100,10 +102,25 @@ def _warm_up_in_background() -> None:
         _WARM_STATE["step"] = "failed: " + traceback.format_exc().splitlines()[-1]
         traceback.print_exc()
     finally:
-        _WARM.set()
+        done.set()
 
 
-threading.Thread(target=_warm_up_in_background, name="warm-up", daemon=True).start()
+def _start_warm_up() -> None:
+    """(Re)start the warm-up in THIS process. Threads do not survive fork(): on Render the
+    app is imported before gunicorn forks its worker, so the thread started at import
+    time only ever existed in the parent -- the worker inherited an unset flag and no
+    thread, and every data request waited forever. So it also restarts itself in each
+    forked child. The Event is replaced too, since a copied one can carry a lock that
+    was held by a thread that no longer exists."""
+    global _WARM
+    _WARM = threading.Event()
+    _WARM_STATE.update(step="starting", since=time.time(), pid=os.getpid())
+    threading.Thread(target=_warm_up_in_background, name="warm-up", daemon=True).start()
+
+
+_start_warm_up()
+if hasattr(os, "register_at_fork"):
+    os.register_at_fork(after_in_child=_start_warm_up)
 
 
 @app.before_request
@@ -118,7 +135,8 @@ def _wait_for_warm_up():
 
 @app.route("/api/health")
 def api_health():
-    out = {"warm": _WARM.is_set(), "step": _WARM_STATE["step"], "seconds": round(time.time() - _WARM_STATE["since"], 1)}
+    out = {"warm": _WARM.is_set(), "step": _WARM_STATE["step"], "seconds": round(time.time() - _WARM_STATE["since"], 1),
+           "pid": os.getpid(), "warm_started_in_pid": _WARM_STATE.get("pid")}
     if request.args.get("stack"):   # where is each thread right now? (for diagnosing a slow boot)
         import sys
         frames = sys._current_frames()
