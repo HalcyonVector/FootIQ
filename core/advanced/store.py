@@ -38,6 +38,10 @@ from pyarrow.dataset import field as _f
 
 from core.advanced import config
 
+import pyarrow as _pa
+_pa.set_cpu_count(1)        # see _read_parquet_lean: cores visible to the process != CPU it may use
+_pa.set_io_thread_count(2)
+
 _DF: pd.DataFrame | None = None
 _LINKUP_SUMMARY_DF: pd.DataFrame | None = None
 _CHART_DATASETS: dict[str, pa_ds.Dataset] = {}
@@ -53,8 +57,11 @@ def _read_parquet_lean(path: str) -> pd.DataFrame:
     waiting; only worth the extra step for the two tables kept cached for a
     process's entire lifetime (the per-request partition reads elsewhere in
     this module are already small enough that it wouldn't move the needle)."""
-    table = pq.read_table(path)
-    df = table.to_pandas(split_blocks=True, self_destruct=True)
+    # Single-threaded on purpose: the host reports many CPU cores but Render's free
+    # tier gives the container a fraction of one, and Arrow's thread pool then
+    # spends its whole quota being throttled.
+    table = pq.read_table(path, use_threads=False)
+    df = table.to_pandas(split_blocks=True, self_destruct=True, use_threads=False)
     del table
     gc.collect()
     return df
