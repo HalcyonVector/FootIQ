@@ -760,6 +760,9 @@ async function loadLinkupTab() {
       body: JSON.stringify({ player_id: primaryPlayer.id, league: primaryLeague, season: primarySeason }),
     });
     const data = await res.json();
+    // A server error is not "no teammates": throw so the catch below shows "Could not load",
+    // and leave linkupTeammates null so opening the tab again retries.
+    if (!res.ok || data.error) throw new Error(data.error || `HTTP ${res.status}`);
     linkupTeammates = data.teammates || [];
     linkupPasserId = data.player_whoscored_id;
 
@@ -782,7 +785,7 @@ async function loadLinkupTab() {
 
     await selectLinkupTeammate(linkupTeammates[0].teammate_id);
   } catch {
-    if (body) body.innerHTML = `<tr><td colspan="2" style="color:var(--muted)">Could not load</td></tr>`;
+    if (body) body.innerHTML = `<tr><td colspan="2" style="color:var(--muted)">Could not load. Switch tabs and come back to retry.</td></tr>`;
   } finally {
     linkupLoading = false;
   }
