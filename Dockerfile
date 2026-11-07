@@ -7,7 +7,7 @@ FROM python:3.11-slim
 RUN useradd -m -u 1000 user
 USER user
 ENV HOME=/home/user PATH=/home/user/.local/bin:$PATH \
-    MPLCONFIGDIR=/home/user/.mpl PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1
 WORKDIR /home/user/app
 
 COPY --chown=user requirements.txt .
