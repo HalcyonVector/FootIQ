@@ -115,8 +115,13 @@ def _wait_for_warm_up():
 
 @app.route("/api/health")
 def api_health():
-    return jsonify({"warm": _WARM.is_set(), "step": _WARM_STATE["step"],
-                    "seconds": round(time.time() - _WARM_STATE["since"], 1)})
+    out = {"warm": _WARM.is_set(), "step": _WARM_STATE["step"], "seconds": round(time.time() - _WARM_STATE["since"], 1)}
+    if request.args.get("stack"):   # where is the warm-up thread right now? (for diagnosing a slow boot)
+        import sys
+        for t in threading.enumerate():
+            if t.name == "warm-up" and t.ident in sys._current_frames():
+                out["stack"] = traceback.format_stack(sys._current_frames()[t.ident])[-6:]
+    return jsonify(out)
 
 
 LEAGUES = [
