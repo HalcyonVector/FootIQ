@@ -29,11 +29,6 @@
         Pick a module to start analyzing data across 15 leagues and competitions.
       </p>
 
-      <div class="hub-search" id="hub-search-wrap">
-        <input id="hub-search" type="search" placeholder="Search any player" autocomplete="off" spellcheck="false" aria-label="Search any player" />
-        <div class="hub-results" id="hub-results" hidden></div>
-      </div>
-
       <div class="hub-grid">
         <a href="/player" class="hub-card">
           <div class="card-glow-bg"></div>
@@ -86,7 +81,9 @@
           <div class="radar-ring-1"></div>
           <div class="radar-ring-2"></div>
           <svg width="190" height="190" class="radar-poly">
-            <polygon id="hub-radar-poly" points="95,95 95,95 95,95 95,95 95,95 95,95" fill="rgba(59,130,246,0.25)" stroke="#3b82f6" stroke-width="1.5" stroke-linejoin="round" style="transition:all .6s ease"/>
+            <polygon points="95,12 168,52 158,142 95,178 28,120 46,44" fill="rgba(59,130,246,0.25)" stroke="#3b82f6" stroke-width="1.5"/>
+            <polygon points="95,42 140,68 132,114 95,150 56,122 66,66" fill="rgba(168,85,247,0.2)" stroke="#a855f7" stroke-width="1.5"/>
+            <polygon points="95,62 122,80 116,106 95,128 72,112 78,80" fill="rgba(244,63,94,0.2)" stroke="#f43f5e" stroke-width="1"/>
           </svg>
           <svg width="190" height="190" class="radar-axes">
             <line x1="95" y1="0" x2="95" y2="190" stroke="white" stroke-width="1"/>
@@ -95,30 +92,31 @@
             <line x1="170" y1="20" x2="20" y2="170" stroke="white" stroke-width="1"/>
           </svg>
         </div>
-        <div class="radar-badge" id="hub-sc-badge"></div>
-        <div class="radar-label" id="hub-sc-label"></div>
+        <div class="radar-badge" id="hub-sc-badge">Final Third: 91</div>
+        <div class="radar-label" id="hub-sc-label">B. Fernandes</div>
       </div>
 
       <div class="float-item match-float">
         <div class="match-pill-value">
-          <div class="match-pill-eyebrow" id="hub-sc-pill-eyebrow"></div>
-          <div class="match-pill-num" id="hub-sc-pill-num"></div>
+          <div class="match-pill-eyebrow" id="hub-sc-pill-eyebrow">Combination Play</div>
+          <div class="match-pill-num" id="hub-sc-pill-num">226 <span>links</span></div>
         </div>
       </div>
 
       <div class="float-item live-float">
-        <span id="hub-updated"></span>
+        <span class="live-dot"></span>
+        Live from 5,000+ matches
       </div>
 
       <div class="float-item mini-stat-float">
-        <div class="mini-stat-num" id="hub-metrics"></div>
+        <div class="mini-stat-num">100+</div>
         <div class="mini-stat-label">Metrics Tracked</div>
       </div>
 
       <div class="float-item bars-float">
         <div class="bars-eyebrow">
           <span class="pulse-dot"></span>
-          Percentile Rankings <span id="hub-bars-who" style="opacity:.7;text-transform:none;letter-spacing:0"></span>
+          Percentile Rankings
         </div>
         <div class="bar-row" data-bar="0">
           <div class="bar-row-label"><span class="bar-row-name"></span><span class="bar-row-pct"></span></div>
@@ -150,7 +148,6 @@ body { display: flex; flex-direction: column; }
 footer { position: static !important; flex-shrink: 0; background: var(--hub-card-bg) !important; backdrop-filter: blur(20px) !important; border-top: 1px solid var(--float-border) !important; padding: 14px 0 !important; }
 footer .footer-inner { max-width: 1200px !important; padding: 0 40px !important; }
 
-.hub-hero .hero-left { max-width: 620px; flex-basis: 600px; }   /* room for the headline at -1px letter-spacing */
 .hub-hero { padding: 0 40px; max-width: 1200px; margin: 0 auto; width: 100%; }
 .hub-grid { display: flex; flex-direction: column; gap: 10px; max-width: 480px; }
 .hub-card {
@@ -160,26 +157,6 @@ footer .footer-inner { max-width: 1200px !important; padding: 0 40px !important;
   transition: all .4s cubic-bezier(.4,0,.2,1);
 }
 .hub-card:hover { transform: translateX(10px); border-color: var(--c0); box-shadow: 0 20px 40px rgba(0,0,0,.2), 0 0 30px rgba(59,130,246,.1); }
-.hub-search { position: relative; max-width: 480px; margin: 0 0 14px; z-index: 30; }
-.hub-search input {
-  width: 100%; box-sizing: border-box; padding: 13px 16px; font: 500 15px 'Outfit', sans-serif;
-  color: var(--text); background: var(--hub-card-bg); border: 1px solid var(--float-border); border-radius: 12px; outline: none;
-  transition: border-color .15s;
-}
-.hub-search input::placeholder { color: var(--muted); }
-.hub-search input:focus { border-color: var(--c0); }
-.hub-results {
-  position: absolute; left: 0; right: 0; top: calc(100% + 6px); max-height: 320px; overflow-y: auto;
-  background: var(--float-bg); border: 1px solid var(--float-border); border-radius: 12px; backdrop-filter: blur(16px);
-  box-shadow: 0 16px 40px rgba(0,0,0,.35);
-}
-.hub-results[hidden] { display: none; }
-.hub-result { display: block; padding: 10px 14px; text-decoration: none; color: var(--text); font-size: 14px; font-weight: 600; }
-.hub-result span { display: block; margin-top: 1px; color: var(--muted); font-size: 12px; font-weight: 500; }
-.hub-result:hover { background: rgba(59,130,246,.12); }
-.hub-result-empty { padding: 12px 14px; color: var(--muted); font-size: 13px; }
-#hub-showcase { opacity: 0; transition: opacity .5s ease; }
-#hub-showcase.ready { opacity: 1; }
 .hub-card-disabled { cursor: default; opacity: .55; }
 .hub-card-disabled:hover { transform: none; box-shadow: none; border-color: var(--float-border); }
 .hub-card-title { font-size: 15px; font-weight: 800; color: var(--text); margin: 0 0 3px; letter-spacing: -.5px; display: flex; align-items: center; gap: 10px; }
@@ -205,13 +182,13 @@ footer .footer-inner { max-width: 1200px !important; padding: 0 40px !important;
 .hub-mobile-topbar{ display: contents; }
 .hub-mobile-logo{ display: none; }
 
-.hub-title { font-size: 48px; letter-spacing: -1px; }
+.hub-title { font-size: 48px; letter-spacing: -2px; }
 
 @media (max-width: 960px) {
   html, body { overflow: auto !important; }
   .container { justify-content: flex-start !important; }
   .hero-visual { display: none; }
-  .hub-title { font-size: 38px; letter-spacing: -.5px; }
+  .hub-title { font-size: 38px; letter-spacing: -1.5px; }
 
   /* On mobile the page is taller than one screen, so the theme toggle can't
      float alone with nothing around it — give it a proper top bar with the
@@ -236,7 +213,7 @@ footer .footer-inner { max-width: 1200px !important; padding: 0 40px !important;
   .hub-hero{ padding-top: 78px; padding-bottom: 32px; }
 }
 @media (max-width: 480px) {
-  .hub-title { font-size: 30px; letter-spacing: -.5px; }
+  .hub-title { font-size: 30px; letter-spacing: -1px; }
 }
 </style>
 <script>
@@ -250,88 +227,81 @@ footer .footer-inner { max-width: 1200px !important; padding: 0 40px !important;
     });
   }
 
-  // Everything in the right-hand visual comes from the dataset (/api/hub and
-  // /api/hub-player); if those calls fail the visual simply stays hidden.
-  const HUB_COLORS = [["#3b82f6", "#60a5fa"], ["#10b981", "#34d399"], ["#a855f7", "#c084fc"], ["#f43f5e", "#fb7185"]];
-  const hubShowcase = document.getElementById("hub-showcase");
-  const hubFmt = n => Number(n).toLocaleString("en-GB");
-  const hubOrd = n => { const t = n % 100, u = n % 10; return n + (t >= 11 && t <= 13 ? "th" : u === 1 ? "st" : u === 2 ? "nd" : u === 3 ? "rd" : "th"); };
+  // Rotating showcase snapshots: a handful of real-feeling stat
+  // highlights so the hub doesn't always show the same fixed content.
+  const HUB_SHOWCASES = [
+    {
+      badge: "Final Third: 91", label: "B. Fernandes",
+      pillEyebrow: "Combination Play", pillNum: "226 <span>links</span>",
+      bars: [
+        ["Progressive Passes", 94, "#3b82f6", "#60a5fa"],
+        ["Aerial Duels Won", 88, "#10b981", "#34d399"],
+        ["Final Third Impact", 99, "#a855f7", "#c084fc"],
+        ["Press Resist", 76, "#f43f5e", "#fb7185"],
+      ],
+    },
+    {
+      badge: "Shooting Profile: 97", label: "E. Haaland",
+      pillEyebrow: "Goals per 90", pillNum: "0.83",
+      bars: [
+        ["Shots on Target", 91, "#3b82f6", "#60a5fa"],
+        ["Big-Chance Conversion", 95, "#10b981", "#34d399"],
+        ["Shot Accuracy", 88, "#a855f7", "#c084fc"],
+        ["Aerial Duels Won", 79, "#f43f5e", "#fb7185"],
+      ],
+    },
+    {
+      badge: "Defending Profile: 93", label: "V. van Dijk",
+      pillEyebrow: "Aerial Duels", pillNum: "412 <span>won</span>",
+      bars: [
+        ["Tackle Success", 89, "#3b82f6", "#60a5fa"],
+        ["Interceptions", 85, "#10b981", "#34d399"],
+        ["Aerial Win Rate", 93, "#a855f7", "#c084fc"],
+        ["Clearances", 77, "#f43f5e", "#fb7185"],
+      ],
+    },
+    {
+      badge: "Decision Making: 88", label: "M. Ødegaard",
+      pillEyebrow: "Key Passes per 90", pillNum: "2.1",
+      bars: [
+        ["Space-Finder", 82, "#3b82f6", "#60a5fa"],
+        ["Press Resist", 90, "#10b981", "#34d399"],
+        ["Progressive Passes", 85, "#a855f7", "#c084fc"],
+        ["Shot Creator", 79, "#f43f5e", "#fb7185"],
+      ],
+    },
+  ];
 
-  function paintHubPlayer(p) {
-    const poly = document.getElementById("hub-radar-poly");
-    const n = p.axes.length;
-    poly.setAttribute("points", p.axes.map((a, i) => {
-      const r = 8 + 77 * Math.max(a.value, 0) / 100, ang = 2 * Math.PI * i / n;
-      return `${(95 + r * Math.sin(ang)).toFixed(1)},${(95 - r * Math.cos(ang)).toFixed(1)}`;
-    }).join(" "));
-    const best = p.axes.reduce((m, a) => (a.value > m.value ? a : m), p.axes[0]);
-    document.getElementById("hub-sc-badge").textContent = `${best.label}: ${hubOrd(best.value)} pct`;
-    document.getElementById("hub-sc-label").textContent = p.name;
-    document.getElementById("hub-sc-pill-eyebrow").textContent = `Goals · ${p.season}`;
-    document.getElementById("hub-sc-pill-num").innerHTML = `${p.goals} <span>goals</span>`;
-    document.getElementById("hub-bars-who").textContent = `· ${p.team}`;
-    const top = [...p.axes].sort((a, b) => b.value - a.value).slice(0, 4);
-    document.querySelectorAll("#hub-showcase .bar-row").forEach((row, i) => {
-      const [c0, c1] = HUB_COLORS[i];
-      row.querySelector(".bar-row-name").textContent = top[i].label;
+  function applyHubShowcase(sc) {
+    document.getElementById("hub-sc-badge").textContent = sc.badge;
+    document.getElementById("hub-sc-label").textContent = sc.label;
+    document.getElementById("hub-sc-pill-eyebrow").textContent = sc.pillEyebrow;
+    document.getElementById("hub-sc-pill-num").innerHTML = sc.pillNum;
+    document.querySelectorAll("#hub-showcase .bar-row").forEach(row => {
+      const [name, pct, c0, c1] = sc.bars[+row.dataset.bar];
+      row.querySelector(".bar-row-name").textContent = name;
       const pctEl = row.querySelector(".bar-row-pct");
-      pctEl.textContent = hubOrd(top[i].value);
+      pctEl.textContent = `${pct}th`;
       pctEl.style.color = c0;
       const fill = row.querySelector(".bar-row-fill");
-      fill.style.width = `${top[i].value}%`;
+      fill.style.width = `${pct}%`;
       fill.style.background = `linear-gradient(90deg,${c0},${c1})`;
     });
   }
 
-  async function startHubShowcase() {
-    if (!hubShowcase) return;
-    try {
-      const facts = await (await fetch("/api/hub")).json();
-      if (facts.error || !facts.featured || !facts.featured.length) return;
-      document.getElementById("hub-updated").textContent = `Data updated ${facts.updated} · ${hubFmt(facts.matches)} matches`;
-      document.getElementById("hub-metrics").textContent = facts.metrics;
-      const cache = {};
-      const load = async i => (cache[i] ||= await (await fetch(`/api/hub-player?i=${i}`)).json());
-      let idx = Math.floor(Math.random() * facts.featured.length);
-      paintHubPlayer(await load(idx));
-      hubShowcase.classList.add("ready");
-      setInterval(async () => {
-        idx = (idx + 1) % facts.featured.length;
-        const p = await load(idx);
-        if (p.error) return;
-        hubShowcase.style.opacity = "0";
-        setTimeout(() => { paintHubPlayer(p); hubShowcase.style.opacity = ""; }, 400);
-      }, 7000);
-    } catch (e) { /* leave the visual hidden */ }
+  const showcaseEl = document.getElementById("hub-showcase");
+  if (showcaseEl) {
+    let hubShowcaseIdx = Math.floor(Math.random() * HUB_SHOWCASES.length);
+    applyHubShowcase(HUB_SHOWCASES[hubShowcaseIdx]);
+    setInterval(() => {
+      hubShowcaseIdx = (hubShowcaseIdx + 1) % HUB_SHOWCASES.length;
+      showcaseEl.style.transition = "opacity .4s ease";
+      showcaseEl.style.opacity = "0";
+      setTimeout(() => {
+        applyHubShowcase(HUB_SHOWCASES[hubShowcaseIdx]);
+        showcaseEl.style.opacity = "1";
+      }, 400);
+    }, 6000);
   }
-  startHubShowcase();
-
-  // Search: straight to a player's newest season.
-  const hubSearch = document.getElementById("hub-search");
-  const hubResults = document.getElementById("hub-results");
-  let hubTimer = null, hubSeq = 0;
-  const hubEsc = t => String(t == null ? "" : t).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-  const hubHref = p => `/player?${new URLSearchParams({ player_id: p.id, league: p.league, season: p.season })}`;
-  hubSearch.addEventListener("input", () => {
-    clearTimeout(hubTimer);
-    const q = hubSearch.value.trim();
-    if (q.length < 2) { hubResults.hidden = true; return; }
-    hubTimer = setTimeout(async () => {
-      const mine = ++hubSeq;
-      try {
-        const data = await (await fetch(`/api/search?name=${encodeURIComponent(q)}&any_season=1`)).json();
-        if (mine !== hubSeq) return;       // a newer keystroke already replaced this one
-        hubResults.innerHTML = Array.isArray(data) && data.length
-          ? data.map(p => `<a class="hub-result" href="${hubHref(p)}">${hubEsc(p.name)}<span>${hubEsc(p.team)} · ${hubEsc(p.league)} · ${hubEsc(p.season)}</span></a>`).join("")
-          : '<div class="hub-result-empty">No players found</div>';
-        hubResults.hidden = false;
-      } catch (e) { hubResults.hidden = true; }
-    }, 200);
-  });
-  hubSearch.addEventListener("keydown", e => {
-    if (e.key === "Enter") { const a = hubResults.querySelector(".hub-result"); if (a) location.href = a.getAttribute("href"); }
-    if (e.key === "Escape") { hubResults.hidden = true; hubSearch.blur(); }
-  });
-  document.addEventListener("click", e => { if (!e.target.closest("#hub-search-wrap")) hubResults.hidden = true; });
 </script>
 {% endblock %}
