@@ -1959,3 +1959,6 @@ footer {
   background:var(--float-bg);color:var(--text);border:1px solid var(--float-border);border-radius:8px;
   padding:6px 10px;font-size:12px;line-height:1.4;box-shadow:0 6px 20px rgba(0,0,0,.35);backdrop-filter:blur(6px)}
 .linkup-chart-wrap .linkup-chart{width:100%}
+
+/* Headline accents were a gradient fill on every page title; plain text reads less templated. */
+.gradient-text{background:none !important;-webkit-text-fill-color:currentColor !important;color:inherit !important}
