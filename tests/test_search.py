@@ -15,14 +15,14 @@ def _use(monkeypatch, df):
     lookup._SEARCH_IDX["df"] = None     # force a rebuild for the fake frame
 
 
-def test_ranks_prefix_then_word_start_then_substring(monkeypatch):
+def test_ranks_whole_word_then_prefix_then_word_start_then_substring(monkeypatch):
     _use(monkeypatch, _frame([
         ("Aaron Wan-Bissaka", 1, "A", "Premier League", "2025-26", "DF", 2000, 27),
         ("Bukayo Saka", 2, "B", "Premier League", "2025-26", "FW", 1500, 24),
         ("Sakai Hiroki", 3, "C", "Premier League", "2025-26", "DF", 900, 26),
     ]))
     names = [r["name"] for r in lookup.search_players("saka", "Premier League", "2025-26")]
-    assert names == ["Sakai Hiroki", "Bukayo Saka", "Aaron Wan-Bissaka"]   # prefix, word start, then inside a word
+    assert names == ["Bukayo Saka", "Sakai Hiroki", "Aaron Wan-Bissaka"]   # the exact word, then a prefix, then inside a word
 
 
 def test_busier_player_first_within_a_rank(monkeypatch):

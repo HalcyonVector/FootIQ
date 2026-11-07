@@ -91,6 +91,16 @@ def _tuple_to_dict(t: tuple) -> dict:
     }
 
 
+def _match_rank(name: str, query: str, i: int) -> int:
+    """0 = a whole word of the name IS the query ('salah' -> Mohamed Salah), 1 = name starts
+    with it, 2 = a word starts with it, 3 = somewhere inside a word."""
+    if query in re.split(r"[ \-]", name):
+        return 0
+    if i == 0:
+        return 1
+    return 2 if name[i - 1] in " -" else 3
+
+
 def _ranked_matches(pool: list, query: str, limit: int = 15) -> list[dict]:
     hits = []
     for t in pool:
@@ -98,7 +108,7 @@ def _ranked_matches(pool: list, query: str, limit: int = 15) -> list[dict]:
         i = n.find(query)
         if i < 0:
             continue
-        rank = 0 if i == 0 else (1 if n[i - 1] == " " else 2)
+        rank = _match_rank(n, query, i)
         mins = t[7]
         hits.append((rank, -(mins if mins == mins and mins is not None else 0), n, t))
     hits.sort(key=lambda h: h[:3])
@@ -117,6 +127,31 @@ def search_players_global(name: str, season: str) -> list[dict]:
     if not query:
         return []
     return _ranked_matches(_search_index()["by_s"].get(season, []), query)
+
+
+def search_players_any(name: str, limit: int = 15) -> list[dict]:
+    """Search across every season and league; each player appears once, on their
+    newest season (the hub search box: 'find this player', no season picker)."""
+    from core.advanced.config import season_sort_key
+    query = _normalize_str(name)
+    if not query:
+        return []
+    best: dict = {}
+    total: dict = {}     # minutes across every season: a better "who is this person" signal than one season
+    for season, pool in _search_index()["by_s"].items():
+        sk = season_sort_key(season)
+        for t in pool:
+            i = t[0].find(query)
+            if i < 0:
+                continue
+            mins = t[7] if (t[7] == t[7] and t[7] is not None) else 0
+            total[t[1]] = total.get(t[1], 0) + mins
+            key = (sk, mins)
+            cur = best.get(t[1])
+            if cur is None or key > cur[0]:
+                best[t[1]] = (key, _match_rank(t[0], query, i), t)
+    hits = sorted(best.items(), key=lambda kv: (kv[1][1], -total[kv[0]]))
+    return [_tuple_to_dict(kv[1][2]) for kv in hits[:limit]]
 
 
 def search_players_by_league(league: str, season: str, page: int = 1) -> list[dict]:

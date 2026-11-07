@@ -16,7 +16,7 @@ from flask_cors import CORS
 from flask_compress import Compress
 
 from core.advanced import config as advanced_config
-from core.advanced.lookup import search_players, search_players_global, get_player_stats, build_search_index
+from core.advanced.lookup import search_players, search_players_global, search_players_any, get_player_stats, build_search_index
 from core.media import get_wikimedia_image
 
 app = Flask(__name__)
@@ -297,6 +297,8 @@ def api_search():
         return jsonify([])
 
     try:
+        if request.args.get("any_season") == "1":
+            return jsonify(search_players_any(name))
         if all_leagues:
             results = search_players_global(name, season)
         else:
@@ -304,6 +306,88 @@ def api_search():
             if not results:
                 results = search_players_global(name, season)
         return jsonify(results[:15])
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# API — home page facts and featured players (all real, computed from the dataset)
+# ─────────────────────────────────────────────────────────────────────────────
+_HUB: dict = {}
+_FEATURED_NAMES = ["Erling Haaland", "Mohamed Salah", "Bukayo Saka", "Virgil van Dijk"]
+
+
+def _hub_facts() -> dict:
+    if "facts" in _HUB:
+        return _HUB["facts"]
+    import json as _json
+    from core.advanced import config as _cfg, store as _store
+    from core.advanced.metrics_master import CATEGORIES
+    from datetime import date
+    df = _store.get_advanced_df()
+    counts = df["season"].value_counts()
+    full_season = max((s for s, c in counts.items() if c >= 0.9 * counts.max()), key=_cfg.season_sort_key)
+    matches = 0
+    try:
+        import pyarrow.dataset as pa_ds
+        ds = _store._overview_dataset("matches", _cfg.PLAYER_MATCHES_DIR)
+        matches = len(set(ds.to_table(columns=["match_key"]).column("match_key").to_pylist()))
+    except Exception:
+        traceback.print_exc()
+    updated = ""
+    try:
+        built = _json.load(open(os.path.join(os.path.dirname(_cfg.PLAYER_SEASON_PARQUET), "..", "DATA_VERSION")))["built"]
+        d = date.fromisoformat(built)
+        updated = f"{d.day} {d.strftime('%b %Y')}"
+    except Exception:
+        pass
+    featured = []
+    for nm in _FEATURED_NAMES:
+        hit = search_players_global(nm, full_season)
+        if hit:
+            featured.append({k: hit[0][k] for k in ("id", "name", "team", "league", "season")})
+    _HUB["facts"] = {
+        "updated": updated, "matches": matches, "players": int(df["whoscored_player_id"].nunique()),
+        "metrics": sum(len(c["metrics"]) for c in CATEGORIES.values()), "season": full_season, "featured": featured,
+    }
+    return _HUB["facts"]
+
+
+@app.route("/api/hub")
+def api_hub():
+    try:
+        return jsonify(_hub_facts())
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/hub-player")
+def api_hub_player():
+    """Real numbers for one featured player: the six radar percentiles, the season
+    goals line and the Final Third score -- the same figures the Player page shows."""
+    try:
+        i = int(request.args.get("i", 0))
+        facts = _hub_facts()
+        if not (0 <= i < len(facts["featured"])):
+            return jsonify({"error": "no such player"}), 404
+        if ("player", i) in _HUB:
+            return jsonify(_HUB[("player", i)])
+        p = facts["featured"][i]
+        from core.advanced import store as _store, summary as _summary
+        from core.advanced.identity import match_to_advanced_row
+        from core.advanced.percentiles import build_all_categories
+        from visuals import specs as sp
+        df = _store.get_advanced_df()
+        row = match_to_advanced_row(p["id"], p["league"], p["season"], df)
+        cats = build_all_categories(row, row.get("position", ""), p["season"], df)
+        axes = [{"label": lbl, "value": round(sp._percentile_for(cats, k, l))} for (k, l), lbl in zip(sp.RADAR_METRICS, sp.RADAR_LABELS)]
+        line = _summary.season_line(_store.get_player_matches(p["id"], p["league"], p["season"]))
+        out = {**p, "axes": axes, "goals": line["goals"], "assists": line["assists"],
+               "final_third": next((a["value"] for a in axes if a["label"] == "Final Third"), None)}
+        _HUB[("player", i)] = out
+        return jsonify(out)
     except Exception as e:
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
