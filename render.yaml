@@ -13,12 +13,16 @@ services:
     # dataframes (~300-400MB) plus pandas/pyarrow import
     # overhead — 2 workers would double that and blow the ceiling on a
     # single request. Single-worker is fine for this app's actual traffic.
+    # --threads 4: one worker but four request threads (they share the one copy of the
+    # data, so no extra RAM): the boot warm-up runs in the background, and the pages
+    # have to be served while API calls wait for it; it also lets a page's parallel
+    # API calls run side by side instead of queueing.
     # --max-requests recycles the worker periodically as a safety net: even
     # with per-request Arrow reads scoped to one tiny partition slice,
     # repeated parquet reads showed a slow, converging RSS creep in local
     # testing (native-allocator fragmentation, not a real Python object leak
     # — confirmed via tracemalloc) that a fresh process resets for free.
-    startCommand: "gunicorn app:app --bind 0.0.0.0:$PORT --timeout 120 --workers 1 --max-requests 300 --max-requests-jitter 50"
+    startCommand: "gunicorn app:app --bind 0.0.0.0:$PORT --timeout 120 --workers 1 --threads 4 --max-requests 300 --max-requests-jitter 50"
     envVars:
       - key: FLASK_DEBUG
         value: "0"

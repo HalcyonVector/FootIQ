@@ -7,6 +7,7 @@ Stats-first: search a player, see their event-derived Advanced Metrics
 WhoScored/Opta match data (core/advanced/) — the old FBref-CSV-backed
 simple-stats/Compare/Scout system has been retired.
 """
+import threading
 import traceback
 from flask import Flask, render_template, request, jsonify
 from flask_cors import CORS
@@ -60,22 +61,37 @@ def _gzip_static(resp):
 _chart_cache: dict = {}
 _CACHE_MAX = 200   # evict oldest when this is exceeded
 
-# Runs once, synchronously, while gunicorn imports this module — BEFORE the
-# worker starts accepting connections — so a fresh worker (a cold Render
-# spin-up, or this app's own --max-requests recycling in render.yaml) pays
-# the first-use cost of loading the parquet caches and building all 12 chart
-# Dataset objects, rather than
-# whichever real visitor's request happens to land first. Measured live: a
-# category-chart request against a genuinely cold worker took 40s; with
-# this warm-up in place that cost happens at boot instead, invisible to
-# every visitor. Wrapped defensively — if warm-up itself fails for some
-# reason, the app should still boot and fall back to the normal lazy-load
-# path on first request rather than refuse to start at all.
-try:
-    from core.advanced.store import warm_up as _warm_up_store
-    _warm_up_store()
-except Exception:
-    traceback.print_exc()
+# Loads the parquet caches and builds all 12 chart Dataset objects once, so no
+# visitor's request pays for it (measured live before this existed: a
+# category-chart request on a cold worker took 40s). It runs in a BACKGROUND
+# thread so gunicorn starts accepting connections immediately: the HTML pages,
+# CSS and JS (which need no data) load at once on a cold start, and only the
+# /api/ calls that read data wait here until the warm-up is done. Before this,
+# the whole site was a blank screen for the entire warm-up on Render's 0.1 CPU.
+# If warm-up itself fails the flag is still set, and requests fall back to
+# the normal lazy-load path rather than hanging.
+_WARM = threading.Event()
+_NO_DATA_API = ("/api/leagues", "/api/player-image")   # never touch the parquet caches
+
+
+def _warm_up_in_background() -> None:
+    try:
+        from core.advanced.store import warm_up as _warm_up_store
+        _warm_up_store()
+    except Exception:
+        traceback.print_exc()
+    finally:
+        _WARM.set()
+
+
+threading.Thread(target=_warm_up_in_background, name="warm-up", daemon=True).start()
+
+
+@app.before_request
+def _wait_for_warm_up():
+    if not _WARM.is_set() and request.path.startswith("/api/") and request.path not in _NO_DATA_API:
+        _WARM.wait(timeout=100)   # under gunicorn's --timeout 120; after that, fall back to lazy loading
+
 
 LEAGUES = [
     {"id": "Premier League", "name": "Premier League", "country": "England", "logo": "https://media.api-sports.io/football/leagues/39.png"},
