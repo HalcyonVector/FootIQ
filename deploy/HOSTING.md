@@ -16,11 +16,16 @@ that cold-starts per request would re-import all of it each time. It doesn't fit
 
 ## Hugging Face Spaces: NOT free any more
 Docker Spaces (and CPU Gradio Spaces) now require a paid HF plan; free accounts only get
-Static Spaces and ZeroGPU Gradio. The `Dockerfile`, `.dockerignore`, `deploy/hf_README.md`
-and `deploy/push_to_hf.sh` are kept only because the same container works on any host that
+Static Spaces and ZeroGPU Gradio. The `Dockerfile` and `.dockerignore` are kept only because the same container works on any host that
 runs Docker, but there is currently no free HF route. (Checked Nov 2026.)
 
 ## What to do instead (free tier only)
 Stay on Render. The matplotlib/mplsoccer imports and server-side chart rendering are gone,
 so each request is far cheaper than when this page was written. The remaining cost is the
 cold start after 15 idle minutes (pandas/pyarrow + warming the datasets).
+
+## Checking the live site
+
+    py -3 deploy/live_check.py
+
+Wakes the Render app, waits for it to load its data, then checks health and memory, the home page, search, a player's advanced stats and the link-up list. Exits 1 on any failure.

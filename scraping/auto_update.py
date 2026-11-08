@@ -84,8 +84,13 @@ def run(push: bool = True) -> None:
         # from anything that week's run itself fetched.
         leagues = list(config.LEAGUE_DIR_MAP.values())
         log(f"Scraping {len(leagues)} leagues, season {CURRENT_SEASON}, {WORKERS} workers")
-        scrape(leagues, [CURRENT_SEASON], headless=False, workers=WORKERS)
+        result = scrape(leagues, [CURRENT_SEASON], headless=False, workers=WORKERS)
         log("Scrape done")
+        # Loud, not fatal: the other competitions are still worth publishing, but the
+        # log must not make this look like a clean run.
+        if result and result["schedule_failed"]:
+            log(f"!!! {len(result['schedule_failed'])} competition(s) could not be updated this week: "
+                f"{result['schedule_failed']}")
     except Exception:
         log("!!! scrape failed, aborting this run (last week's data stays in place)")
         import traceback

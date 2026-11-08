@@ -122,26 +122,64 @@ def log(msg: str) -> None:
         f.write(line + "\n")
 
 
-def _scrape_one(league: str, season: str, headless: bool) -> tuple[str, str, list[int]]:
+SCHEDULE_BACKOFF_S = (20, 60, 120, 180)   # waits between the 5 schedule attempts
+
+
+def schedule_error_kind(exc: BaseException) -> str:
+    """'not_published': WhoScored has no such season for this competition (the next
+    Champions League / Euros season before it is listed) -- retrying can never help.
+    'transient': anything else (bot-check page instead of JSON, missing Fixtures link...)."""
+    if isinstance(exc, KeyError) and "are in the [index]" in str(exc):
+        return "not_published"
+    return "transient"
+
+
+def _fetch_schedule(league: str, season: str, headless: bool):
+    """(schedule | None, status) with status 'ok' | 'not_published' | 'schedule_failed'.
+    Up to 5 attempts with growing waits and a brand-new Chrome from the 3rd on: the
+    failures seen in practice (a block page instead of JSON, no 'Fixtures' link) clear
+    up after a pause or a fresh browser session."""
+    import soccerdata as sd
+
+    def new_reader():
+        return sd.WhoScored(leagues=league, seasons=season, headless=headless, path_to_browser=STABLE_CHROME)
+
+    ws = new_reader()
+    attempts = len(SCHEDULE_BACKOFF_S) + 1
+    for attempt in range(attempts):
+        try:
+            return ws.read_schedule(), "ok"
+        except Exception as exc:
+            if schedule_error_kind(exc) == "not_published":
+                log(f"{league} {season}: WhoScored has no such season yet -- skipping (not an error)")
+                return None, "not_published"
+            log(f"{league} {season}: schedule fetch failed (attempt {attempt + 1}/{attempts}):\n{traceback.format_exc()}")
+            if attempt == attempts - 1:
+                break
+            time.sleep(SCHEDULE_BACKOFF_S[attempt])
+            if attempt >= 1:
+                try:
+                    ws._driver.quit()
+                except Exception:
+                    pass
+                ws = new_reader()
+    log(f"!!! giving up on {league} {season} schedule after {attempts} attempts")
+    return None, "schedule_failed"
+
+
+def _scrape_one(league: str, season: str, headless: bool) -> tuple[str, str, list[int], str]:
     """Scrapes one (league, season) fully — schedule fetch (with retries) then
     every match's events, sequentially. Split out from scrape() so each can
     also be handed to its own worker process (own Selenium/Chrome instance)
-    when running with workers > 1. Returns the list of match ids that failed."""
+    when running with workers > 1. Returns the match ids that failed plus the
+    schedule status ('ok' | 'not_published' | 'schedule_failed')."""
     import soccerdata as sd
 
     log(f"=== {league} {season}: starting ===")
+    schedule, status = _fetch_schedule(league, season, headless)
+    if schedule is None:
+        return league, season, [], status
     ws = sd.WhoScored(leagues=league, seasons=season, headless=headless, path_to_browser=STABLE_CHROME)
-
-    for attempt in range(3):
-        try:
-            schedule = ws.read_schedule()
-            break
-        except Exception:
-            log(f"{league} {season}: schedule fetch failed (attempt {attempt + 1}/3):\n{traceback.format_exc()}")
-            time.sleep(15)
-    else:
-        log(f"!!! giving up on {league} {season} schedule after 3 attempts")
-        return league, season, []
 
     sched_reset = schedule.reset_index()
     sched_reset["game_id"] = sched_reset["game_id"].astype(int)
@@ -203,17 +241,25 @@ def _scrape_one(league: str, season: str, headless: bool) -> tuple[str, str, lis
             failed.append(match_id)
 
     log(f"=== {league} {season}: done ({done}/{len(match_ids)}) ===")
-    return league, season, failed
+    return league, season, failed, "ok"
 
 
-def scrape(leagues: list[str], seasons: list[str], headless: bool, workers: int = 1) -> None:
+def scrape(leagues: list[str], seasons: list[str], headless: bool, workers: int = 1) -> dict:
+    """Returns {"schedule_failed": [(league, season)], "not_published": [...], "matches_failed": n}
+    so the caller can tell a quiet run from one that silently skipped a league."""
     tasks = [(league, season) for league in leagues for season in seasons]
     failed: list[tuple[str, str, int]] = []
+    summary = {"schedule_failed": [], "not_published": [], "matches_failed": 0}
+
+    def note(league, season, match_fails, status):
+        failed.extend((league, season, mid) for mid in match_fails)
+        if status in ("schedule_failed", "not_published"):
+            summary[status].append((league, season))
 
     if workers <= 1:
         for league, season in tasks:
-            _, _, match_fails = _scrape_one(league, season, headless)
-            failed.extend((league, season, mid) for mid in match_fails)
+            _, _, match_fails, status = _scrape_one(league, season, headless)
+            note(league, season, match_fails, status)
     else:
         import concurrent.futures
 
@@ -225,15 +271,22 @@ def scrape(leagues: list[str], seasons: list[str], headless: bool, workers: int 
             for fut in concurrent.futures.as_completed(futures):
                 league, season = futures[fut]
                 try:
-                    _, _, match_fails = fut.result()
-                    failed.extend((league, season, mid) for mid in match_fails)
+                    _, _, match_fails, status = fut.result()
+                    note(league, season, match_fails, status)
                 except Exception:
                     log(f"!!! worker for {league} {season} crashed:\n{traceback.format_exc()}")
+                    summary["schedule_failed"].append((league, season))
 
+    summary["matches_failed"] = len(failed)
     if failed:
         log(f"Finished with {len(failed)} failed matches: {failed}")
-    else:
+    if summary["schedule_failed"]:
+        log(f"!!! SCHEDULE UNAVAILABLE (these competitions were NOT updated): {summary['schedule_failed']}")
+    if summary["not_published"]:
+        log(f"Not on WhoScored yet (skipped): {summary['not_published']}")
+    if not failed and not summary["schedule_failed"]:
         log("Finished. No failures.")
+    return summary
 
 
 if __name__ == "__main__":

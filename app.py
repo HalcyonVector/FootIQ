@@ -16,7 +16,7 @@ from flask_cors import CORS
 from flask_compress import Compress
 
 from core.advanced import config as advanced_config
-from core.advanced.lookup import search_players, search_players_global, search_players_any, get_player_stats, build_search_index
+from core.advanced.lookup import search_players, search_players_global, get_player_stats, build_search_index
 from core.media import get_wikimedia_image
 
 app = Flask(__name__)
@@ -325,8 +325,6 @@ def api_search():
         return jsonify([])
 
     try:
-        if request.args.get("any_season") == "1":
-            return jsonify(search_players_any(name))
         if all_leagues:
             results = search_players_global(name, season)
         else:
