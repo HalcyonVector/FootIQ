@@ -43,7 +43,24 @@ _pa.set_cpu_count(1)        # see _read_parquet_lean: cores visible to the proce
 _pa.set_io_thread_count(2)
 
 _DF: pd.DataFrame | None = None
-_LINKUP_SUMMARY_DF: pd.DataFrame | None = None
+_LINKUP_PAIRS = None          # pyarrow Table (dictionary-encoded strings), see get_linkup_pairs()
+
+
+def trim_memory() -> None:
+    """Hand freed memory back to the OS. Loading a table leaves Arrow's allocator (and
+    glibc's) holding on to what it used while decoding, so the process sits 100+ MB above
+    what the data needs; on a 512 MB host that is the difference between staying up and the
+    'exceeded its memory limit' restart."""
+    gc.collect()
+    try:
+        _pa.default_memory_pool().release_unused()
+    except Exception:
+        pass
+    try:                                    # glibc only (Linux / Render); a no-op elsewhere
+        import ctypes
+        ctypes.CDLL("libc.so.6").malloc_trim(0)
+    except Exception:
+        pass
 _CHART_DATASETS: dict[str, pa_ds.Dataset] = {}
 _LINKUP_RECEPTIONS_DATASET: pa_ds.Dataset | None = None
 
@@ -63,7 +80,7 @@ def _read_parquet_lean(path: str) -> pd.DataFrame:
     table = pq.read_table(path, use_threads=False)
     df = table.to_pandas(split_blocks=True, self_destruct=True, use_threads=False)
     del table
-    gc.collect()
+    trim_memory()
     return df
 
 
@@ -87,17 +104,37 @@ def get_advanced_df() -> pd.DataFrame:
     return _DF
 
 
-def get_linkup_summary_df() -> pd.DataFrame:
-    """Passer/receiver pair list with counts — small, no list-columns, safe
-    to load fully like get_advanced_df(). Powers the teammate list; actual
-    reception coordinates come from get_linkup_receptions() per request."""
-    global _LINKUP_SUMMARY_DF
-    if _LINKUP_SUMMARY_DF is None:
+def _linkup_pairs():
+    """The passer/receiver pair list (~520k rows). Held as an Arrow table with
+    dictionary-encoded strings (~23 MB) instead of a pandas frame of Python strings
+    (~62 MB, and a 100+ MB spike while loading); a lookup filters it in ~25 ms."""
+    global _LINKUP_PAIRS
+    if _LINKUP_PAIRS is None:
         if os.path.exists(config.LINKUP_SUMMARY_PARQUET):
-            _LINKUP_SUMMARY_DF = _read_parquet_lean(config.LINKUP_SUMMARY_PARQUET)
+            _LINKUP_PAIRS = pq.read_table(
+                config.LINKUP_SUMMARY_PARQUET, use_threads=False,
+                read_dictionary=["passer_name", "receiver_name", "team_name", "league", "season"],
+            ).combine_chunks()
+            trim_memory()
         else:
-            _LINKUP_SUMMARY_DF = pd.DataFrame()
-    return _LINKUP_SUMMARY_DF
+            _LINKUP_PAIRS = False
+    return _LINKUP_PAIRS or None
+
+
+def get_linkup_pairs(passer_id: int, league: str, season: str, receiver_id: int | None = None) -> list[dict]:
+    """[{passer_name, receiver_id, receiver_name, count}] for one passer in one league-season, most
+    passes first (all of them, or just the one pair when receiver_id is given)."""
+    import pyarrow.compute as pc
+    tbl = _linkup_pairs()
+    if tbl is None:
+        return []
+    mask = pc.and_(pc.equal(tbl["passer_id"], int(passer_id)),
+                   pc.and_(pc.equal(tbl["league"], league), pc.equal(tbl["season"], season)))
+    if receiver_id is not None:
+        mask = pc.and_(mask, pc.equal(tbl["receiver_id"], int(receiver_id)))
+    rows = tbl.select(["passer_name", "receiver_id", "receiver_name", "count"]).filter(mask).to_pylist()
+    rows.sort(key=lambda r: -r["count"])
+    return rows
 
 
 def _chart_dataset(category: str) -> pa_ds.Dataset | None:
@@ -241,9 +278,9 @@ def get_player_heat(player_id: int, league: str, season: str) -> dict | None:
 
 def reload():
     """Force a re-read from disk (e.g. after rebuilding the parquet)."""
-    global _DF, _LINKUP_SUMMARY_DF, _CHART_DATASETS, _LINKUP_RECEPTIONS_DATASET, _OVERVIEW_DATASETS
+    global _DF, _LINKUP_PAIRS, _CHART_DATASETS, _LINKUP_RECEPTIONS_DATASET, _OVERVIEW_DATASETS
     _DF = None
-    _LINKUP_SUMMARY_DF = None
+    _LINKUP_PAIRS = None
     _CHART_DATASETS = {}
     _LINKUP_RECEPTIONS_DATASET = None
     _OVERVIEW_DATASETS = {}
@@ -266,7 +303,7 @@ def warm_up(progress=None) -> None:
     step("player-season table")
     get_advanced_df()
     step("linkup summary")
-    get_linkup_summary_df()
+    _linkup_pairs()
     for category in CHART_CATEGORIES:
         step(f"chart dataset: {category}")
         _chart_dataset(category)
@@ -275,4 +312,5 @@ def warm_up(progress=None) -> None:
     for name, path in (("matches", config.PLAYER_MATCHES_DIR), ("shots", config.SHOTS_DIR), ("heat", config.HEATMAPS_DIR)):
         step(f"overview dataset: {name}")
         _overview_dataset(name, path)
+    trim_memory()
     step("done")

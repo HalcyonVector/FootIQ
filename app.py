@@ -133,10 +133,34 @@ def _wait_for_warm_up():
                             "step": _WARM_STATE["step"]}), 503
 
 
+_API_HITS = {"n": 0}
+
+
+@app.after_request
+def _trim_memory_now_and_then(resp):
+    """Every 20th data request, give freed memory back to the OS. Each request's
+    parquet slice is decoded then dropped, but the allocators keep the pages, so RSS
+    only ratchets up; on Render's 512 MB that ends in an out-of-memory restart."""
+    if request.path.startswith("/api/") and request.path not in _NO_DATA_API:
+        _API_HITS["n"] += 1
+        if _API_HITS["n"] % 20 == 0:
+            _store_mod.trim_memory()
+    return resp
+
+
+def _rss_mb():
+    """Resident memory of this process in MB (Linux only; None elsewhere)."""
+    try:
+        with open("/proc/self/statm") as f:
+            return round(int(f.read().split()[1]) * os.sysconf("SC_PAGE_SIZE") / 1e6)
+    except Exception:
+        return None
+
+
 @app.route("/api/health")
 def api_health():
     out = {"warm": _WARM.is_set(), "step": _WARM_STATE["step"], "seconds": round(time.time() - _WARM_STATE["since"], 1),
-           "pid": os.getpid(), "warm_started_in_pid": _WARM_STATE.get("pid")}
+           "pid": os.getpid(), "warm_started_in_pid": _WARM_STATE.get("pid"), "rss_mb": _rss_mb()}
     if request.args.get("stack"):   # where is each thread right now? (for diagnosing a slow boot)
         import sys
         frames = sys._current_frames()
@@ -572,20 +596,15 @@ def api_linkup_teammates():
         league    = body.get("league", "Premier League")
         season    = body.get("season", "2024-25")
 
-        from core.advanced.store import get_linkup_summary_df
-
-        link_df = get_linkup_summary_df()
-        if link_df.empty:
-            return jsonify({"teammates": []})
+        from core.advanced.store import get_linkup_pairs
 
         ws_id = int(player_id)
-        mine = link_df[(link_df["passer_id"] == ws_id) & (link_df["league"] == league) & (link_df["season"] == season)]
-        mine = mine.sort_values("count", ascending=False).head(10)
-
         teammates = [
             {"teammate_id": int(r["receiver_id"]), "name": r["receiver_name"], "pass_count": int(r["count"])}
-            for _, r in mine.iterrows()
+            for r in get_linkup_pairs(ws_id, league, season)[:10]
         ]
+        if not teammates:
+            return jsonify({"teammates": []})
         return jsonify({"player_whoscored_id": ws_id, "teammates": teammates})
     except Exception as e:
         traceback.print_exc()
@@ -601,17 +620,12 @@ def api_linkup_detail():
         league      = body.get("league", "Premier League")
         season      = body.get("season", "2024-25")
 
-        from core.advanced.store import get_linkup_summary_df, get_linkup_receptions
+        from core.advanced.store import get_linkup_pairs, get_linkup_receptions
 
-        link_df = get_linkup_summary_df()
-        if link_df.empty:
-            return jsonify({"error": "No data"}), 400
-
-        match = link_df[(link_df["passer_id"] == passer_id) & (link_df["receiver_id"] == teammate_id)
-                         & (link_df["league"] == league) & (link_df["season"] == season)]
-        if match.empty:
+        match = get_linkup_pairs(passer_id, league, season, receiver_id=teammate_id)
+        if not match:
             return jsonify({"error": "No data for this pair"}), 404
-        pair = match.iloc[0]
+        pair = match[0]
 
         receptions = get_linkup_receptions(passer_id, teammate_id, league, season)
         if not receptions:
