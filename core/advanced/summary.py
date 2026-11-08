@@ -96,7 +96,7 @@ LIMITED_FLOOR_MIN = 450      # matches config.ADV_MIN_MINUTES (the percentile co
 LIMITED_TEAM_SHARE = 1 / 3   # ...but only "limited" if also under this share of the team's minutes
 
 
-def sample_info(minutes: float, team_matches: int, floor: int = LIMITED_FLOOR_MIN) -> dict:
+def sample_info(minutes: float, team_matches: int, floor: int = LIMITED_FLOOR_MIN, progress: float = 1.0) -> dict:
     """Is this player-season a thin sample? A flat minutes floor misfires in
     short competitions (a Europa League regular can total ~420 min because
     the whole competition is ~a dozen games), so below the floor it only
@@ -110,7 +110,11 @@ def sample_info(minutes: float, team_matches: int, floor: int = LIMITED_FLOOR_MI
         of_team = f" of about {available:,} the team played ({share:.0%})" if share is not None else ""
         note = (f"{int(minutes)} minutes played{of_team}. Percentiles rank players with {floor}+ minutes, "
                 f"so read these numbers with caution.")
-    return {"limited": limited, "minutes": int(minutes), "team_minutes": available or None, "note": note}
+    early = progress is not None and progress < 1.0
+    early_note = (f"Only {progress:.0%} of this season has been played. Ratio stats (win rates, accuracy, success) "
+                  f"rest on just a few events, so percentiles can swing a lot from week to week.") if early else ""
+    return {"limited": limited, "minutes": int(minutes), "team_minutes": available or None, "note": note,
+            "early_season": early, "early_note": early_note}
 
 
 # Metrics where being *low* in the cohort is a real weakness (rates of doing

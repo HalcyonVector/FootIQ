@@ -112,6 +112,12 @@ ADV_MIN_MINUTES = 450
 PARTIAL_SEASON_MIN_MINUTES = 270
 
 
+def minutes_floor_for(progress) -> int:
+    """minutes_floor() for a single season-progress value (None = finished season)."""
+    p = 1.0 if progress is None else max(0.0, min(1.0, float(progress)))
+    return int(round(max(PARTIAL_SEASON_MIN_MINUTES, min(ADV_MIN_MINUTES, ADV_MIN_MINUTES * p))))
+
+
 def minutes_floor(df):
     """Per-row minimum minutes for a percentile cohort: ADV_MIN_MINUTES for a finished
     season, less while the season is in progress. Index-aligned with `df`."""

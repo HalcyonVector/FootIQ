@@ -1,0 +1,42 @@
+name: Check the data is fresh
+
+# The weekly update (scraping/auto_update.py) runs on a laptop and used to fail
+# silently for weeks. This runs once a day on GitHub and goes red -- GitHub then
+# emails the repo owner -- if the published data looks stale or broken:
+#   * data/DATA_VERSION (the pointer the weekly job commits) is older than MAX_AGE_DAYS
+#   * the release asset that pointer names no longer downloads (Render's build would fail)
+# It reads the repo itself and never wakes the Render app, so it costs no instance-hours.
+#
+# Caveat: `built` only changes when the data changes, so a long break with no
+# matches (the summer) will trip it. Disable the workflow or raise MAX_AGE_DAYS then.
+on:
+  schedule:
+    - cron: "30 6 * * *"      # 06:30 UTC daily
+  workflow_dispatch: {}
+
+env:
+  MAX_AGE_DAYS: "21"
+
+jobs:
+  freshness:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pointer is recent
+        run: |
+          python3 - <<'PY'
+          import json, os, sys
+          from datetime import date
+          v = json.load(open("data/DATA_VERSION"))
+          age = (date.today() - date.fromisoformat(v["built"])).days
+          limit = int(os.environ["MAX_AGE_DAYS"])
+          print(f"data built {v['built']} ({age} days ago), limit {limit}")
+          if age > limit:
+              sys.exit(f"Data is {age} days old (limit {limit}): the weekly update has probably stopped.")
+          PY
+      - name: Release asset still downloads
+        run: |
+          url=$(python3 -c "import json; print(json.load(open('data/DATA_VERSION'))['url'])")
+          code=$(curl -sIL -o /dev/null -w '%{http_code}' "$url")
+          echo "$url -> HTTP $code"
+          test "$code" = "200"

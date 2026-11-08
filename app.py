@@ -275,11 +275,15 @@ def api_player():
 
     from core.advanced import store
     from core.advanced.summary import sample_info
+    from core.advanced.lookup import get_season_progress
+    from core.advanced.config import minutes_floor_for
+    progress = get_season_progress(player["league"], player["season"])
+    floor = minutes_floor_for(progress)
     played_for = {r["team"] for r in store.get_player_matches(player["id"], player["league"], player["season"])}
     counts = store.get_team_match_counts(player["league"], player["season"])
     team_matches = max((counts.get(t, 0) for t in played_for), default=0)
     return jsonify({"player": player, "seasons": seasons,
-                    "sample": sample_info(player["minutes"], team_matches)})
+                    "sample": sample_info(player["minutes"], team_matches, floor=floor, progress=progress)})
 
 
 # ─────────────────────────────────────────────────────────────────────────────

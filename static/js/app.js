@@ -274,6 +274,14 @@ async function loadSeasonSwitcher(player) {
       row.appendChild(chip);
     }
 
+    if (row && data.sample && data.sample.early_season && !row.querySelector(".early-chip")) {
+      const chip = document.createElement("span");
+      chip.className = "profile-stat-chip warn-chip early-chip";
+      chip.textContent = "Early season";
+      chip.title = data.sample.early_note;
+      row.appendChild(chip);
+    }
+
     const seasons = data.seasons || [];
     if (seasons.length < 2) { slot.innerHTML = ""; return; }
     const cur = `${player.league}|${player.season}`;

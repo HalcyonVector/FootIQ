@@ -201,6 +201,15 @@ def get_player_stats(player_id: int, league: str, season: str) -> dict | None:
     }
 
 
+def get_season_progress(league: str, season: str) -> float:
+    """Share of this league-season played so far (1.0 = finished, or data predates the column)."""
+    df = get_advanced_df()
+    if df.empty or "season_progress" not in df.columns:
+        return 1.0
+    rows = df[(df["league"] == league) & (df["season"] == season)]["season_progress"].dropna()
+    return float(rows.iloc[0]) if len(rows) else 1.0
+
+
 def get_player_seasons(player_id: int) -> list[dict]:
     """Every (league, season) this player has a row for, newest first --
     powers the profile's season switcher."""

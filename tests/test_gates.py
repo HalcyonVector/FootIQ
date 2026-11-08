@@ -50,3 +50,13 @@ def test_every_category_module_that_gates_has_the_import():
     for f in pathlib.Path(config.__file__).parent.joinpath("categories").glob("*.py"):
         if "gates.gate(" in f.read_text(encoding="utf-8"):
             assert hasattr(importlib.import_module(f"core.advanced.categories.{f.stem}"), "gates"), f.name
+
+
+def test_sample_info_flags_an_in_progress_season():
+    from core.advanced.summary import sample_info
+    done = sample_info(2000, 38)
+    assert done["early_season"] is False and done["early_note"] == ""
+    early = sample_info(771, 9, floor=config.minutes_floor_for(0.24), progress=0.24)
+    assert early["early_season"] is True and "24%" in early["early_note"]
+    assert early["limited"] is False                       # 771 min >= the 270 floor: the existing 'limited' chip stays off
+    assert config.minutes_floor_for(None) == 450 and config.minutes_floor_for(0.24) == 270 and config.minutes_floor_for(0.8) == 360
