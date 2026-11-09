@@ -212,3 +212,9 @@ app.run(port=5001, use_reloader=False)
 **Sagnik**
 
 GitHub: [@HalcyonVector](https://github.com/HalcyonVector)
+
+---
+
+## License
+
+No license specified yet. Contact the author for usage rights.
