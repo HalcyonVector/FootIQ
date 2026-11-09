@@ -1,10 +1,14 @@
 # FootIQ: Event-Level Football Analytics
 
-**Live demo: [footiq.onrender.com](https://footiq.onrender.com)** — free-tier hosting, so the first request after a period of inactivity can take ~30-60s to spin back up.
+**Live demo: [footiq.onrender.com](https://footiq.onrender.com)** (the first request after a period of inactivity can take 30 to 60 seconds while the server wakes up)
 
 A Flask web app for football analytics across 15 leagues and competitions, built directly from parsed WhoScored/Opta match-event data, not season-aggregate box scores. Search a player and browse 12 metric categories (Passing, Carrying, Shooting, Aerial Duels, Hold-Up Play, Decision Making, Final Third, Half-Spaces, Tempo Control, Defending, Post-Recovery, Goalkeeping), Combination Play (a pairwise pass-network view), Compare (2 to 4 players side by side), Scout (statistical-twin search), and Explore (rank every player-season by a single metric).
 
 Data source: WhoScored/Opta match-event JSON (passes, carries, duels, and their outcomes, with pitch coordinates and qualifiers). Coverage: Premier League, La Liga, Serie A, Bundesliga, Ligue 1, Championship, Eredivisie, Primeira Liga, Belgian Pro League, Süper Lig, Scottish Premiership, Champions League, Europa League, World Cup, and European Championship, spanning 2023-24 through 2025-26 (plus World Cup 2022 and Euro 2024 as one-off tournament entries). Europa Conference League was scraped in full but excluded: WhoScored never returned usable match-event data for any of its 447 matches, a coverage gap on their end rather than something fixable by scraping again.
+
+> **What it's for:** search any player, compare them side by side, scout statistically similar players and rank whole leagues, all from event-level match data rather than season box scores.
+
+![Launcher: Player Stats, Compare, Tables, Scout and Explore modules](docs/screenshots/overview.png)
 
 ---
 
@@ -175,7 +179,7 @@ Render's build step runs `fetch`; `scraping/auto_update.py` runs `publish` and c
 
 Add `--workers N` to `scrape_whoscored.py` to run multiple leagues and seasons concurrently, each in its own Chrome instance. Defaults to 1 (sequential).
 
-`data/advanced/player_season_advanced.parquet` and `linkup_summary.parquet` are loaded fully into memory (small, no per-event data). `linkup_receptions/` and `chart_events/<category>/` are Hive-partitioned by league/season — each request reads only its own player/league/season slice off disk, not the whole dataset, so per-tab chart rendering stays within a modest memory footprint. `player_matches/`, `shots/` and `heatmaps/` (Season Overview) follow the same partitioned, per-request-slice pattern. The raw event cache never touches the running app.
+`data/advanced/player_season_advanced.parquet` and `linkup_summary.parquet` are loaded fully into memory (small, no per-event data). `linkup_receptions/` and `chart_events/<category>/` are Hive-partitioned by league/season, each request reads only its own player/league/season slice off disk, not the whole dataset, so per-tab chart rendering stays within a modest memory footprint. `player_matches/`, `shots/` and `heatmaps/` (Season Overview) follow the same partitioned, per-request-slice pattern. The raw event cache never touches the running app.
 
 ---
 
