@@ -363,7 +363,9 @@ const FootIQCharts = (() => {
   function xyChart(host, spec) {
     const pts = spec.points || [];
     if (!pts.length) { host.innerHTML = empty("No players match these filters"); return; }
-    const W = 720, H = 520, L = 60, R = 18, T = 14, B = 56;
+    // On a phone the chart is drawn on a narrower canvas so its text is not shrunk to a few pixels.
+    const narrow = (host.clientWidth || 720) < 560;
+    const W = narrow ? 400 : 720, H = narrow ? 560 : 520, L = narrow ? 48 : 60, R = 14, T = 14, B = narrow ? 60 : 56;
     const sorted = a => [...a].sort((p, q) => p - q);
     const qnt = (s, p) => s[Math.min(s.length - 1, Math.max(0, Math.round(p * (s.length - 1))))];
     const xs = sorted(pts.map(p => p[0])), ys = sorted(pts.map(p => p[1]));
@@ -397,12 +399,12 @@ const FootIQCharts = (() => {
     const score = p => ((p[0] - mx) / ix) * (spec.xinvert ? -1 : 1) + ((p[1] - my) / iy) * (spec.yinvert ? -1 : 1);
     const placed = [];
     [...pts].sort((a, b) => score(b) - score(a)).slice(0, 40).forEach(p => {
-      if (placed.length >= 8) return;
+      if (placed.length >= (narrow ? 5 : 8)) return;
       const cx = sx(p[0]), cy = sy(p[1]);
-      if (placed.some(q => Math.abs(q[0] - cx) < 90 && Math.abs(q[1] - cy) < 15)) return;
+      if (placed.some(q => Math.abs(q[0] - cx) < (narrow ? 110 : 90) && Math.abs(q[1] - cy) < 17)) return;
       placed.push([cx, cy]);
-      const right = cx > W - 140;
-      g += `<text x="${r1(cx + (right ? -8 : 8))}" y="${r1(cy - 7)}" class="fc-t fc-t-strong fc-halo" text-anchor="${right ? "end" : "start"}">${esc(p[2])}</text>`;
+      const right = cx > W - (narrow ? 120 : 140);
+      g += `<text x="${r1(cx + (right ? -8 : 8))}" y="${r1(Math.max(T + 12, cy - 7))}" class="fc-t fc-t-strong fc-halo" text-anchor="${right ? "end" : "start"}">${esc(p[2])}</text>`;
     });
 
     const dir = (inv, name) => inv ? `${name} (lower is better, axis flipped)` : name;
@@ -410,7 +412,7 @@ const FootIQCharts = (() => {
           <text transform="translate(14 ${(T + H - B) / 2}) rotate(-90)" class="fc-t" text-anchor="middle">${esc(dir(spec.yinvert, spec.ylabel))}</text>`;
     const groups = [...new Set(pts.map(p => p[7]))];
     const legend = `<div class="fc-legend">${groups.map(k => `<span class="fc-leg static"><i class="fc-dot" style="background:${spec.colors[k] || "#64748b"}"></i><span>${esc(k.charAt(0).toUpperCase() + k.slice(1))}s</span></span>`).join("")}</div>`;
-    host.innerHTML = head(spec) + `<svg viewBox="0 0 ${W} ${H}" class="ov-svg fc-svg" role="img" aria-label="${esc(spec.xlabel)} against ${esc(spec.ylabel)}">${g}</svg>` + legend;
+    host.innerHTML = head(spec) + `<svg viewBox="0 0 ${W} ${H}" class="ov-svg fc-svg${narrow ? " fc-xy-narrow" : ""}" role="img" aria-label="${esc(spec.xlabel)} against ${esc(spec.ylabel)}">${g}</svg>` + legend;
   }
 
   // ═════════════════════════════════════════════════════════════════════════

@@ -466,6 +466,25 @@ EXCLUDED_COMPETITIONS = [{"name": "Europa Conference League",
                           "reason": "The source returned no usable match events for any of its 447 matches."}]
 
 
+_SCOPED: dict = {}
+
+
+def _scoped_df(df, league, scope):
+    """The table percentiles are ranked against. 'all' (default) is every competition that season;
+    'league' is just the player's own competition, so a Premier League midfielder is ranked
+    against Premier League midfielders only. League subsets are kept (a few at most) so the same
+    object comes back for repeated requests."""
+    if scope != "league" or not league or league == "all":
+        return df
+    key = (id(df), league)
+    sub = _SCOPED.get(key)
+    if sub is None:
+        if len(_SCOPED) >= 5:
+            _SCOPED.pop(next(iter(_SCOPED)))
+        sub = _SCOPED[key] = df[df["league"] == league]
+    return sub
+
+
 @app.route("/api/advanced-stats", methods=["POST"])
 def api_advanced_stats():
     try:
@@ -473,6 +492,7 @@ def api_advanced_stats():
         player_id = body["player_id"]
         league    = body.get("league", "Premier League")
         season    = body.get("season", "2024-25")
+        scope     = "league" if body.get("scope") == "league" else "all"
 
         raw = get_player_stats(player_id, league, season)
         if not raw:
@@ -483,7 +503,7 @@ def api_advanced_stats():
         from core.advanced.percentiles import build_all_categories
         from core.advanced.composite import compute_composite
 
-        df = get_advanced_df()
+        df = _scoped_df(get_advanced_df(), league, scope)
         if df.empty:
             return jsonify({"player": raw, "categories": []})
 
@@ -508,9 +528,12 @@ def api_advanced_stats():
                     if info:
                         st["reliability"] = {"tier": info["tier"], "r": info["r"]}
         from visuals import specs as _sp
-        return jsonify({"player": raw, "categories": categories, "composite": composite,
+        return jsonify({"player": raw, "categories": categories, "composite": composite, "scope": scope,
                         "insights": insights(categories),
-                        "profile": _sp.profile_radar(categories, raw.get("name") or "")})
+                        "profile": _sp.profile_radar(
+                            categories, raw.get("name") or "",
+                            f"{league} players in the same position group" if scope == "league"
+                            else "players in the same position group, every league")})
     except Exception as e:
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
@@ -731,8 +754,9 @@ def api_category_chart():
         season      = body.get("season", "2024-25")
         category    = body["category"]
         filt        = body.get("filter", "")
+        scope       = "league" if body.get("scope") == "league" else "all"
 
-        cache_key = ("category_chart", player_id, league, season, category, filt)
+        cache_key = ("category_chart", player_id, league, season, category, filt, scope)
         if cache_key in _chart_cache:
             return jsonify(_chart_cache[cache_key])
 
@@ -740,7 +764,7 @@ def api_category_chart():
         from core.advanced.identity import match_to_advanced_row
         from core.advanced import percentiles as pct_mod
 
-        df = get_advanced_df()
+        df = _scoped_df(get_advanced_df(), league, scope)
         row = match_to_advanced_row(player_id, league, season, df)
         if row is None:
             return jsonify({"error": "No data for this player/season"}), 404

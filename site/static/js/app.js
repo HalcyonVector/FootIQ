@@ -343,6 +343,7 @@ function renderProfileHeader(player) {
       </div>
       <div class="profile-actions">
         <span id="season-switch-slot"></span>
+        <a class="profile-compare-btn" id="profile-compare-btn" href="/compare?${new URLSearchParams({ p1_id: player.id, p1_league: player.league || primaryLeague, p1_season: player.season || primarySeason })}">Compare with another player →</a>
       </div>
     </div>
     <div class="score-placeholder-pulse" id="profile-score-slot"></div>
@@ -452,12 +453,41 @@ function renderStatCard(cat, containerId) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Advanced (Opta/WhoScored event-derived) stats
 // ─────────────────────────────────────────────────────────────────────────────
+// Who the percentiles are ranked against: every competition that season ("all", the default) or
+// only the player's own competition ("league"). Changing it refetches the stats and charts.
+let statScope = "all";
+
+function syncScopeControl() {
+  const box = document.getElementById("adv-scope");
+  if (!box) return;
+  const lg = (window.LEAGUES || []).find(l => l.id === primaryLeague);
+  const btn = document.getElementById("adv-scope-league");
+  if (btn) btn.textContent = `${(lg && lg.name) || primaryLeague} only`;
+  box.querySelectorAll(".adv-scope-btn").forEach(b => b.classList.toggle("active", b.dataset.scope === statScope));
+  box.style.display = "flex";
+}
+
+function wireScopeControl() {
+  const box = document.getElementById("adv-scope");
+  if (!box || box.dataset.wired) return;
+  box.dataset.wired = "1";
+  box.addEventListener("click", e => {
+    const b = e.target.closest(".adv-scope-btn");
+    if (!b || b.dataset.scope === statScope || !primaryPlayer) return;
+    statScope = b.dataset.scope;
+    Object.keys(_chartCache).forEach(k => delete _chartCache[k]);   // charts carry percentile stats too
+    fetchAdvancedStats(primaryPlayer);
+  });
+}
+
 async function fetchAdvancedStats(player) {
   if (!advancedSection) return;
+  const activeCat = advTabs && advTabs.querySelector(".adv-tab-btn.active")
+    ? advTabs.querySelector(".adv-tab-btn.active").dataset.cat : null;
   try {
     const res = await fetch("/api/advanced-stats", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ player_id: player.id, league: primaryLeague, season: primarySeason }),
+      body: JSON.stringify({ player_id: player.id, league: primaryLeague, season: primarySeason, scope: statScope }),
     });
     const data = await res.json();
     if (!res.ok || !data.categories || !data.categories.length) {
@@ -466,6 +496,12 @@ async function fetchAdvancedStats(player) {
       return;
     }
     renderAdvancedStats(data.categories);
+    if (activeCat) {                       // a scope change keeps you on the tab you were reading
+      const again = advTabs.querySelector(`.adv-tab-btn[data-cat="${activeCat}"]`);
+      if (again) again.click();
+    }
+    wireScopeControl();
+    syncScopeControl();
     renderProfileRadar(data.profile);
     renderProfileScore(data.composite);
     FootIQOverview.renderInsights(data.insights);
@@ -558,7 +594,7 @@ function _fetchCategoryChartData(catKey, filterStr) {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           player_id: primaryPlayer.id, league: primaryLeague, season: primarySeason,
-          category: catKey, filter: filterStr,
+          category: catKey, filter: filterStr, scope: statScope,
         }),
       });
       const data = await res.json();

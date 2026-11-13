@@ -57,6 +57,13 @@ const FootIQSimilar = (() => {
     if (mine !== token || !data || !data.matches || !data.matches.length) return;   // stale, or not enough data to compare
     $("sim-row").innerHTML = data.matches.map(m => card(player, league, season, m)).join("");
     section.style.display = "block";
+    // The header's Compare button now goes straight to the closest statistical match.
+    const btn = $("profile-compare-btn");
+    if (btn) {
+      const top = data.matches[0];
+      btn.href = compareUrl(player, league, season, top);
+      btn.textContent = `Compare with ${top.name} →`;
+    }
   }
 
   // The similarity search scans the whole position cohort, so it only runs

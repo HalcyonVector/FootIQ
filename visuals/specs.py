@@ -661,7 +661,7 @@ def compare_radar(players: list) -> dict:
     return {"type": "radar", "axes": RADAR_LABELS, "series": series}
 
 
-def profile_radar(cats: list, name: str) -> dict | None:
+def profile_radar(cats: list, name: str, vs: str = "players in the same position group") -> dict | None:
     """One player's average percentile in every category, as a radar -- the whole profile at a
     glance. Categories with no usable stat are left off; under three axes it is not a shape."""
     axes, values = [], []
@@ -675,7 +675,7 @@ def profile_radar(cats: list, name: str) -> dict | None:
         values.append(_r(v))
     if len(axes) < 3:
         return None
-    return {"type": "radar", "sub": "Average percentile in each category, against players in the same position group",
+    return {"type": "radar", "sub": f"Average percentile in each category, against {vs}",
             "axes": axes, "series": [{"name": name, "color": PLAYER_COLORS[0], "values": values}]}
 
 

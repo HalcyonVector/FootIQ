@@ -33,7 +33,9 @@ _PILLAR_SCORE_CACHE: dict = {}
 
 
 def _cohort_pillar_series(df: pd.DataFrame, cohort: pd.DataFrame, position: str, season: str) -> tuple[dict, dict]:
-    key = (id(df), pos_group(position), season)
+    # id(df) alone is not enough: a league-scoped subset can be freed and another DataFrame can
+    # then reuse its id, so the cohort's size and total minutes are part of the key too.
+    key = (id(df), pos_group(position), season, len(cohort), float(cohort["total_minutes"].sum()))
     cached = _PILLAR_SCORE_CACHE.get(key)
     if cached is not None:
         return cached
