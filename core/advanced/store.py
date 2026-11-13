@@ -31,6 +31,7 @@ visuals/tempo.py both filter on `is not None`, which a NaN silently defeats.
 
 import gc
 import os
+import threading
 import pandas as pd
 import pyarrow.dataset as pa_ds
 import pyarrow.parquet as pq
@@ -44,6 +45,7 @@ _pa.set_io_thread_count(2)
 
 _DF: pd.DataFrame | None = None
 _LINKUP_PAIRS = None          # pyarrow Table (dictionary-encoded strings), see get_linkup_pairs()
+_LINKUP_LOCK = threading.Lock()
 
 
 def trim_memory() -> None:
@@ -114,14 +116,16 @@ def _linkup_pairs():
     (~62 MB, and a 100+ MB spike while loading); a lookup filters it in ~25 ms."""
     global _LINKUP_PAIRS
     if _LINKUP_PAIRS is None:
-        if os.path.exists(config.LINKUP_SUMMARY_PARQUET):
-            _LINKUP_PAIRS = pq.read_table(
-                config.LINKUP_SUMMARY_PARQUET, use_threads=False,
-                read_dictionary=["passer_name", "receiver_name", "team_name", "league", "season"],
-            ).combine_chunks()
-            trim_memory()
-        else:
-            _LINKUP_PAIRS = False
+        with _LINKUP_LOCK:          # the warm-up thread and a request may both get here
+            if _LINKUP_PAIRS is None:
+                if os.path.exists(config.LINKUP_SUMMARY_PARQUET):
+                    _LINKUP_PAIRS = pq.read_table(
+                        config.LINKUP_SUMMARY_PARQUET, use_threads=False,
+                        read_dictionary=["passer_name", "receiver_name", "team_name", "league", "season"],
+                    ).combine_chunks()
+                    trim_memory()
+                else:
+                    _LINKUP_PAIRS = False
     return _LINKUP_PAIRS or None
 
 
@@ -300,8 +304,6 @@ def warm_essentials(progress=None) -> None:
     from core.advanced.aggregator import CHART_CATEGORIES  # noqa: F401  (the import is the point)
     step("player-season table")
     get_advanced_df()
-    step("linkup summary")
-    _linkup_pairs()
 
 
 def warm_datasets(progress=None) -> None:
@@ -310,6 +312,8 @@ def warm_datasets(progress=None) -> None:
     simply builds it (the accessors are lazy), so this only hides that cost."""
     step = progress or (lambda name: None)
     from core.advanced.aggregator import CHART_CATEGORIES
+    step("linkup summary")        # only the Link-Up tab needs it, so it is loaded after the gate opens
+    _linkup_pairs()
     for category in CHART_CATEGORIES:
         step(f"chart dataset: {category}")
         _chart_dataset(category)

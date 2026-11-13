@@ -94,7 +94,8 @@ def _warm_up_in_background() -> None:
         def progress(name):
             took = time.time() - _WARM_STATE["since"]
             _WARM_STATE["step"] = name
-            _WARM_STATE.setdefault("timeline", []).append([name, round(took, 1)])
+            # [step, wall seconds since the warm-up began, CPU seconds the process has used]
+            _WARM_STATE.setdefault("timeline", []).append([name, round(took, 1), round(time.process_time(), 1)])
             print(f"[warm-up] {took:6.1f}s  {name}", flush=True)
         _WARM_STATE["timeline"] = []
         # Open the gate as soon as what a request cannot do without is loaded...
@@ -174,6 +175,12 @@ def api_health():
            "import_s": _WARM_STATE.get("import_s"), "warm_took_s": _WARM_STATE.get("warm_took_s")}
     if request.args.get("detail"):
         out["timeline"] = _WARM_STATE.get("timeline")
+        out["cpu_s"] = round(time.process_time(), 1)
+        try:        # is the container being CPU-throttled? (cgroup v2; Linux only)
+            with open("/sys/fs/cgroup/cpu.stat") as f:
+                out["cpu_stat"] = dict(line.split() for line in f.read().splitlines())
+        except Exception:
+            pass
     if request.args.get("stack"):   # where is each thread right now? (for diagnosing a slow boot)
         import sys
         frames = sys._current_frames()
