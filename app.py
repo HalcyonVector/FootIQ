@@ -507,8 +507,10 @@ def api_advanced_stats():
                     info = stab.get(st.get("key"))
                     if info:
                         st["reliability"] = {"tier": info["tier"], "r": info["r"]}
+        from visuals import specs as _sp
         return jsonify({"player": raw, "categories": categories, "composite": composite,
-                        "insights": insights(categories)})
+                        "insights": insights(categories),
+                        "profile": _sp.profile_radar(categories, raw.get("name") or "")})
     except Exception as e:
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
@@ -1054,6 +1056,37 @@ def api_explore():
             min_minutes=min_minutes, limit=25,
         )
         return jsonify({"results": results})
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/explore-scatter", methods=["POST"])
+def api_explore_scatter():
+    """Two metrics against each other for every player in the filtered cohort."""
+    try:
+        body = request.get_json(force=True)
+        x_col, y_col = body["x_metric"], body["y_metric"]
+        min_minutes = body.get("min_minutes")
+        min_minutes = int(min_minutes) if min_minutes not in (None, "", "none") else None
+
+        from core.advanced.store import get_advanced_df
+        from core.advanced.explore import scatter_points, explorable_metrics
+        from core.advanced.metrics_master import INVERTED_METRICS
+        from visuals import specs as sp
+
+        df = get_advanced_df()
+        if df.empty:
+            return jsonify({"error": "No data"}), 404
+        info = {m["col"]: m for c in explorable_metrics() for m in c["metrics"]}
+        if x_col not in info or y_col not in info:
+            return jsonify({"error": "Unknown metric"}), 400
+        pts = scatter_points(df, x_col, y_col, body.get("season", "2024-25"), body.get("league", "all"),
+                             body.get("position_group", "all"), min_minutes)
+        spec = sp.metric_scatter(pts, info[x_col]["label"], info[y_col]["label"], info[x_col]["unit"], info[y_col]["unit"],
+                                 x_col in INVERTED_METRICS, y_col in INVERTED_METRICS,
+                                 sub=f"{len(pts)} players. Dashed lines are the medians. Click a dot for the profile.")
+        return jsonify({"spec": spec, "n": len(pts)})
     except Exception as e:
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500

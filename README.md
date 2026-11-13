@@ -39,6 +39,7 @@ What the data showed, and the problems found while building it:
 
 - Search across 15 competitions; every metric is a percentile against same-position players in the same competition and season.
 - 12 Advanced Metrics tabs: Passing, Shooting and Footedness, Carrying, Half-Spaces, Tempo Control, Decision Making, Final Third, Aerial Duels, Defending, Hold-Up Play, Post-Recovery and Link-Up. Goalkeepers get a Goalkeeping tab instead.
+- A "Profile at a glance" radar of the player's average percentile in every category, above the tabs.
 - A season switcher for every competition and season a player appears in, and shareable URLs (`/player?player_id=&league=&season=`).
 - A position-weighted Composite Rating that combines every category with a power mean, so a player's strongest categories are rewarded rather than diluted by ones that were never their job.
 - Final Third scored two ways: Completeness (a geometric-mean floor across four pillars) and Impact (per-touch value from the two strongest pillars).
@@ -73,6 +74,7 @@ What the data showed, and the problems found while building it:
 ### Explore
 
 - Rank every player-season on one chosen metric, filtered by competition, season, position and minutes played.
+- Or switch to a scatter plot of two metrics against each other for the whole cohort: dashed medians, the standouts named, lower-is-better metrics flipped so up and right always mean better, and every dot links to that player's profile.
 
 ---
 

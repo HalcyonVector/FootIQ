@@ -661,6 +661,37 @@ def compare_radar(players: list) -> dict:
     return {"type": "radar", "axes": RADAR_LABELS, "series": series}
 
 
+def profile_radar(cats: list, name: str) -> dict | None:
+    """One player's average percentile in every category, as a radar -- the whole profile at a
+    glance. Categories with no usable stat are left off; under three axes it is not a shape."""
+    axes, values = [], []
+    for c in cats:
+        if c.get("key") == "linkup":
+            continue
+        v = category_percentile(c)
+        if v is None:
+            continue
+        axes.append(CATEGORY_LABELS_SHORT.get(c["key"], c.get("label", c["key"])))
+        values.append(_r(v))
+    if len(axes) < 3:
+        return None
+    return {"type": "radar", "sub": "Average percentile in each category, against players in the same position group",
+            "axes": axes, "series": [{"name": name, "color": PLAYER_COLORS[0], "values": values}]}
+
+
+GROUP_COLORS = {"attacker": "#f43f5e", "midfielder": "#10b981", "defender": "#3b82f6", "goalkeeper": "#f59e0b"}
+
+
+def metric_scatter(points: list, x_label: str, y_label: str, x_unit: str = "", y_unit: str = "",
+                   x_invert: bool = False, y_invert: bool = False, sub: str = None) -> dict:
+    """Every player-season as a dot on two chosen metrics. points: dicts with x, y, name, team,
+    league, season, position, group, id, minutes. Kept small: one array per dot."""
+    return {"type": "xy", "sub": sub, "xlabel": x_label, "ylabel": y_label, "xunit": x_unit, "yunit": y_unit,
+            "xinvert": x_invert, "yinvert": y_invert, "colors": GROUP_COLORS,
+            "points": [[_r(p["x"], 3), _r(p["y"], 3), p["name"], p["team"], p["id"], p["league"], p["season"],
+                        p["group"], p["minutes"]] for p in points]}
+
+
 def compare_composite(players: list) -> dict:
     items = []
     for i, p in enumerate(players):

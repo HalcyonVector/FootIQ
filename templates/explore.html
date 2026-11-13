@@ -29,6 +29,25 @@
             <select class="filter-select" id="explore-metric"></select>
           </div>
         </div>
+        <div class="scout-filter-row" id="explore-y-row" style="display:none">
+          <div class="filter-group">
+            <label>Second category (vertical axis)</label>
+            <select class="filter-select" id="explore-category-y"></select>
+          </div>
+          <div class="filter-group" style="flex:1.4">
+            <label>Second metric</label>
+            <select class="filter-select" id="explore-metric-y"></select>
+          </div>
+        </div>
+        <div class="scout-filter-row">
+          <div class="filter-group">
+            <label>View</label>
+            <select class="filter-select" id="explore-view">
+              <option value="list" selected>Ranked list</option>
+              <option value="scatter">Scatter plot (two metrics)</option>
+            </select>
+          </div>
+        </div>
         <div class="scout-filter-row">
           <div class="filter-group">
             <label>League</label>
@@ -78,6 +97,7 @@
         <span class="section-eyebrow">Results</span>
         <h2 class="section-heading" id="explore-results-heading">Top Players</h2>
       </div>
+      <div id="explore-scatter" class="glass-card" style="display:none;padding:18px 20px"></div>
       <div id="explore-list" class="scout-matches-list"></div>
     </section>
 
@@ -89,5 +109,6 @@
     window.EXPLORE_CATEGORIES = {{ categories | tojson }};
     document.getElementById("nav-explore").classList.add("active");
   </script>
+  <script src="/static/js/charts.js"></script>
   <script src="/static/js/explore.js"></script>
 {% endblock %}

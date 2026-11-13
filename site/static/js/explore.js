@@ -72,7 +72,66 @@ function populateMetricSelect() {
   if (typeof upgradeSelects === "function") upgradeSelects();
 }
 
+function populateYSelects() {
+  const catSel = document.getElementById("explore-category-y");
+  catSel.innerHTML = `<option value="" selected disabled>Choose a category</option>` +
+    CATEGORIES.map(c => `<option value="${c.category}">${c.category_label}</option>`).join("");
+  populateYMetricSelect();
+}
+
+function populateYMetricSelect() {
+  const cat = CATEGORIES.find(c => c.category === document.getElementById("explore-category-y").value);
+  document.getElementById("explore-metric-y").innerHTML = `<option value="" selected disabled>Choose a metric</option>` +
+    (cat ? cat.metrics.map(m => `<option value="${m.col}">${m.label}</option>`).join("") : "");
+  if (typeof upgradeSelects === "function") upgradeSelects();
+}
+
+function isScatterView() { return document.getElementById("explore-view").value === "scatter"; }
+
+async function runScatter() {
+  const xm = document.getElementById("explore-metric").value, ym = document.getElementById("explore-metric-y").value;
+  const host = document.getElementById("explore-scatter");
+  document.getElementById("explore-results-section").style.display = "block";
+  document.getElementById("explore-list").style.display = "none";
+  host.style.display = "block";
+  document.getElementById("explore-results-heading").textContent = "Scatter plot";
+  if (!xm || !ym) {
+    host.innerHTML = `<div class="fc-empty">Choose a metric for each axis.</div>`;
+    return;
+  }
+  host.innerHTML = `<div style="text-align:center;color:var(--muted);padding:32px"><div class="mini-spinner" style="margin:0 auto 10px"></div>Plotting players…</div>`;
+  const minMinutes = document.getElementById("explore-min-minutes").value;
+  try {
+    const res = await fetch("/api/explore-scatter", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        x_metric: xm, y_metric: ym,
+        league: document.getElementById("explore-league").value,
+        season: document.getElementById("explore-season").value,
+        position_group: document.getElementById("explore-position").value,
+        min_minutes: minMinutes === "none" ? null : minMinutes,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok || data.error) { host.innerHTML = `<div class="fc-empty">${data.error || "Could not load the plot."}</div>`; return; }
+    FootIQCharts.render(host, data.spec);
+  } catch {
+    host.innerHTML = `<div class="fc-empty">Could not load the plot.</div>`;
+  }
+}
+
+function applyView() {
+  const scatter = isScatterView();
+  document.getElementById("explore-y-row").style.display = scatter ? "flex" : "none";
+  document.getElementById("explore-scatter").style.display = scatter ? "block" : "none";
+  document.getElementById("explore-list").style.display = scatter ? "none" : "";
+  runExplore();
+}
+
 async function runExplore() {
+  if (isScatterView()) { await runScatter(); return; }
+  document.getElementById("explore-list").style.display = "";
+  document.getElementById("explore-scatter").style.display = "none";
   const metricSel = document.getElementById("explore-metric");
   if (!metricSel.value) return;  // nothing chosen yet — stay on the empty state, like Scout before a target is picked
 
@@ -148,8 +207,11 @@ function renderResults(results) {
 // Init
 // ─────────────────────────────────────────────────────────────────────────────
 populateCategorySelect();
+populateYSelects();
 document.getElementById("explore-category").addEventListener("change", () => { populateMetricSelect(); });
-["explore-metric", "explore-league", "explore-season", "explore-position", "explore-min-minutes"].forEach(id => {
+document.getElementById("explore-category-y").addEventListener("change", populateYMetricSelect);
+document.getElementById("explore-view").addEventListener("change", applyView);
+["explore-metric", "explore-metric-y", "explore-league", "explore-season", "explore-position", "explore-min-minutes"].forEach(id => {
   document.getElementById(id).addEventListener("change", runExplore);
 });
 

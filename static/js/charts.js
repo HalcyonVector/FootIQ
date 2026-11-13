@@ -349,6 +349,71 @@ const FootIQCharts = (() => {
   }
 
   // ═════════════════════════════════════════════════════════════════════════
+  // XY: every player on two chosen metrics (Explore)
+  // ═════════════════════════════════════════════════════════════════════════
+  function niceTicks(lo, hi, n = 5) {
+    const span = hi - lo || 1, raw = span / n, mag = Math.pow(10, Math.floor(Math.log10(raw)));
+    const step = [1, 2, 2.5, 5, 10].map(m => m * mag).find(s => s >= raw) || mag * 10;
+    const out = [];
+    for (let v = Math.ceil(lo / step) * step; v <= hi + 1e-9; v += step) out.push(Math.round(v / step) * step);
+    return out;
+  }
+  const fmtVal = (v, unit) => `${Math.abs(v) >= 100 ? Math.round(v) : Math.round(v * 100) / 100}${unit === "%" || unit === "m" || unit === "s" ? unit : ""}`;
+
+  function xyChart(host, spec) {
+    const pts = spec.points || [];
+    if (!pts.length) { host.innerHTML = empty("No players match these filters"); return; }
+    const W = 720, H = 520, L = 60, R = 18, T = 14, B = 56;
+    const sorted = a => [...a].sort((p, q) => p - q);
+    const qnt = (s, p) => s[Math.min(s.length - 1, Math.max(0, Math.round(p * (s.length - 1))))];
+    const xs = sorted(pts.map(p => p[0])), ys = sorted(pts.map(p => p[1]));
+    // Scale on the 0.5-99.5 percentile range so one extreme value cannot squash everyone else.
+    let x0 = qnt(xs, 0.005), x1 = qnt(xs, 0.995), y0 = qnt(ys, 0.005), y1 = qnt(ys, 0.995);
+    if (x1 === x0) { x0 -= 1; x1 += 1; }
+    if (y1 === y0) { y0 -= 1; y1 += 1; }
+    const px = (x1 - x0) * 0.04, py = (y1 - y0) * 0.04;
+    x0 -= px; x1 += px; y0 -= py; y1 += py;
+    const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+    // Axes run so that "better" is always up and to the right, even for lower-is-better metrics.
+    const sx = v => { const f = (clamp(v, x0, x1) - x0) / (x1 - x0); return L + (spec.xinvert ? 1 - f : f) * (W - L - R); };
+    const sy = v => { const f = (clamp(v, y0, y1) - y0) / (y1 - y0); return T + (spec.yinvert ? f : 1 - f) * (H - T - B); };
+    let g = "";
+    niceTicks(x0, x1).forEach(v => { g += `<line x1="${r1(sx(v))}" x2="${r1(sx(v))}" y1="${T}" y2="${H - B}" class="fc-grid"/><text x="${r1(sx(v))}" y="${H - B + 17}" class="fc-t" text-anchor="middle">${fmtVal(v, "")}</text>`; });
+    niceTicks(y0, y1).forEach(v => { g += `<line x1="${L}" x2="${W - R}" y1="${r1(sy(v))}" y2="${r1(sy(v))}" class="fc-grid"/><text x="${L - 8}" y="${r1(sy(v) + 4)}" class="fc-t" text-anchor="end">${fmtVal(v, "")}</text>`; });
+    const mx = qnt(xs, 0.5), my = qnt(ys, 0.5);
+    g += `<line x1="${r1(sx(mx))}" x2="${r1(sx(mx))}" y1="${T}" y2="${H - B}" style="stroke:var(--dim);stroke-dasharray:5 4"/>
+          <line x1="${L}" x2="${W - R}" y1="${r1(sy(my))}" y2="${r1(sy(my))}" style="stroke:var(--dim);stroke-dasharray:5 4"/>`;
+
+    const url = p => `/player?${new URLSearchParams({ player_id: p[4], league: p[5], season: p[6] })}`;
+    const tip = p => `${p[2]}\n${p[3]} · ${p[5]}\n${spec.xlabel}: ${fmtVal(p[0], spec.xunit)}\n${spec.ylabel}: ${fmtVal(p[1], spec.yunit)}\n${p[8]} min`.replace(/\\n/g, "\n");
+    g += pts.map(p => {
+      const out = p[0] < x0 || p[0] > x1 || p[1] < y0 || p[1] > y1, c = spec.colors[p[7]] || "#64748b";
+      return `<a href="${esc(url(p))}"><circle cx="${r1(sx(p[0]))}" cy="${r1(sy(p[1]))}" r="3.6" fill="${out ? "none" : c}" fill-opacity=".62" stroke="${c}" stroke-opacity="${out ? 0.9 : 0.25}" stroke-width="1.2" class="fc-xy-dot" data-tip="${esc(tip(p))}"/></a>`;
+    }).join("");
+
+    // Name the standouts: furthest from the medians in the "better" direction on both axes.
+    const iqr = (s) => (qnt(s, 0.75) - qnt(s, 0.25)) || 1;
+    const ix = iqr(xs), iy = iqr(ys);
+    const score = p => ((p[0] - mx) / ix) * (spec.xinvert ? -1 : 1) + ((p[1] - my) / iy) * (spec.yinvert ? -1 : 1);
+    const placed = [];
+    [...pts].sort((a, b) => score(b) - score(a)).slice(0, 40).forEach(p => {
+      if (placed.length >= 8) return;
+      const cx = sx(p[0]), cy = sy(p[1]);
+      if (placed.some(q => Math.abs(q[0] - cx) < 90 && Math.abs(q[1] - cy) < 15)) return;
+      placed.push([cx, cy]);
+      const right = cx > W - 140;
+      g += `<text x="${r1(cx + (right ? -8 : 8))}" y="${r1(cy - 7)}" class="fc-t fc-t-strong fc-halo" text-anchor="${right ? "end" : "start"}">${esc(p[2])}</text>`;
+    });
+
+    const dir = (inv, name) => inv ? `${name} (lower is better, axis flipped)` : name;
+    g += `<text x="${(L + W - R) / 2}" y="${H - 8}" class="fc-t" text-anchor="middle">${esc(dir(spec.xinvert, spec.xlabel))}</text>
+          <text transform="translate(14 ${(T + H - B) / 2}) rotate(-90)" class="fc-t" text-anchor="middle">${esc(dir(spec.yinvert, spec.ylabel))}</text>`;
+    const groups = [...new Set(pts.map(p => p[7]))];
+    const legend = `<div class="fc-legend">${groups.map(k => `<span class="fc-leg static"><i class="fc-dot" style="background:${spec.colors[k] || "#64748b"}"></i><span>${esc(k.charAt(0).toUpperCase() + k.slice(1))}s</span></span>`).join("")}</div>`;
+    host.innerHTML = head(spec) + `<svg viewBox="0 0 ${W} ${H}" class="ov-svg fc-svg" role="img" aria-label="${esc(spec.xlabel)} against ${esc(spec.ylabel)}">${g}</svg>` + legend;
+  }
+
+  // ═════════════════════════════════════════════════════════════════════════
   // Radar + grouped bars (Compare)
   // ═════════════════════════════════════════════════════════════════════════
   const seriesLegend = series => `<div class="fc-legend">${series.map(s => `<span class="fc-leg static"><i class="fc-dot" style="background:${s.color}"></i><span>${esc(s.name)}</span></span>`).join("")}</div>`;
@@ -368,7 +433,7 @@ const FootIQCharts = (() => {
       g += `<polygon points="${pts.map(p => p.join(",")).join(" ")}" fill="${s.color}" fill-opacity=".16" stroke="${s.color}" stroke-width="2.4" stroke-linejoin="round"/>`;
       pts.forEach((p, i) => { g += `<circle cx="${p[0]}" cy="${p[1]}" r="4.2" fill="${s.color}" stroke="var(--bg)" stroke-width="1.5" data-tip="${esc(`${s.name}\n${ax[i]}: ${Math.round(s.values[i])}th pct`)}"/>`; });
     });
-    host.innerHTML = head(spec) + `<svg viewBox="0 0 ${W} ${H}" class="ov-svg fc-svg fc-round" role="img" aria-label="Radar comparison">${g}</svg>` + seriesLegend(spec.series);
+    host.innerHTML = head(spec) + `<svg viewBox="0 0 ${W} ${H}" class="ov-svg fc-svg fc-round" role="img" aria-label="Radar comparison">${g}</svg>` + (spec.series.length > 1 ? seriesLegend(spec.series) : "");
   }
 
   function groupedChart(host, spec) {
@@ -389,7 +454,7 @@ const FootIQCharts = (() => {
 
   // ═════════════════════════════════════════════════════════════════════════
   const RENDERERS = { pitch: pitchChart, bars: barsChart, hist: histChart, trend: trendChart, rose: roseChart,
-                      bloom: bloomChart, scatter: scatterChart, radar: radarChart, grouped: groupedChart };
+                      bloom: bloomChart, scatter: scatterChart, xy: xyChart, radar: radarChart, grouped: groupedChart };
 
   function render(host, spec) {
     host.classList.add("fc-host");

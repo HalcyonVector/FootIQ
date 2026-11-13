@@ -88,3 +88,24 @@ def test_pass_tiles_for_the_progressive_subset_say_so_and_have_no_empty_rows():
     assert "477" in sp.pass_zones(subset, of=477)["sub"]
     # the whole-season view is unchanged apart from its wording
     assert sp.pass_outcomes(subset)["sub"] == "All 5 passes"
+
+
+def _cat(key, percentiles):
+    return {"key": key, "label": key, "rows": [{"stats": [{"percentile": p, "no_data": False} for p in percentiles]}]}
+
+
+def test_profile_radar_averages_each_category_and_skips_empty_ones():
+    cats = [_cat("passing", [80, 60]), _cat("shooting", [50]), _cat("carrying", [90]),
+            {"key": "tempo", "label": "Tempo", "rows": [{"stats": [{"percentile": 0, "no_data": True}]}]},   # nothing usable
+            _cat("linkup", [70])]                                                                              # pairwise, not a category
+    spec = sp.profile_radar(cats, "A. Player")
+    assert spec["axes"] == ["Passing", "Shooting", "Carrying"]
+    assert spec["series"][0]["values"] == [70.0, 50.0, 90.0] and spec["series"][0]["name"] == "A. Player"
+    assert sp.profile_radar(cats[:2], "x") is None          # fewer than three axes is not a shape
+
+
+def test_metric_scatter_is_compact_and_nan_safe():
+    pts = [{"x": 1.23456, "y": float("nan"), "name": "A", "team": "T", "league": "L", "season": "2025-26", "group": "midfielder", "id": 1, "minutes": 900}]
+    spec = sp.metric_scatter(pts, "X", "Y", "%", "", x_invert=True)
+    assert spec["type"] == "xy" and spec["xinvert"] and not spec["yinvert"]
+    assert spec["points"][0][:3] == [1.235, None, "A"]       # NaN becomes null, not an invalid JSON token

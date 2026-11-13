@@ -36,6 +36,26 @@ def explorable_metrics() -> list[dict]:
     return out
 
 
+def scatter_points(df: pd.DataFrame, x_col: str, y_col: str, season: str, league: str | None = None,
+                   position_group: str | None = None, min_minutes: int | None = None, limit: int = 2500) -> list[dict]:
+    """Every player-season with both metrics present, under the same filters as rank_players.
+    Capped at `limit`, keeping the players with the most minutes, so the payload stays small."""
+    subset = df[df["season"] == season]
+    if league and league != "all":
+        subset = subset[subset["league"] == league]
+    if position_group and position_group != "all":
+        subset = subset[subset["_pos_group"] == position_group]
+    floor = min_minutes if min_minutes is not None else config.minutes_floor(subset)
+    subset = subset[subset["total_minutes"] >= floor]
+    if x_col not in subset.columns or y_col not in subset.columns:
+        return []
+    subset = subset[subset[x_col].notna() & subset[y_col].notna()]
+    subset = subset.sort_values("total_minutes", ascending=False).head(limit)
+    return [{"x": float(r[x_col]), "y": float(r[y_col]), "name": r["player_name"], "team": r["team_name"],
+             "league": r["league"], "season": season, "group": r["_pos_group"], "id": int(r["whoscored_player_id"]),
+             "minutes": _clean_minutes(r["total_minutes"])} for _, r in subset.iterrows()]
+
+
 def rank_players(
     df: pd.DataFrame,
     metric_col: str,

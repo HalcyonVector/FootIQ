@@ -1965,3 +1965,8 @@ footer {
 .cov-table th:nth-child(-n+2),.cov-table td:nth-child(-n+2){text-align:left}
 /* Metrics whose single-season value barely repeats the next season (see core/advanced/extras.py) */
 .scr-rel{display:inline-block;margin-left:6px;padding:0 6px;border-radius:999px;font-size:10px;font-weight:700;letter-spacing:.3px;line-height:16px;color:#fbbf24;background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.3);vertical-align:middle;cursor:help}
+
+/* Profile radar on the player page; Explore scatter dots are clickable */
+.adv-profile{max-width:560px;margin:0 auto 22px;text-align:center}
+.adv-profile-title{font-size:12px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--c0);margin-bottom:2px}
+.fc-xy-dot{cursor:pointer;transition:r .12s}.fc-xy-dot:hover{r:6;fill-opacity:1}

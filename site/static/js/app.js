@@ -354,6 +354,14 @@ function renderProfileHeader(player) {
 // shows) — arrives with /api/advanced-stats, so it replaces the pulsing
 // placeholder renderProfileHeader() put there rather than blocking the
 // header on it.
+function renderProfileRadar(spec) {
+  const box = document.getElementById("adv-profile"), host = document.getElementById("adv-profile-chart");
+  if (!box || !host) return;
+  if (!spec || typeof FootIQCharts === "undefined") { box.style.display = "none"; return; }
+  FootIQCharts.render(host, spec);
+  box.style.display = "block";
+}
+
 function renderProfileScore(composite) {
   const slot = document.getElementById("profile-score-slot");
   if (!slot) return;
@@ -458,6 +466,7 @@ async function fetchAdvancedStats(player) {
       return;
     }
     renderAdvancedStats(data.categories);
+    renderProfileRadar(data.profile);
     renderProfileScore(data.composite);
     FootIQOverview.renderInsights(data.insights);
     advancedSection.style.display = "block";
