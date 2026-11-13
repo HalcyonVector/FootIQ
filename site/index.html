@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><script>window.FOOTIQ_STATIC=true;</script><script src="/static/js/static-shim.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FootIQ: Event-Level Football Analytics</title>
+  <meta name="description" content="Event-derived football player stats: passing, carrying, duels, and combination play, built from match event data." />
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/css/style.css" />
+  <style>
+    /* Add subtle active state for nav links */
+    .nav-links a { color: var(--muted); text-decoration: none; font-size: 14px; font-weight: 600; transition: color 0.2s; }
+    .nav-links a:hover { color: var(--text); }
+    .nav-links a.active { color: var(--c0); }
+  </style>
+  <script src="/static/js/retry-fetch.js"></script>
+</head>
+<body>
+
+  <canvas id="particle-canvas"></canvas>
+  <div class="bg-orb orb-1"></div>
+  <div class="bg-orb orb-2"></div>
+  <div class="bg-orb orb-3"></div>
+  <div class="bg-orb orb-4"></div>
+  <div class="grid-overlay"></div>
+
+  <!-- ══ NAVBAR ══ -->
+  
+
+  <main class="container">
+    
+
+<div class="hub-mobile-topbar">
+  <span class="logo-text hub-mobile-logo">FootIQ</span>
+  <button id="theme-toggle" class="hub-theme-toggle">🌙</button>
+</div>
+
+<div class="glow-container">
+  <div class="super-glow"></div>
+  <div class="super-glow glow-2"></div>
+</div>
+
+<section class="hero hub-hero">
+  <div class="hero-split">
+
+    <div class="hero-left">
+      <div class="hero-eyebrow">
+        <span class="eyebrow-dot"></span>
+        <span>Event-Level Football Analytics</span>
+        <span class="eyebrow-dot"></span>
+      </div>
+
+      <h1 class="hero-title hub-title">
+        Elite Football Data Engine.
+      </h1>
+      <p class="hero-desc" style="margin-bottom:24px">
+        Pick a module to start analyzing data across 15 leagues and competitions.
+      </p>
+
+      <div class="hub-grid">
+        <a href="/player" class="hub-card">
+          <div class="card-glow-bg"></div>
+          <div>
+            <h2 class="hub-card-title">Player Stats</h2>
+            <p class="hub-card-desc">Search any player and browse 12 event-derived metric categories, like progressive passes, aerial duels, half-spaces, and Combination Play, all built from real match data.</p>
+          </div>
+        </a>
+
+        <a href="/compare" class="hub-card">
+          <div class="card-glow-bg" style="background:radial-gradient(circle at 80% 50%, rgba(168,85,247,.15) 0%, transparent 60%)"></div>
+          <div>
+            <h2 class="hub-card-title">Compare</h2>
+            <p class="hub-card-desc">Put 2-4 players side by side, any league, any season, with a headline radar and a full per-category stat breakdown.</p>
+          </div>
+        </a>
+
+        <a href="/league" class="hub-card">
+          <div class="card-glow-bg" style="background:radial-gradient(circle at 80% 50%, rgba(34,197,94,.14) 0%, transparent 60%)"></div>
+          <div>
+            <h2 class="hub-card-title">Tables</h2>
+            <p class="hub-card-desc">League standings with form and expected goals for every team, plus team pages with results and a sortable squad.</p>
+          </div>
+        </a>
+
+        <a href="/scout" class="hub-card">
+          <div class="card-glow-bg card-glow-bg-scout"></div>
+          <div>
+            <h2 class="hub-card-title">Scout</h2>
+            <p class="hub-card-desc">Find statistically similar players to any target, pooled across all leagues and seasons (or narrowed to the top 5), built on the same event data as Player Stats.</p>
+          </div>
+        </a>
+
+        <a href="/explore" class="hub-card">
+          <div class="card-glow-bg card-glow-bg-explore"></div>
+          <div>
+            <h2 class="hub-card-title">Explore</h2>
+            <p class="hub-card-desc">Don't have a name in mind yet? Rank every player by a single stat, filtered by league, season, position and age, to browse instead of search.</p>
+          </div>
+        </a>
+      </div>
+    </div>
+
+    <!-- Decorative floating visual: rotates between a few real showcase
+         snapshots (see the showcase array in the script below) so the hub
+         doesn't always show the same "Combination Play: 226 links" content. ── -->
+    <div class="hero-visual" id="hub-showcase">
+      <div class="float-item radar-float">
+        <div class="radar-rings">
+          <div class="radar-ring-1"></div>
+          <div class="radar-ring-2"></div>
+          <svg width="190" height="190" class="radar-poly">
+            <polygon id="hub-radar-poly" points="95,95 95,95 95,95 95,95 95,95 95,95" fill="rgba(59,130,246,0.25)" stroke="#3b82f6" stroke-width="1.5" stroke-linejoin="round" style="transition:all .6s ease"/>
+          </svg>
+          <svg width="190" height="190" class="radar-axes">
+            <line x1="95" y1="0" x2="95" y2="190" stroke="white" stroke-width="1"/>
+            <line x1="0" y1="95" x2="190" y2="95" stroke="white" stroke-width="1"/>
+            <line x1="20" y1="20" x2="170" y2="170" stroke="white" stroke-width="1"/>
+            <line x1="170" y1="20" x2="20" y2="170" stroke="white" stroke-width="1"/>
+          </svg>
+        </div>
+        <div class="radar-badge" id="hub-sc-badge"></div>
+        <div class="radar-label" id="hub-sc-label"></div>
+      </div>
+
+      <div class="float-item match-float">
+        <div class="match-pill-value">
+          <div class="match-pill-eyebrow" id="hub-sc-pill-eyebrow"></div>
+          <div class="match-pill-num" id="hub-sc-pill-num"></div>
+        </div>
+      </div>
+
+      <div class="float-item live-float">
+        <span id="hub-updated"></span>
+      </div>
+
+      <div class="float-item mini-stat-float">
+        <div class="mini-stat-num" id="hub-metrics"></div>
+        <div class="mini-stat-label">Metrics Tracked</div>
+      </div>
+
+      <div class="float-item bars-float">
+        <div class="bars-eyebrow">
+          <span class="pulse-dot"></span>
+          Percentile Rankings <span id="hub-bars-who" style="opacity:.7;text-transform:none;letter-spacing:0"></span>
+        </div>
+        <div class="bar-row" data-bar="0">
+          <div class="bar-row-label"><span class="bar-row-name"></span><span class="bar-row-pct"></span></div>
+          <div class="bar-row-track"><div class="bar-row-fill"></div></div>
+        </div>
+        <div class="bar-row" data-bar="1">
+          <div class="bar-row-label"><span class="bar-row-name"></span><span class="bar-row-pct"></span></div>
+          <div class="bar-row-track"><div class="bar-row-fill"></div></div>
+        </div>
+        <div class="bar-row" data-bar="2">
+          <div class="bar-row-label"><span class="bar-row-name"></span><span class="bar-row-pct"></span></div>
+          <div class="bar-row-track"><div class="bar-row-fill"></div></div>
+        </div>
+        <div class="bar-row bar-row-last" data-bar="3">
+          <div class="bar-row-label"><span class="bar-row-name"></span><span class="bar-row-pct"></span></div>
+          <div class="bar-row-track"><div class="bar-row-fill"></div></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<style>
+/* Hub-specific: full-height flex column, no scroll */
+html, body { height: 100%; overflow: hidden !important; }
+body { display: flex; flex-direction: column; }
+.container { flex: 1; padding: 0 !important; margin: 0 !important; max-width: 100% !important; display: flex; flex-direction: column; justify-content: center; }
+footer { position: static !important; flex-shrink: 0; background: var(--hub-card-bg) !important; backdrop-filter: blur(20px) !important; border-top: 1px solid var(--float-border) !important; padding: 14px 0 !important; }
+footer .footer-inner { max-width: 1200px !important; padding: 0 40px !important; }
+
+.hub-hero { padding: 0 40px; max-width: 1200px; margin: 0 auto; width: 100%; }
+.hub-grid { display: flex; flex-direction: column; gap: 10px; max-width: 480px; }
+.hub-card {
+  position: relative; text-decoration: none; padding: 14px 16px; text-align: left;
+  border-radius: 12px; background: var(--hub-card-bg); backdrop-filter: blur(20px);
+  border: 1px solid var(--float-border); overflow: hidden;
+  transition: all .4s cubic-bezier(.4,0,.2,1);
+}
+.hub-card:hover { transform: translateX(10px); border-color: var(--c0); box-shadow: 0 20px 40px rgba(0,0,0,.2), 0 0 30px rgba(59,130,246,.1); }
+#hub-showcase { opacity: 0; transition: opacity .5s ease; }
+#hub-showcase.ready { opacity: 1; }
+.hub-card-disabled { cursor: default; opacity: .55; }
+.hub-card-disabled:hover { transform: none; box-shadow: none; border-color: var(--float-border); }
+.hub-card-title { font-size: 15px; font-weight: 800; color: var(--text); margin: 0 0 3px; letter-spacing: -.5px; display: flex; align-items: center; gap: 10px; }
+.hub-card-desc { color: var(--muted); font-size: 11.5px; margin: 0; line-height: 1.4; }
+.hub-card-badge { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: #f43f5e; background: rgba(244,63,94,.12); border: 1px solid rgba(244,63,94,.3); border-radius: 20px; padding: 3px 9px; }
+.card-glow-bg { position: absolute; inset: 0; background: radial-gradient(circle at 80% 50%, rgba(59,130,246,.15) 0%, transparent 60%); z-index: -1; border-radius: inherit; }
+.card-glow-bg-scout { background: radial-gradient(circle at 80% 50%, rgba(244,63,94,.12) 0%, transparent 60%); }
+.card-glow-bg-explore { background: radial-gradient(circle at 80% 50%, rgba(16,185,129,.12) 0%, transparent 60%); }
+
+.glow-container { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; overflow: hidden; z-index: 0; pointer-events: none; }
+.super-glow { position: absolute; top: -20%; left: -10%; width: 60vw; height: 60vw; background: radial-gradient(circle, rgba(59,130,246,.15) 0%, transparent 70%); filter: blur(80px); animation: hubFloatGlow 10s ease-in-out infinite alternate; }
+.glow-2 { top: 40%; left: 60%; background: radial-gradient(circle, rgba(244,63,94,.1) 0%, transparent 70%); animation-delay: -5s; }
+@keyframes hubFloatGlow { 0% { transform: translate(0,0) scale(1); } 100% { transform: translate(10%,10%) scale(1.1); } }
+
+.hub-theme-toggle{
+  position: fixed; top: 22px; right: 32px; z-index: 20;
+  background: transparent; border: 1px solid var(--border); color: var(--text);
+  font-size: 16px; padding: 6px; border-radius: 50%; cursor: pointer;
+  width: 34px; height: 34px; display: flex; align-items: center; justify-content: center;
+  transition: background .2s;
+}
+
+.hub-mobile-topbar{ display: contents; }
+.hub-mobile-logo{ display: none; }
+
+.hub-title { font-size: 48px; letter-spacing: -2px; }
+
+@media (max-width: 960px) {
+  html, body { overflow: auto !important; }
+  .container { justify-content: flex-start !important; }
+  .hero-visual { display: none; }
+  .hub-title { font-size: 38px; letter-spacing: -1.5px; }
+
+  /* On mobile the page is taller than one screen, so the theme toggle can't
+     float alone with nothing around it — give it a proper top bar with the
+     logo, like every other page's navbar has. */
+  .hub-mobile-topbar{
+    display: flex; align-items: center; justify-content: space-between;
+    position: fixed; top: 0; left: 0; right: 0; z-index: 25;
+    padding: 14px 20px; background: rgba(5,8,17,.55); backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--border);
+  }
+  .hub-mobile-logo{
+    display: block; font-size: 18px; font-weight: 900; letter-spacing: -.5px;
+    background: linear-gradient(135deg,#3b82f6,#a855f7,#f43f5e);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  }
+  .hub-theme-toggle{ position: static; top: auto; right: auto; }
+  /* Desktop's justify-content:center on .container naturally leaves room
+     below the cards before the footer; switching to flex-start above so
+     the page can scroll removes that free spacing, and nothing was added
+     back -- the last card (Explore) ends up sitting flush against the
+     footer's own 14px padding with no real gap. */
+  .hub-hero{ padding-top: 78px; padding-bottom: 32px; }
+}
+@media (max-width: 480px) {
+  .hub-title { font-size: 30px; letter-spacing: -1px; }
+}
+</style>
+<script>
+  const hubThemeBtn = document.getElementById("theme-toggle");
+  if (hubThemeBtn) {
+    hubThemeBtn.addEventListener("click", () => {
+      const isLight = document.body.getAttribute("data-theme") === "light";
+      document.body.setAttribute("data-theme", isLight ? "dark" : "light");
+      hubThemeBtn.textContent = isLight ? "🌙" : "☀️";
+      localStorage.setItem("theme", isLight ? "dark" : "light");
+    });
+  }
+
+  // Everything in the right-hand visual comes from the dataset (/api/hub and
+  // /api/hub-player); if those calls fail the visual simply stays hidden.
+  const HUB_COLORS = [["#3b82f6", "#60a5fa"], ["#10b981", "#34d399"], ["#a855f7", "#c084fc"], ["#f43f5e", "#fb7185"]];
+  const hubShowcase = document.getElementById("hub-showcase");
+  const hubFmt = n => Number(n).toLocaleString("en-GB");
+  const hubOrd = n => { const t = n % 100, u = n % 10; return n + (t >= 11 && t <= 13 ? "th" : u === 1 ? "st" : u === 2 ? "nd" : u === 3 ? "rd" : "th"); };
+
+  function paintHubPlayer(p) {
+    const poly = document.getElementById("hub-radar-poly");
+    const n = p.axes.length;
+    poly.setAttribute("points", p.axes.map((a, i) => {
+      const r = 8 + 77 * Math.max(a.value, 0) / 100, ang = 2 * Math.PI * i / n;
+      return `${(95 + r * Math.sin(ang)).toFixed(1)},${(95 - r * Math.cos(ang)).toFixed(1)}`;
+    }).join(" "));
+    const best = p.axes.reduce((m, a) => (a.value > m.value ? a : m), p.axes[0]);
+    document.getElementById("hub-sc-badge").textContent = `${best.label}: ${hubOrd(best.value)} pct`;
+    document.getElementById("hub-sc-label").textContent = p.name;
+    document.getElementById("hub-sc-pill-eyebrow").textContent = `Goals · ${p.season}`;
+    document.getElementById("hub-sc-pill-num").innerHTML = `${p.goals} <span>goals</span>`;
+    document.getElementById("hub-bars-who").textContent = `· ${p.team}`;
+    const top = [...p.axes].sort((a, b) => b.value - a.value).slice(0, 4);
+    document.querySelectorAll("#hub-showcase .bar-row").forEach((row, i) => {
+      const [c0, c1] = HUB_COLORS[i];
+      row.querySelector(".bar-row-name").textContent = top[i].label;
+      const pctEl = row.querySelector(".bar-row-pct");
+      pctEl.textContent = hubOrd(top[i].value);
+      pctEl.style.color = c0;
+      const fill = row.querySelector(".bar-row-fill");
+      fill.style.width = `${top[i].value}%`;
+      fill.style.background = `linear-gradient(90deg,${c0},${c1})`;
+    });
+  }
+
+  async function startHubShowcase() {
+    if (!hubShowcase) return;
+    try {
+      const facts = await (await fetch("/api/hub")).json();
+      if (facts.error || !facts.featured || !facts.featured.length) return;
+      document.getElementById("hub-updated").textContent = `Data updated ${facts.updated} · ${hubFmt(facts.matches)} matches`;
+      document.getElementById("hub-metrics").textContent = facts.metrics;
+      const cache = {};
+      const load = async i => (cache[i] ||= await (await fetch(`/api/hub-player?i=${i}`)).json());
+      let idx = Math.floor(Math.random() * facts.featured.length);
+      paintHubPlayer(await load(idx));
+      hubShowcase.classList.add("ready");
+      setInterval(async () => {
+        idx = (idx + 1) % facts.featured.length;
+        const p = await load(idx);
+        if (p.error) return;
+        hubShowcase.style.opacity = "0";
+        setTimeout(() => { paintHubPlayer(p); hubShowcase.style.opacity = ""; }, 400);
+      }, 7000);
+    } catch (e) { /* leave the visual hidden */ }
+  }
+  startHubShowcase();
+
+</script>
+
+  </main>
+
+  <div class="toast" id="toast"></div>
+
+  <footer>
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <span class="logo-text" style="font-size:16px">FootIQ</span>
+      </div>
+      <div class="footer-credits">
+        Built by <a href="https://github.com/HalcyonVector" target="_blank" rel="noopener" class="credit-name"><strong>HalcyonVector</strong></a>
+        &nbsp;·&nbsp; Data via <strong>Opta</strong> / <strong>WhoScored</strong>
+        &nbsp;·&nbsp; Photos via <strong>Wikipedia</strong>
+        &nbsp;·&nbsp; <a href="/coverage" class="credit-name">Data coverage</a>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // ── Theme ──
+    const savedTheme = localStorage.getItem('theme') || 'dark';
+    if(savedTheme === 'light') {
+      document.body.setAttribute('data-theme', 'light');
+      const btn = document.getElementById('theme-toggle');
+      if(btn) btn.textContent = '☀️';
+    }
+
+    // ── Navbar scroll effect ──
+    const navbar = document.querySelector('.navbar');
+    if (navbar) {
+      window.addEventListener('scroll', () => {
+        navbar.classList.toggle('scrolled', window.scrollY > 20);
+      }, { passive: true });
+    }
+
+    // ── Mobile page-select dropdown (current page + the other 3) ──
+    const navPageSelect = document.getElementById('nav-page-select');
+    const navPageBtn = document.getElementById('nav-page-btn');
+    const navPageCurrent = document.getElementById('nav-page-current');
+    const navPageMenu = document.getElementById('nav-page-menu');
+    if (navPageSelect && navPageBtn && navPageMenu) {
+      const PAGE_LABELS = { '/player': 'Player Stats', '/compare': 'Compare', '/scout': 'Scout', '/explore': 'Explore' };
+      const currentLabel = PAGE_LABELS[window.location.pathname] || 'Menu';
+      navPageCurrent.textContent = currentLabel;
+      navPageMenu.querySelectorAll('.nav-page-item').forEach(item => {
+        if (item.dataset.label === currentLabel) item.style.display = 'none';
+      });
+
+      navPageBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        navPageSelect.classList.toggle('open');
+      });
+      document.addEventListener('click', () => navPageSelect.classList.remove('open'));
+      navPageMenu.addEventListener('click', e => e.stopPropagation());
+    }
+
+    // ── Particle canvas ──
+    (function() {
+      const canvas = document.getElementById('particle-canvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      let W, H, particles = [];
+
+      const COLORS = ['rgba(0,212,255,', 'rgba(191,95,255,', 'rgba(255,45,120,', 'rgba(0,255,136,'];
+
+      function resize() {
+        W = canvas.width  = window.innerWidth;
+        H = canvas.height = window.innerHeight;
+      }
+
+      function mkParticle() {
+        return {
+          x: Math.random() * W,
+          y: Math.random() * H,
+          r: Math.random() * 1.5 + 0.3,
+          dx: (Math.random() - 0.5) * 0.25,
+          dy: (Math.random() - 0.5) * 0.25,
+          col: COLORS[Math.floor(Math.random() * COLORS.length)],
+          alpha: Math.random() * 0.5 + 0.1,
+          pulse: Math.random() * Math.PI * 2,
+          pulseSpeed: 0.01 + Math.random() * 0.02,
+        };
+      }
+
+      // 45 plain dots, no per-dot shadowBlur: 120 dots with a canvas shadow
+      // each cost a blur pass per frame and competed with scrolling for
+      // the main thread. Honors "reduce motion" by not animating at all.
+      const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      function init() {
+        resize();
+        particles = Array.from({ length: 45 }, mkParticle);
+      }
+
+      function draw() {
+        ctx.clearRect(0, 0, W, H);
+        particles.forEach(p => {
+          p.pulse += p.pulseSpeed;
+          const a = p.alpha * (0.6 + 0.4 * Math.sin(p.pulse));
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+          ctx.fillStyle = p.col + a + ')';
+          ctx.fill();
+          p.x += p.dx; p.y += p.dy;
+          if (p.x < 0 || p.x > W) p.dx *= -1;
+          if (p.y < 0 || p.y > H) p.dy *= -1;
+        });
+        if (!reduceMotion) requestAnimationFrame(draw);
+      }
+
+      window.addEventListener('resize', resize, { passive: true });
+      init();
+      draw();
+    })();
+
+    // ── Scroll reveal ──
+    // One effect for everything below the fold (see .reveal in style.css).
+    // Stagger is per *batch*: whatever scrolls into view together is
+    // staggered 60ms apart (capped at 240ms), instead of a page-wide index
+    // that made later items wait seconds for their turn.
+    const revealObs = new IntersectionObserver((entries) => {
+      entries
+        .filter(e => e.isIntersecting)
+        .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top ||
+                        a.boundingClientRect.left - b.boundingClientRect.left)
+        .forEach((e, i) => {
+          e.target.style.setProperty('--reveal-delay', Math.min(i * 60, 240) + 'ms');
+          e.target.classList.add('in-view');
+          revealObs.unobserve(e.target);
+        });
+    }, { threshold: 0.1, rootMargin: '0px 0px -6% 0px' });
+
+    function obs(el) {
+      if (el.dataset.scrollInit) return;
+      el.dataset.scrollInit = '1';
+      el.classList.add('reveal');
+      revealObs.observe(el);
+    }
+
+    function initScrollAnimations() {
+      document.querySelectorAll(
+        '.section-intro, .feature-card, .league-badge, .step, .stat-item'
+      ).forEach(obs);
+
+      // Any other glass cards present at load, except the search card
+      // (hero, has its own load entrance) and the post-search profile
+      // panels (they animate in when results arrive, not on scroll).
+      document.querySelectorAll('.glass-card:not(.feature-card):not(.search-card)')
+        .forEach(el => { if (!el.closest('#profile-section')) obs(el); });
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initScrollAnimations);
+    } else {
+      initScrollAnimations();
+    }
+
+    // ── Animated number counters ──
+    function animateCounter(el) {
+      const target = parseFloat(el.dataset.target || el.textContent);
+      if (isNaN(target)) return;
+      const decimals = (String(target).split('.')[1] || '').length;
+      const duration = 1200;
+      const start = performance.now();
+      function step(now) {
+        const progress = Math.min((now - start) / duration, 1);
+        const ease = 1 - Math.pow(1 - progress, 3);
+        el.textContent = (target * ease).toFixed(decimals);
+        if (progress < 1) requestAnimationFrame(step);
+      }
+      requestAnimationFrame(step);
+    }
+
+    const counterObs = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          animateCounter(e.target);
+          counterObs.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.5 });
+
+    document.querySelectorAll('.count-up').forEach(el => {
+      el.dataset.target = el.textContent;
+      counterObs.observe(el);
+    });
+  </script>
+  <script src="/static/js/custom-select.js"></script>
+  
+</body>
+</html>

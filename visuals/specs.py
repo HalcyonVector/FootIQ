@@ -164,18 +164,35 @@ def passing_map(passes: list, mode: str = "progressive") -> dict:
     return pitch(layers, stats=[["Passes", len(passes)], ["Progressive", counts["prog"]], ["Into box", counts["box"]]])
 
 
-def pass_outcomes(passes: list) -> dict:
+def _subset_note(n: int, of: int) -> str:
+    return f"{n} progressive and into-box passes, out of {of} passes in all"
+
+
+def pass_outcomes(passes: list, of: int | None = None) -> dict:
+    """`of` is the player's total pass count when `passes` is only the progressive / into-box
+    subset (the default view). Every pass in that subset is one or the other, so splitting it
+    into Completed / Unsuccessful 'other' passes would show two empty bars; instead each kind
+    is split by how the pass ended."""
     n = len(passes)
+    if of is not None:
+        box = [p for p in passes if p["into_box"]]
+        prog = [p for p in passes if p["progressive"] and not p["into_box"]]
+        rows = [("Into box, completed", sum(1 for p in box if p["completed"]), PASS_BOX),
+                ("Into box, missed", sum(1 for p in box if not p["completed"]), PASS_BAD),
+                ("Progressive, completed", sum(1 for p in prog if p["completed"]), PASS_PROG),
+                ("Progressive, missed", sum(1 for p in prog if not p["completed"]), PASS_BAD)]
+        return count_bars(rows, n, sub=_subset_note(n, of))
     box = sum(1 for p in passes if p["into_box"])
     prog = sum(1 for p in passes if p["progressive"] and not p["into_box"])
     ok = sum(1 for p in passes if p["completed"] and not p["progressive"] and not p["into_box"])
     return count_bars([("Into box", box, PASS_BOX), ("Progressive", prog, PASS_PROG), ("Completed", ok, PASS_OK),
-                       ("Unsuccessful", n - box - prog - ok, PASS_BAD)], n, sub=f"Total attempts: {n}")
+                       ("Unsuccessful", n - box - prog - ok, PASS_BAD)], n, sub=f"All {n} passes")
 
 
-def release_times(passes: list) -> dict:
+def release_times(passes: list, of: int | None = None) -> dict:
     values = [p["release_s"] for p in passes if p.get("release_s") is not None]
-    return hist(values, 14, "s", PASS_OK, sub=f"Sample: {len(values)} passes")
+    sub = f"Sample: {len(values)} passes" if of is None else f"Sample: {len(values)} of the {len(passes)} progressive and into-box passes"
+    return hist(values, 14, "s", PASS_OK, sub=sub)
 
 
 def _by_third(rows: list, sub_fmt: str) -> dict:
@@ -187,8 +204,8 @@ def _by_third(rows: list, sub_fmt: str) -> dict:
     return count_bars([(THIRD_LABELS[z], counts[z], THIRD_COLORS[z]) for z in ("def", "mid", "att")], n, sub=sub_fmt.format(n=n))
 
 
-def pass_zones(passes: list) -> dict:
-    return _by_third(passes, "Total: {n}")
+def pass_zones(passes: list, of: int | None = None) -> dict:
+    return _by_third(passes, "Total: {n}" if of is None else _subset_note("{n}", of))
 
 
 # ─────────────────────────────────────────────────────────────────────────────

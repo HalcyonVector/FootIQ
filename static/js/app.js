@@ -360,7 +360,7 @@ function renderProfileScore(composite) {
   const score = composite && composite.score !== null && composite.score !== undefined ? composite.score : null;
   if (score === null) { slot.remove(); return; }
   slot.outerHTML = `
-    <div class="profile-score" id="profile-score-slot">
+    <div class="profile-score" id="profile-score-slot" title="Composite rating: a position-weighted blend of this player's category percentiles. It measures style and involvement as much as quality, and tracks WhoScored's average match rating only moderately (rank correlation about 0.7 for attackers, 0.5 for midfielders and defenders, 0.4 for goalkeepers).">
       <div class="score-num">${score}</div>
       <div class="score-lbl">Rating</div>
     </div>

@@ -37,7 +37,7 @@ CATEGORIES = {
             ("pass_median_release_s", "Median release time", "s"),
             ("pass_quick_pct", "Quick passes (<2s)", "%"),
             ("pass_one_touch_pct", "One-touch tempo (<1s)", "%"),
-            ("pass_accuracy_pct", "Pass accuracy", "%"),
+            ("pass_accuracy_pct", "Pass accuracy (incl. crosses)", "%"),
         ],
     },
     "shooting": {

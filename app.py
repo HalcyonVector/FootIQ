@@ -779,11 +779,13 @@ def api_category_chart():
             # "Progressive & into box" looks at just that subset, not the whole
             # season, so the tile grid never shows charts that look identical
             # regardless of which toggle is picked.
-            filtered_passes = [p for p in passes if p["progressive"] or p["into_box"]] if mode == "progressive" else passes
+            subset = mode == "progressive"
+            filtered_passes = [p for p in passes if p["progressive"] or p["into_box"]] if subset else passes
+            of = len(passes) if subset else None     # tells the tiles they show a subset, and of how many
             chart("map", "Pass Map", sp.passing_map(passes, mode))
-            chart("outcome", "Outcome Breakdown", sp.pass_outcomes(filtered_passes))
-            chart("release", "Release Times", sp.release_times(filtered_passes))
-            chart("zone", "Pass Origin by Third", sp.pass_zones(filtered_passes))
+            chart("outcome", "Outcome Breakdown", sp.pass_outcomes(filtered_passes, of))
+            chart("release", "Release Times", sp.release_times(filtered_passes, of))
+            chart("zone", "Pass Origin by Third", sp.pass_zones(filtered_passes, of))
 
         elif category == "shooting":
             shots = recs("shooting", ["x", "y", "outcome", "body_part"])

@@ -134,6 +134,23 @@ def schedule_error_kind(exc: BaseException) -> str:
     return "transient"
 
 
+def _drop_cached_season_list(ws, league: str, season: str) -> None:
+    import gc
+    gc.collect()                                    # closes the file the failed read left open
+    stale = Path(ws.data_dir) / "seasons" / f"{league}.html"
+    if not stale.exists():
+        return
+    log(f"{league} {season}: season not in the cached season list; refreshing the list")
+    for _ in range(5):
+        try:
+            stale.unlink()
+            return
+        except PermissionError:
+            time.sleep(1)
+            gc.collect()
+    log(f"{league}: could not delete {stale}; the stale season list stays")
+
+
 def _fetch_schedule(league: str, season: str, headless: bool):
     """(schedule | None, status) with status 'ok' | 'not_published' | 'schedule_failed'.
     Up to 5 attempts with growing waits and a brand-new Chrome from the 3rd on: the
@@ -146,23 +163,44 @@ def _fetch_schedule(league: str, season: str, headless: bool):
 
     ws = new_reader()
     attempts = len(SCHEDULE_BACKOFF_S) + 1
+    refreshed_season_list = False
     for attempt in range(attempts):
+        refresh_list = False
         try:
             return ws.read_schedule(), "ok"
         except Exception as exc:
             if schedule_error_kind(exc) == "not_published":
-                log(f"{league} {season}: WhoScored has no such season yet -- skipping (not an error)")
-                return None, "not_published"
-            log(f"{league} {season}: schedule fetch failed (attempt {attempt + 1}/{attempts}):\n{traceback.format_exc()}")
-            if attempt == attempts - 1:
-                break
-            time.sleep(SCHEDULE_BACKOFF_S[attempt])
-            if attempt >= 1:
-                try:
-                    ws._driver.quit()
-                except Exception:
-                    pass
-                ws = new_reader()
+                # soccerdata caches each competition's list of seasons on disk and never refreshes
+                # it, so a list saved before the new season existed (the Champions League's was
+                # saved in July) makes a season that IS on WhoScored look unpublished -- which
+                # silently dropped every European match of 2026-27. Drop the cached list and ask
+                # once more before believing it.
+                if not refreshed_season_list:
+                    refresh_list = refreshed_season_list = True
+                else:
+                    log(f"{league} {season}: WhoScored has no such season yet -- skipping (not an error)")
+                    return None, "not_published"
+            else:
+                log(f"{league} {season}: schedule fetch failed (attempt {attempt + 1}/{attempts}):\n{traceback.format_exc()}")
+        # Outside the except block, so the failed read's traceback (which still holds the open
+        # season-list file, and Windows will not delete an open file) can be released first.
+        if refresh_list:
+            _drop_cached_season_list(ws, league, season)
+            try:
+                ws._driver.quit()
+            except Exception:
+                pass
+            ws = new_reader()
+            continue
+        if attempt == attempts - 1:
+            break
+        time.sleep(SCHEDULE_BACKOFF_S[attempt])
+        if attempt >= 1:
+            try:
+                ws._driver.quit()
+            except Exception:
+                pass
+            ws = new_reader()
     log(f"!!! giving up on {league} {season} schedule after {attempts} attempts")
     return None, "schedule_failed"
 

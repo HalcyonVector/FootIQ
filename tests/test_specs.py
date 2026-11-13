@@ -70,3 +70,21 @@ def test_half_space_map_modes():
 
 def test_percentile_color_matches_endpoints():
     assert sp.percentile_color(0) == "#ef4444" and sp.percentile_color(100) == "#3b82f6"
+
+
+def _pass_row(box=False, prog=False, ok=True):
+    return {"into_box": box, "progressive": prog, "completed": ok, "x": 50, "y": 50, "end_x": 70, "end_y": 50, "release_s": 1.0}
+
+
+def test_pass_tiles_for_the_progressive_subset_say_so_and_have_no_empty_rows():
+    """The default Passing view feeds the tiles only the progressive and into-box passes. They must
+    say it is a subset of the full count and split each kind by how it ended, not show an empty
+    Completed / Unsuccessful pair next to a total that looks like the player's whole season."""
+    subset = [_pass_row(box=True), _pass_row(box=True, ok=False), _pass_row(prog=True), _pass_row(prog=True), _pass_row(prog=True, ok=False)]
+    out = sp.pass_outcomes(subset, of=477)
+    assert "5 progressive and into-box passes" in out["sub"] and "477" in out["sub"]
+    counts = {i["label"]: i["text"].split()[0] for i in out["items"]}
+    assert counts == {"Into box, completed": "1", "Into box, missed": "1", "Progressive, completed": "2", "Progressive, missed": "1"}
+    assert "477" in sp.pass_zones(subset, of=477)["sub"]
+    # the whole-season view is unchanged apart from its wording
+    assert sp.pass_outcomes(subset)["sub"] == "All 5 passes"

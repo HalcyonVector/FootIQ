@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><script>window.FOOTIQ_STATIC=true;</script><script src="/static/js/static-shim.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FootIQ: Event-Level Football Analytics</title>
+  <meta name="description" content="Event-derived football player stats: passing, carrying, duels, and combination play, built from match event data." />
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/css/style.css" />
+  <style>
+    /* Add subtle active state for nav links */
+    .nav-links a { color: var(--muted); text-decoration: none; font-size: 14px; font-weight: 600; transition: color 0.2s; }
+    .nav-links a:hover { color: var(--text); }
+    .nav-links a.active { color: var(--c0); }
+  </style>
+  <script src="/static/js/retry-fetch.js"></script>
+</head>
+<body>
+
+  <canvas id="particle-canvas"></canvas>
+  <div class="bg-orb orb-1"></div>
+  <div class="bg-orb orb-2"></div>
+  <div class="bg-orb orb-3"></div>
+  <div class="bg-orb orb-4"></div>
+  <div class="grid-overlay"></div>
+
+  <!-- ══ NAVBAR ══ -->
+  
+  <nav class="navbar">
+    <div class="nav-logo" style="cursor:pointer" onclick="window.location.href='/'">
+      <span class="logo-text">FootIQ</span>
+    </div>
+    <div class="nav-links">
+      <a href="/player" id="nav-player">Player Stats</a>
+      <a href="/compare" id="nav-compare">Compare</a>
+      <a href="/league" id="nav-league">Tables</a>
+      <a href="/scout" id="nav-scout">Scout</a>
+      <a href="/explore" id="nav-explore">Explore</a>
+    </div>
+    <div class="nav-page-select" id="nav-page-select">
+      <button class="nav-page-select-btn" id="nav-page-btn" type="button">
+        <span id="nav-page-current">Menu</span>
+        <span class="dd-arrow">▾</span>
+      </button>
+      <div class="nav-page-menu" id="nav-page-menu">
+        <a href="/player" class="nav-page-item" data-label="Player Stats">Player Stats</a>
+        <a href="/compare" class="nav-page-item" data-label="Compare">Compare</a>
+        <a href="/league" class="nav-page-item" data-label="Tables">Tables</a>
+        <a href="/scout" class="nav-page-item" data-label="Scout">Scout</a>
+        <a href="/explore" class="nav-page-item" data-label="Explore">Explore</a>
+      </div>
+    </div>
+    <div class="nav-right" style="display:flex;align-items:center;gap:12px;white-space:nowrap">
+      <button id="theme-toggle" style="background:transparent;border:1px solid var(--border);color:var(--text);font-size:16px;padding:6px;border-radius:50%;cursor:pointer;width:34px;height:34px;display:flex;align-items:center;justify-content:center;transition:background 0.2s">🌙</button>
+      <span class="nav-credit">Built by <a href="https://github.com/HalcyonVector" target="_blank" rel="noopener"><strong>HalcyonVector</strong></a></span>
+    </div>
+  </nav>
+  
+
+  <main class="container">
+    
+
+    <section class="hero" style="padding-bottom:12px">
+      <div class="hero-eyebrow">
+        <span class="eyebrow-dot"></span>
+        <span>Standings &amp; Team Form</span>
+        <span class="eyebrow-dot"></span>
+      </div>
+      <h1 class="hero-title" style="font-size:44px">
+        League <span class="gradient-text">Tables</span>
+      </h1>
+      <p class="hero-desc">
+        Points, goal difference, recent form and expected goals for every team,<br/>
+        built from the same match data. Click a team for results and squad.
+      </p>
+
+      <div class="search-card glass-card" style="max-width:640px;margin:24px auto 0">
+        <div class="scout-filter-row" style="margin-top:0">
+          <div class="filter-group">
+            <label>Competition</label>
+            <select class="filter-select" id="lg-league">
+              
+              <option value="Premier League">Premier League</option>
+              
+              <option value="La Liga">La Liga</option>
+              
+              <option value="Serie A">Serie A</option>
+              
+              <option value="Bundesliga">Bundesliga</option>
+              
+              <option value="Ligue 1">Ligue 1</option>
+              
+              <option value="Championship">Championship (England)</option>
+              
+              <option value="Eredivisie">Eredivisie</option>
+              
+              <option value="Primeira Liga">Primeira Liga</option>
+              
+              <option value="Belgian Pro League">Belgian Pro League</option>
+              
+              <option value="Süper Lig">Süper Lig</option>
+              
+              <option value="Scottish Premiership">Scottish Premiership</option>
+              
+              <option value="Champions League">Champions League</option>
+              
+              <option value="Europa League">Europa League</option>
+              
+              <option value="World Cup">World Cup</option>
+              
+              <option value="European Championship">European Championship</option>
+              
+            </select>
+          </div>
+          <div class="filter-group">
+            <label>Season</label>
+            <select class="filter-select" id="lg-season">
+              
+              <option value="2026-27" selected>2026-27</option>
+              
+              <option value="2025-26" >2025-26</option>
+              
+              <option value="2024-25" >2024-25</option>
+              
+              <option value="2023-24" >2023-24</option>
+              
+              <option value="2022" >2022</option>
+              
+              <option value="2024" >2024</option>
+              
+            </select>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="lg-section" class="glass-card ov-section" style="display:none">
+      <div class="pct-title-row">
+        <span class="section-label" id="lg-title">Table</span>
+      </div>
+      <div class="lg-note" id="lg-note"></div>
+      <div class="ov-table-wrap" id="lg-table"></div>
+      <div class="ov-legend">
+        <span><i class="ov-sw" style="background:#22c55e"></i>Win</span><span><i class="ov-sw" style="background:#94a3b8"></i>Draw</span>
+        <span><i class="ov-sw" style="background:#ef4444"></i>Loss</span>
+        <span class="ov-legend-note">xG / xGA: expected goals for and against (our own model). Form = last 5, oldest → newest.</span>
+      </div>
+    </section>
+
+
+  </main>
+
+  <div class="toast" id="toast"></div>
+
+  <footer>
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <span class="logo-text" style="font-size:16px">FootIQ</span>
+      </div>
+      <div class="footer-credits">
+        Built by <a href="https://github.com/HalcyonVector" target="_blank" rel="noopener" class="credit-name"><strong>HalcyonVector</strong></a>
+        &nbsp;·&nbsp; Data via <strong>Opta</strong> / <strong>WhoScored</strong>
+        &nbsp;·&nbsp; Photos via <strong>Wikipedia</strong>
+        &nbsp;·&nbsp; <a href="/coverage" class="credit-name">Data coverage</a>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // ── Theme ──
+    const savedTheme = localStorage.getItem('theme') || 'dark';
+    if(savedTheme === 'light') {
+      document.body.setAttribute('data-theme', 'light');
+      const btn = document.getElementById('theme-toggle');
+      if(btn) btn.textContent = '☀️';
+    }
+
+    // ── Navbar scroll effect ──
+    const navbar = document.querySelector('.navbar');
+    if (navbar) {
+      window.addEventListener('scroll', () => {
+        navbar.classList.toggle('scrolled', window.scrollY > 20);
+      }, { passive: true });
+    }
+
+    // ── Mobile page-select dropdown (current page + the other 3) ──
+    const navPageSelect = document.getElementById('nav-page-select');
+    const navPageBtn = document.getElementById('nav-page-btn');
+    const navPageCurrent = document.getElementById('nav-page-current');
+    const navPageMenu = document.getElementById('nav-page-menu');
+    if (navPageSelect && navPageBtn && navPageMenu) {
+      const PAGE_LABELS = { '/player': 'Player Stats', '/compare': 'Compare', '/scout': 'Scout', '/explore': 'Explore' };
+      const currentLabel = PAGE_LABELS[window.location.pathname] || 'Menu';
+      navPageCurrent.textContent = currentLabel;
+      navPageMenu.querySelectorAll('.nav-page-item').forEach(item => {
+        if (item.dataset.label === currentLabel) item.style.display = 'none';
+      });
+
+      navPageBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        navPageSelect.classList.toggle('open');
+      });
+      document.addEventListener('click', () => navPageSelect.classList.remove('open'));
+      navPageMenu.addEventListener('click', e => e.stopPropagation());
+    }
+
+    // ── Particle canvas ──
+    (function() {
+      const canvas = document.getElementById('particle-canvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      let W, H, particles = [];
+
+      const COLORS = ['rgba(0,212,255,', 'rgba(191,95,255,', 'rgba(255,45,120,', 'rgba(0,255,136,'];
+
+      function resize() {
+        W = canvas.width  = window.innerWidth;
+        H = canvas.height = window.innerHeight;
+      }
+
+      function mkParticle() {
+        return {
+          x: Math.random() * W,
+          y: Math.random() * H,
+          r: Math.random() * 1.5 + 0.3,
+          dx: (Math.random() - 0.5) * 0.25,
+          dy: (Math.random() - 0.5) * 0.25,
+          col: COLORS[Math.floor(Math.random() * COLORS.length)],
+          alpha: Math.random() * 0.5 + 0.1,
+          pulse: Math.random() * Math.PI * 2,
+          pulseSpeed: 0.01 + Math.random() * 0.02,
+        };
+      }
+
+      // 45 plain dots, no per-dot shadowBlur: 120 dots with a canvas shadow
+      // each cost a blur pass per frame and competed with scrolling for
+      // the main thread. Honors "reduce motion" by not animating at all.
+      const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      function init() {
+        resize();
+        particles = Array.from({ length: 45 }, mkParticle);
+      }
+
+      function draw() {
+        ctx.clearRect(0, 0, W, H);
+        particles.forEach(p => {
+          p.pulse += p.pulseSpeed;
+          const a = p.alpha * (0.6 + 0.4 * Math.sin(p.pulse));
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+          ctx.fillStyle = p.col + a + ')';
+          ctx.fill();
+          p.x += p.dx; p.y += p.dy;
+          if (p.x < 0 || p.x > W) p.dx *= -1;
+          if (p.y < 0 || p.y > H) p.dy *= -1;
+        });
+        if (!reduceMotion) requestAnimationFrame(draw);
+      }
+
+      window.addEventListener('resize', resize, { passive: true });
+      init();
+      draw();
+    })();
+
+    // ── Scroll reveal ──
+    // One effect for everything below the fold (see .reveal in style.css).
+    // Stagger is per *batch*: whatever scrolls into view together is
+    // staggered 60ms apart (capped at 240ms), instead of a page-wide index
+    // that made later items wait seconds for their turn.
+    const revealObs = new IntersectionObserver((entries) => {
+      entries
+        .filter(e => e.isIntersecting)
+        .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top ||
+                        a.boundingClientRect.left - b.boundingClientRect.left)
+        .forEach((e, i) => {
+          e.target.style.setProperty('--reveal-delay', Math.min(i * 60, 240) + 'ms');
+          e.target.classList.add('in-view');
+          revealObs.unobserve(e.target);
+        });
+    }, { threshold: 0.1, rootMargin: '0px 0px -6% 0px' });
+
+    function obs(el) {
+      if (el.dataset.scrollInit) return;
+      el.dataset.scrollInit = '1';
+      el.classList.add('reveal');
+      revealObs.observe(el);
+    }
+
+    function initScrollAnimations() {
+      document.querySelectorAll(
+        '.section-intro, .feature-card, .league-badge, .step, .stat-item'
+      ).forEach(obs);
+
+      // Any other glass cards present at load, except the search card
+      // (hero, has its own load entrance) and the post-search profile
+      // panels (they animate in when results arrive, not on scroll).
+      document.querySelectorAll('.glass-card:not(.feature-card):not(.search-card)')
+        .forEach(el => { if (!el.closest('#profile-section')) obs(el); });
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initScrollAnimations);
+    } else {
+      initScrollAnimations();
+    }
+
+    // ── Animated number counters ──
+    function animateCounter(el) {
+      const target = parseFloat(el.dataset.target || el.textContent);
+      if (isNaN(target)) return;
+      const decimals = (String(target).split('.')[1] || '').length;
+      const duration = 1200;
+      const start = performance.now();
+      function step(now) {
+        const progress = Math.min((now - start) / duration, 1);
+        const ease = 1 - Math.pow(1 - progress, 3);
+        el.textContent = (target * ease).toFixed(decimals);
+        if (progress < 1) requestAnimationFrame(step);
+      }
+      requestAnimationFrame(step);
+    }
+
+    const counterObs = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          animateCounter(e.target);
+          counterObs.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.5 });
+
+    document.querySelectorAll('.count-up').forEach(el => {
+      el.dataset.target = el.textContent;
+      counterObs.observe(el);
+    });
+  </script>
+  <script src="/static/js/custom-select.js"></script>
+  
+  <script>
+    window.LEAGUES = [{"country": "England", "id": "Premier League", "logo": "https://media.api-sports.io/football/leagues/39.png", "name": "Premier League"}, {"country": "Spain", "id": "La Liga", "logo": "https://media.api-sports.io/football/leagues/140.png", "name": "La Liga"}, {"country": "Italy", "id": "Serie A", "logo": "https://media.api-sports.io/football/leagues/135.png", "name": "Serie A"}, {"country": "Germany", "id": "Bundesliga", "logo": "https://media.api-sports.io/football/leagues/78.png", "name": "Bundesliga"}, {"country": "France", "id": "Ligue 1", "logo": "https://static.wikia.nocookie.net/logopedia/images/3/31/Ligue_1_2024.png", "name": "Ligue 1"}, {"country": "England", "id": "Championship", "logo": "https://media.api-sports.io/football/leagues/40.png", "name": "Championship (England)"}, {"country": "Netherlands", "id": "Eredivisie", "logo": "https://media.api-sports.io/football/leagues/88.png", "name": "Eredivisie"}, {"country": "Portugal", "id": "Primeira Liga", "logo": "https://media.api-sports.io/football/leagues/94.png", "name": "Primeira Liga"}, {"country": "Belgium", "id": "Belgian Pro League", "logo": "https://media.api-sports.io/football/leagues/144.png", "name": "Belgian Pro League"}, {"country": "Turkey", "id": "S\u00fcper Lig", "logo": "https://media.api-sports.io/football/leagues/203.png", "name": "S\u00fcper Lig"}, {"country": "Scotland", "id": "Scottish Premiership", "logo": "https://media.api-sports.io/football/leagues/179.png", "name": "Scottish Premiership"}, {"country": "Europe", "id": "Champions League", "logo": "https://media.api-sports.io/football/leagues/2.png", "name": "Champions League"}, {"country": "Europe", "id": "Europa League", "logo": "https://media.api-sports.io/football/leagues/3.png", "name": "Europa League"}, {"country": "International", "id": "World Cup", "logo": "https://media.api-sports.io/football/leagues/1.png", "name": "World Cup"}, {"country": "International", "id": "European Championship", "logo": "https://media.api-sports.io/football/leagues/4.png", "name": "European Championship"}];
+    window.SEASONS = ["2026-27", "2025-26", "2024-25", "2023-24", "2022", "2024"];
+    document.getElementById("nav-league").classList.add("active");
+  </script>
+  <script src="/static/js/league.js"></script>
+
+</body>
+</html>
