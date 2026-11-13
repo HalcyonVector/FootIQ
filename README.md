@@ -24,7 +24,7 @@ Built with Python, pandas, pyarrow and Flask on parsed WhoScored/Opta match-even
 
 What the data showed, and the problems found while building it:
 
-- **Volume metrics repeat from year to year; success rates barely do.** Taking the 2,141 players with at least 900 minutes in both 2024-25 and 2025-26 and correlating each metric across the two seasons: pass accuracy r = 0.85, open-play xG per 90 r = 0.84, progressive passes per 90 r = 0.81, progressive carries per 90 r = 0.78. Success rates are far less stable: xG per shot r = 0.62, aerial win rate in the box r = 0.48, take-on success r = 0.33 and tackle success r = 0.09. A tackle success percentile is therefore mostly noise on a single season. That is why rate metrics carry minimum-attempt gates, and why a player page shows an "Early season" chip while a competition is still being played.
+- **Volume metrics repeat from year to year; success rates barely do.** Correlating each metric across consecutive finished seasons (2023-24 to 2024-25 and 2024-25 to 2025-26, pooled), for players with at least 900 minutes in both: pass accuracy r = 0.84, open-play xG per 90 r = 0.84, progressive passes per 90 r = 0.81, progressive carries per 90 r = 0.79. Success rates are far less stable: xG per shot r = 0.63, aerial win rate in the box r = 0.47, take-on success r = 0.37 and tackle success r = 0.09. A tackle success percentile is therefore mostly noise on a single season. Of the 125 metrics measured this way, 65 are rated high (r of 0.70 or more), 37 medium and 23 low. That is why rate metrics carry minimum-attempt gates, why the player page flags low-reliability metrics as "noisy", and why it shows an "Early season" chip while a competition is still being played.
 - **Leagues differ in how midfielders move the ball.** Among midfielders with 900+ minutes across 2023-24 to 2025-26, the median progressive passes per 90 is highest in Ligue 1 (4.74) and lowest in Serie A (4.07), with La Liga at 4.46 and the Bundesliga and Premier League both at 4.22. Progressive carries per 90 tell a different story: the Premier League is highest at 0.40 and the Bundesliga lowest at 0.29. Percentiles are computed within a position group, not within a league, so cross-league comparison stays available but should be read with this in mind.
 - **Minimum-sample gates hid a regular starter's profile early in a season.** A fixed "at least 10 aerial duels" gate is sensible over 38 games and wrong after 9. Bruno Fernandes had played over 700 minutes in 2026-27 and still showed dashes for open-play aerial win rate. The gates now scale with the share of the season played (never below 3 attempts), the percentile cohort's minutes floor relaxes from 450 to a minimum of 270, and the open-play aerial win rate now reads 25.0% (16th percentile). Finished seasons keep the full gates and are unchanged.
 - **The weekly update ran for weeks without fetching anything.** The scheduler passed display names where the scraper needed the source's own league keys, every task crashed before its first request, and the error handling swallowed each crash and logged "No failures". Every weekly rebuild was quietly re-reading the cache from earlier manual scrapes. Fixed, and the scrape now reports any competition whose schedule could not be fetched instead of looking clean.
@@ -42,7 +42,7 @@ What the data showed, and the problems found while building it:
 - A season switcher for every competition and season a player appears in, and shareable URLs (`/player?player_id=&league=&season=`).
 - A position-weighted Composite Rating that combines every category with a power mean, so a player's strongest categories are rewarded rather than diluted by ones that were never their job.
 - Final Third scored two ways: Completeness (a geometric-mean floor across four pillars) and Impact (per-touch value from the two strongest pillars).
-- Sample warnings: a "Limited sample" badge under 450 minutes and a third of the team's minutes, and an "Early season" chip while the competition is in progress.
+- Sample warnings: a "Limited sample" badge under 450 minutes and a third of the team's minutes, an "Early season" chip while the competition is in progress, and a "noisy" flag on metrics that repeat only weakly from one season to the next (hover any metric for its season-to-season correlation).
 
 ### Season Overview
 
@@ -65,6 +65,10 @@ What the data showed, and the problems found while building it:
 ### League Tables and Team Pages
 
 - Points, goal difference, last-five form and xG for and against for every team, built from the per-match rows. Team pages add a goal-difference trend, a sortable squad table and every result with its xG.
+
+### Data Coverage
+
+- `/coverage` lists every competition and season with matches parsed, players found, how many clear the minutes floor for ranking and how much of the season has been played, plus what was left out and why.
 
 ### Explore
 
@@ -130,6 +134,7 @@ The raw match-event JSON lives outside the repo (`WHOSCORED_CACHE_DIR` in `core/
 python scraping/scrape_whoscored.py            # resumable, safe to re-run or interrupt
 python scraping/build_advanced_metrics.py      # raw cache to data/advanced/*.parquet
 python scraping/build_overview_data.py         # Season Overview tables and the xG model (about 15 minutes)
+python scraping/build_extras.py                # home-page facts, metric reliability, coverage table (seconds)
 python scraping/check_data_health.py           # reports matches with no usable events
 python scraping/data_release.py publish        # uploads the dataset and rewrites data/DATA_VERSION
 ```
@@ -163,6 +168,7 @@ FootIQ/
 │       ├── overview.py, xg.py     Season Overview tables and the xG model
 │       ├── tables.py              League tables and team pages
 │       ├── store.py               Lazy-loaded parquet access and memory trimming
+│       ├── extras.py              Precomputed home-page facts, metric reliability and coverage (extras.json)
 │       └── lookup.py              Player search index
 ├── visuals/specs.py             JSON chart specs for every tab, Combination Play and Compare
 ├── scraping/                    Scraper, parquet builders, data release, weekly update, health check
@@ -195,7 +201,7 @@ FootIQ/
 
 - **Per-request slices, not full tables.** Only the player-season table (about 50 MB) and a compact link-up table are held in memory. Event, shot and heatmap data are Hive-partitioned by league and season, and each request reads only its own player, league and season slice.
 - **Memory.** The server runs one worker with two threads and returns freed memory to the operating system after loads and every twentieth data request. `/api/health` reports resident memory, which sits around 230 to 320 MB.
-- **Start-up.** Pages are served immediately while the data loads in a background thread restarted after the worker forks; data calls wait for it, and the client retries quietly while the server is waking or redeploying.
+- **Start-up.** The server imports only Flask at first, so pages are served immediately; pandas, pyarrow and the data load in a background thread (started in the worker after the fork, never in the importing process). Data calls wait for it, and the client retries quietly and shows a short note while the server is waking. The home page's numbers and each metric's reliability are precomputed into `extras.json` with the data.
 - **Data release.** The dataset is a content-hashed zip attached to a GitHub Release, pinned by `data/DATA_VERSION`. A deploy downloads and checksum-verifies it, so a bad release fails the build and the previous version keeps serving.
 - **Charts.** The server builds JSON specs and the browser draws them as SVG, so every chart shares one theme-aware look with clickable legends and hover tooltips.
 
@@ -247,8 +253,6 @@ python -m pytest tests/
 
 - **A metric glossary** with what each number measures, how it is computed and its minimum sample, shown from the stat itself.
 - **Cohort choice:** rank a player against their own league or against every league.
-- **A data coverage page** showing which competition-seasons are complete and how many matches have usable events.
-- **Season-over-season stability shown per metric**, so a percentile can carry a reliability indicator.
 - **Match-by-match trends for any metric**, not only the match rating.
 
 ---

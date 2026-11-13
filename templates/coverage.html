@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block content %}
+
+    <section class="hero" style="padding-bottom:12px">
+      <div class="hero-eyebrow">
+        <span class="eyebrow-dot"></span>
+        <span>What the numbers rest on</span>
+        <span class="eyebrow-dot"></span>
+      </div>
+      <h1 class="hero-title" style="font-size:44px">
+        Data <span class="gradient-text">Coverage</span>
+      </h1>
+      <p class="hero-desc">
+        Every competition and season in the dataset: matches parsed, players found,<br/>
+        and how many have enough minutes to be ranked.
+      </p>
+    </section>
+
+    <section class="glass-card ov-section" id="cov-section" style="display:none">
+      <div class="lg-note" id="cov-note"></div>
+      <div class="ov-table-wrap"><div id="cov-table"></div></div>
+      <div class="ov-legend">
+        <span class="ov-legend-note">Ranked: players above the minutes floor used for percentiles (450 minutes in a finished season, less while one is in progress, never under 270). Season played: share of a double round-robin completed; cups and tournaments show 100%.</span>
+      </div>
+    </section>
+
+    <section class="glass-card ov-section" id="cov-excluded" style="display:none">
+      <div class="pct-title-row"><span class="section-label">Left out</span></div>
+      <div id="cov-excluded-list"></div>
+    </section>
+
+{% endblock %}
+{% block extra_js %}
+  <script>
+    window.LEAGUES = {{ leagues | tojson }};
+    const $ = id => document.getElementById(id);
+    const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    const nf = n => Number(n).toLocaleString("en-GB");
+    (async () => {
+      let data;
+      try { data = await (await fetch("/api/coverage")).json(); } catch { data = null; }
+      if (!data || data.error) {
+        $("cov-section").style.display = "block";
+        $("cov-table").innerHTML = '<div class="ov-empty">Could not load the coverage table.</div>';
+        return;
+      }
+      const name = id => (window.LEAGUES.find(l => l.id === id) || {}).name || id;
+      const rows = data.rows;
+      const totalMatches = rows.reduce((a, r) => a + r.matches, 0);
+      $("cov-note").textContent = `${rows.length} competition-seasons, ${nf(totalMatches)} matches parsed.`;
+      $("cov-table").innerHTML = `<table class="ov-table cov-table"><thead><tr>
+        <th>Competition</th><th>Season</th><th>Matches</th><th>Players</th><th>Ranked</th><th>Season played</th></tr></thead><tbody>${
+        rows.map(r => `<tr><td>${esc(name(r.league))}</td><td>${esc(r.season)}</td><td>${nf(r.matches)}</td><td>${nf(r.players)}</td>
+          <td>${nf(r.ranked)}</td><td>${r.progress >= 1 ? "Finished" : Math.round(r.progress * 100) + "%"}</td></tr>`).join("")
+      }</tbody></table>`;
+      $("cov-section").style.display = "block";
+      if (data.excluded && data.excluded.length) {
+        $("cov-excluded-list").innerHTML = data.excluded.map(e => `<p class="lg-note"><strong>${esc(e.name)}</strong>: ${esc(e.reason)}</p>`).join("");
+        $("cov-excluded").style.display = "block";
+      }
+    })();
+  </script>
+{% endblock %}

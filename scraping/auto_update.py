@@ -31,6 +31,7 @@ from core.advanced import config
 from scraping.scrape_whoscored import scrape
 from scraping.build_advanced_metrics import main as rebuild_parquet
 from scraping.build_overview_data import main as rebuild_overview
+from scraping.build_extras import main as rebuild_extras
 from scraping.check_data_health import check_league_seasons
 from scraping.data_release import publish as publish_data
 
@@ -119,6 +120,15 @@ def run(push: bool = True) -> None:
         log(f"Overview rebuild done in {time.time()-t0:.1f}s")
     except Exception:
         log("!!! overview rebuild failed (non-fatal, continuing with last week's overview)")
+        import traceback
+        log(traceback.format_exc())
+
+    # Home-page facts, metric reliability and the coverage table (cheap, a few seconds). The
+    # app computes the same on demand when the file is absent, so a failure here is not fatal.
+    try:
+        rebuild_extras()
+    except Exception:
+        log("!!! extras build failed (non-fatal; the app computes them on demand)")
         import traceback
         log(traceback.format_exc())
 

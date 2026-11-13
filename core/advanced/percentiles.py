@@ -229,10 +229,10 @@ def _build_category_stats(cat_key: str, row: dict, cohort: pd.DataFrame, df: pd.
     for col, label, unit in cat["metrics"]:
         value = row.get(col)
         if value is None or (isinstance(value, float) and pd.isna(value)):
-            stats.append({"label": label, "value": 0, "percentile": 0, "unit": unit, "no_data": True})
+            stats.append({"label": label, "key": col, "value": 0, "percentile": 0, "unit": unit, "no_data": True})
             continue
         pct = _percentile_rank(value, cohort[col], invert=col in INVERTED_METRICS) if col in cohort.columns else 0
-        stats.append({"label": label, "value": round(float(value), 2), "percentile": pct, "unit": unit})
+        stats.append({"label": label, "key": col, "value": round(float(value), 2), "percentile": pct, "unit": unit})
     return stats
 
 

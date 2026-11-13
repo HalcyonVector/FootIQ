@@ -416,9 +416,17 @@ function renderStatCard(cat, containerId) {
       ${stats.map(s => {
         const color = percentileColor(s.percentile);
         const noData = s.no_data || s.value === null;
+        // How well this metric repeats from one season to the next (see core/advanced/extras.py):
+        // a "noisy" flag where a single season says little, a quiet tooltip everywhere else.
+        const rel = s.reliability;
+        const relTip = rel
+          ? (rel.tier === "low"
+              ? `Single-season values of this metric correlate only r = ${rel.r} with the same player's next season, so read this percentile loosely.`
+              : `Repeats from season to season: ${rel.tier} (r = ${rel.r}).`)
+          : "";
         return `
           <div class="stat-card-row">
-            <span class="scr-label">${s.label}</span>
+            <span class="scr-label"${relTip ? ` title="${relTip}"` : ""}>${s.label}${rel && rel.tier === "low" ? '<span class="scr-rel">noisy</span>' : ""}</span>
             <div class="scr-right">
               <span class="scr-val" style="color:${noData ? 'var(--muted)' : color}">${noData ? '-' : s.value + (s.unit || '')}</span>
               <div class="scr-bar-bg"><div class="scr-bar-fill" style="width:${noData ? 0 : Math.min(s.percentile, 100)}%; background:${color}; box-shadow: 0 0 10px ${color}44;"></div></div>
@@ -429,6 +437,7 @@ function renderStatCard(cat, containerId) {
     <div class="stat-card-legend">
       ${LEGEND_STOPS.map(([lbl, pct]) => `<span><i class="scl-dot" style="background:${percentileColor(pct)}"></i>${lbl}</span>`).join("")}
     </div>
+    ${stats.some(s => s.reliability && s.reliability.tier === "low") ? '<div class="adv-stat-card-desc" style="margin-top:6px">"noisy": a metric that repeats only weakly from one season to the next, so one season of data gives a rough percentile only.</div>' : ""}
   `;
 }
 

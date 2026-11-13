@@ -1959,3 +1959,9 @@ footer {
   background:var(--float-bg);color:var(--text);border:1px solid var(--float-border);border-radius:8px;
   padding:6px 10px;font-size:12px;line-height:1.4;box-shadow:0 6px 20px rgba(0,0,0,.35);backdrop-filter:blur(6px)}
 .linkup-chart-wrap .linkup-chart{width:100%}
+
+/* Coverage page: numeric columns right-aligned (the shared table left-aligns the first three) */
+.cov-table th:nth-child(n+3),.cov-table td:nth-child(n+3){text-align:right}
+.cov-table th:nth-child(-n+2),.cov-table td:nth-child(-n+2){text-align:left}
+/* Metrics whose single-season value barely repeats the next season (see core/advanced/extras.py) */
+.scr-rel{display:inline-block;margin-left:6px;padding:0 6px;border-radius:999px;font-size:10px;font-weight:700;letter-spacing:.3px;line-height:16px;color:#fbbf24;background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.3);vertical-align:middle;cursor:help}

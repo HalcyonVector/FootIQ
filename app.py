@@ -17,8 +17,28 @@ from flask_cors import CORS
 from flask_compress import Compress
 
 from core.advanced import config as advanced_config
-from core.advanced.lookup import search_players, search_players_global, get_player_stats, build_search_index
 from core.media import get_wikimedia_image
+
+
+# pandas, pyarrow and the whole metrics engine are NOT imported here. They are the bulk of
+# the start-up CPU (about three quarters of it), so importing them at module level meant a
+# cold visitor saw nothing until they were done. The warm-up thread imports them in the
+# background instead and the pages, which need none of it, are served straight away. These
+# wrappers import lazily; every data route is gated until the warm-up has finished, so by
+# the time one runs the modules are already loaded.
+def search_players(*args, **kwargs):
+    from core.advanced.lookup import search_players as f
+    return f(*args, **kwargs)
+
+
+def search_players_global(*args, **kwargs):
+    from core.advanced.lookup import search_players_global as f
+    return f(*args, **kwargs)
+
+
+def get_player_stats(*args, **kwargs):
+    from core.advanced.lookup import get_player_stats as f
+    return f(*args, **kwargs)
 
 app = Flask(__name__)
 CORS(app)
@@ -78,13 +98,11 @@ _WARM_STATE = {"step": "starting", "since": time.time()}
 _NO_DATA_API = ("/api/leagues", "/api/player-image", "/api/health")   # never touch the parquet caches
 
 
-# Import everything the warm-up touches HERE, in the importing (main) thread, before
-# the thread starts. Importing the same modules from two threads at once can
-# deadlock on Python's per-module import locks -- on Render this left the warm-up
-# frozen on its first import forever.
-from core.advanced import store as _store_mod            # noqa: E402
-from core.advanced import aggregator as _aggregator_mod  # noqa: E402,F401
-import core.media, core.position                         # noqa: E402,F401
+# Everything the warm-up touches is imported by the warm-up thread itself, one module after
+# another, and no request thread imports any of them before the gate opens (the data routes
+# wait on it; the page routes need none of them). Importing the same modules from two
+# threads at once can deadlock on Python's per-module import locks -- on Render that once
+# left the warm-up frozen on its first import forever.
 
 
 def _warm_up_in_background() -> None:
@@ -98,10 +116,14 @@ def _warm_up_in_background() -> None:
             _WARM_STATE.setdefault("timeline", []).append([name, round(took, 1), round(time.process_time(), 1)])
             print(f"[warm-up] {took:6.1f}s  {name}", flush=True)
         _WARM_STATE["timeline"] = []
+        progress("import data libraries")
+        import core.media, core.position                                    # noqa: F401
+        from core.advanced import store as _store_mod, aggregator, lookup   # noqa: F401
+        _WARM_STATE["heavy_import_s"] = round(time.time() - _WARM_STATE["since"], 1)
         # Open the gate as soon as what a request cannot do without is loaded...
         _store_mod.warm_essentials(progress)
         progress("search index")
-        build_search_index()
+        lookup.build_search_index()
         _WARM_STATE["warm_took_s"] = round(time.time() - _WARM_STATE["since"], 1)
         done.set()
         progress("ready")
@@ -128,10 +150,30 @@ def _start_warm_up() -> None:
     threading.Thread(target=_warm_up_in_background, name="warm-up", daemon=True).start()
 
 
-_WARM_STATE["import_s"] = round(time.time() - _BOOT_T0, 1)     # how long importing pandas/pyarrow/the app took
-_start_warm_up()
+_WARM_STATE["import_s"] = round(time.time() - _BOOT_T0, 1)     # how long importing Flask and the app took (no pandas)
+_START_LOCK = threading.Lock()
+
+
+def _ensure_warm_started() -> None:
+    """Start the warm-up in this process if it has not been started here yet. Nothing starts
+    at import time: gunicorn imports the app in its master process and then forks, and a
+    thread running (mid-import) at the moment of the fork leaves the child with import locks
+    nobody will ever release. A forked worker starts its own warm-up straight after the fork
+    (below); anything else -- the dev server, a worker that imported the app itself --
+    starts it on its first request."""
+    if _WARM_STATE.get("pid") != os.getpid():
+        with _START_LOCK:
+            if _WARM_STATE.get("pid") != os.getpid():
+                _start_warm_up()
+
+
 if hasattr(os, "register_at_fork"):
     os.register_at_fork(after_in_child=_start_warm_up)
+
+
+@app.before_request
+def _start_warm_up_if_needed():
+    _ensure_warm_started()
 
 
 @app.before_request
@@ -155,6 +197,7 @@ def _trim_memory_now_and_then(resp):
     if request.path.startswith("/api/") and request.path not in _NO_DATA_API:
         _API_HITS["n"] += 1
         if _API_HITS["n"] % 20 == 0:
+            from core.advanced import store as _store_mod
             _store_mod.trim_memory()
     return resp
 
@@ -172,7 +215,8 @@ def _rss_mb():
 def api_health():
     out = {"warm": _WARM.is_set(), "step": _WARM_STATE["step"], "seconds": round(time.time() - _WARM_STATE["since"], 1),
            "pid": os.getpid(), "warm_started_in_pid": _WARM_STATE.get("pid"), "rss_mb": _rss_mb(),
-           "import_s": _WARM_STATE.get("import_s"), "warm_took_s": _WARM_STATE.get("warm_took_s")}
+           "import_s": _WARM_STATE.get("import_s"), "heavy_import_s": _WARM_STATE.get("heavy_import_s"),
+           "warm_took_s": _WARM_STATE.get("warm_took_s")}
     if request.args.get("detail"):
         out["timeline"] = _WARM_STATE.get("timeline")
         out["cpu_s"] = round(time.process_time(), 1)
@@ -270,6 +314,11 @@ def team_page():
     return render_template("team.html", leagues=LEAGUES, seasons=SEASONS)
 
 
+@app.route("/coverage")
+def coverage_page():
+    return render_template("coverage.html", leagues=LEAGUES)
+
+
 @app.route("/explore")
 def explore_page():
     from core.advanced.explore import explorable_metrics
@@ -360,44 +409,20 @@ def api_search():
 # ─────────────────────────────────────────────────────────────────────────────
 # API — home page facts and featured players (all real, computed from the dataset)
 # ─────────────────────────────────────────────────────────────────────────────
-_HUB: dict = {}
-_FEATURED_NAMES = ["Erling Haaland", "Mohamed Salah", "Bukayo Saka", "Virgil van Dijk"]
-
-
 def _hub_facts() -> dict:
-    if "facts" in _HUB:
-        return _HUB["facts"]
+    """Home-page facts. The expensive parts come from data/advanced/extras.json (built with the
+    data); only the 'updated' date is read here, from the release pointer."""
     import json as _json
-    from core.advanced import config as _cfg, store as _store
-    from core.advanced.metrics_master import CATEGORIES
     from datetime import date
-    df = _store.get_advanced_df()
-    counts = df["season"].value_counts()
-    full_season = max((s for s, c in counts.items() if c >= 0.9 * counts.max()), key=_cfg.season_sort_key)
-    matches = 0
+    from core.advanced import extras
+    facts = dict(extras.hub_facts())
     try:
-        import pyarrow.dataset as pa_ds
-        ds = _store._overview_dataset("matches", _cfg.PLAYER_MATCHES_DIR)
-        matches = len(set(ds.to_table(columns=["match_key"]).column("match_key").to_pylist()))
-    except Exception:
-        traceback.print_exc()
-    updated = ""
-    try:
-        built = _json.load(open(os.path.join(os.path.dirname(_cfg.PLAYER_SEASON_PARQUET), "..", "DATA_VERSION")))["built"]
+        built = _json.load(open(os.path.join(advanced_config.ADVANCED_DATA_DIR, "..", "DATA_VERSION")))["built"]
         d = date.fromisoformat(built)
-        updated = f"{d.day} {d.strftime('%b %Y')}"
+        facts["updated"] = f"{d.day} {d.strftime('%b %Y')}"
     except Exception:
-        pass
-    featured = []
-    for nm in _FEATURED_NAMES:
-        hit = search_players_global(nm, full_season)
-        if hit:
-            featured.append({k: hit[0][k] for k in ("id", "name", "team", "league", "season")})
-    _HUB["facts"] = {
-        "updated": updated, "matches": matches, "players": int(df["whoscored_player_id"].nunique()),
-        "metrics": sum(len(c["metrics"]) for c in CATEGORIES.values()), "season": full_season, "featured": featured,
-    }
-    return _HUB["facts"]
+        facts["updated"] = ""
+    return facts
 
 
 @app.route("/api/hub")
@@ -411,37 +436,35 @@ def api_hub():
 
 @app.route("/api/hub-player")
 def api_hub_player():
-    """Real numbers for one featured player: the six radar percentiles, the season
-    goals line and the Final Third score -- the same figures the Player page shows."""
+    """Real numbers for one featured player: the radar percentiles, the season goals line
+    and the Final Third score -- the same figures the Player page shows."""
     try:
+        from core.advanced import extras
         i = int(request.args.get("i", 0))
-        facts = _hub_facts()
-        if not (0 <= i < len(facts["featured"])):
+        if not (0 <= i < len(extras.hub_facts()["featured"])):
             return jsonify({"error": "no such player"}), 404
-        if ("player", i) in _HUB:
-            return jsonify(_HUB[("player", i)])
-        p = facts["featured"][i]
-        from core.advanced import store as _store, summary as _summary
-        from core.advanced.identity import match_to_advanced_row
-        from core.advanced.percentiles import build_all_categories
-        from visuals import specs as sp
-        df = _store.get_advanced_df()
-        row = match_to_advanced_row(p["id"], p["league"], p["season"], df)
-        cats = build_all_categories(row, row.get("position", ""), p["season"], df)
-        axes = [{"label": lbl, "value": round(sp._percentile_for(cats, k, l))} for (k, l), lbl in zip(sp.RADAR_METRICS, sp.RADAR_LABELS)]
-        line = _summary.season_line(_store.get_player_matches(p["id"], p["league"], p["season"]))
-        out = {**p, "axes": axes, "goals": line["goals"], "assists": line["assists"],
-               "final_third": next((a["value"] for a in axes if a["label"] == "Final Third"), None)}
-        _HUB[("player", i)] = out
-        return jsonify(out)
+        return jsonify(extras.hub_player(i))
     except Exception as e:
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# API — advanced metrics (Opta/WhoScored event-derived stats)
-# ─────────────────────────────────────────────────────────────────────────────
+@app.route("/api/coverage")
+def api_coverage():
+    """Per competition-season: matches parsed, player-seasons, how many clear the minutes floor
+    for percentile ranking, and how much of the season has been played."""
+    try:
+        from core.advanced import extras
+        return jsonify({"rows": extras.coverage(), "excluded": EXCLUDED_COMPETITIONS})
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+
+# Scraped but left out of the app, with the reason (shown on the coverage page).
+EXCLUDED_COMPETITIONS = [{"name": "Europa Conference League",
+                          "reason": "The source returned no usable match events for any of its 447 matches."}]
+
 
 @app.route("/api/advanced-stats", methods=["POST"])
 def api_advanced_stats():
@@ -474,6 +497,16 @@ def api_advanced_stats():
         # in style.css) that was never wired up on this page.
         composite = compute_composite(categories, raw.get("position", ""))
         from core.advanced.summary import insights
+        # How repeatable each metric is from one season to the next, so the page can flag
+        # numbers that are mostly noise at a single season's sample.
+        from core.advanced import extras
+        stab = extras.stability()
+        for cat in categories:
+            for row_ in cat.get("rows") or []:
+                for st in row_.get("stats") or []:
+                    info = stab.get(st.get("key"))
+                    if info:
+                        st["reliability"] = {"tier": info["tier"], "r": info["r"]}
         return jsonify({"player": raw, "categories": categories, "composite": composite,
                         "insights": insights(categories)})
     except Exception as e:
@@ -1032,4 +1065,5 @@ if __name__ == "__main__":
     # which is fine on localhost but not something to expose publicly.
     port = int(os.environ.get("PORT", 5000))
     debug = os.environ.get("FLASK_DEBUG", "1") == "1"
+    _ensure_warm_started()
     app.run(host="0.0.0.0", port=port, debug=debug, use_reloader=False, threaded=True)
