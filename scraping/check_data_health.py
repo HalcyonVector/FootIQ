@@ -24,26 +24,37 @@ DEFAULT_NULL_RATE_WARN = 0.05  # flag any league-season with >5% unusable matche
 ALL_SEASONS = config.all_domestic_seasons() + ["2022", "2024"]
 
 
-def check_league_seasons(threshold: float, leagues=None, seasons=None) -> list[dict]:
+def check_league_seasons(threshold: float, leagues=None, seasons=None, current=None) -> list[dict]:
+    """For the season being played right now a literal-null file is a fixture that has
+    not happened yet (the cache holds a placeholder for every scheduled match), so
+    those are counted as `pending`, not unusable. Only unreadable files count against
+    the current season; a finished season has no pending fixtures, so there every
+    null file is a real gap."""
     leagues = leagues or list(config.LEAGUE_DIR_MAP.keys())
     seasons = seasons or ALL_SEASONS
+    current = current if current is not None else config.current_season()
     results = []
     for league in leagues:
         for season in seasons:
             files = list(iter_match_files(league, season))
             if not files:
                 continue  # this (league, season) combo was never scraped — not a health issue, just absent
-            bad = 0
+            bad = pending = 0
             for fp in files:
                 try:
                     if load_match_json(fp) is None:
-                        bad += 1
+                        if season == current:
+                            pending += 1
+                        else:
+                            bad += 1
                 except Exception:
                     bad += 1
-            total = len(files)
+            total = len(files) - pending        # fixtures still to be played are not part of the sample
+            if total <= 0:
+                continue
             rate = bad / total
             results.append({
-                "league": league, "season": season, "total": total,
+                "league": league, "season": season, "total": total, "pending": pending,
                 "bad": bad, "rate": rate, "flagged": rate > threshold,
             })
     return results
@@ -60,11 +71,11 @@ def main():
         print("No cached matches found at all — check FOOTIQ_WHOSCORED_DIR / WHOSCORED_CACHE_DIR.")
         sys.exit(1)
 
-    print(f"{'League':<28} {'Season':<10} {'Matches':>8} {'Unusable':>9} {'Rate':>8}")
-    print("-" * 68)
+    print(f"{'League':<28} {'Season':<10} {'Matches':>8} {'Unusable':>9} {'Rate':>8} {'Not played yet':>15}")
+    print("-" * 84)
     for r in sorted(results, key=lambda r: -r["rate"]):
         marker = "  <-- FLAGGED" if r["flagged"] else ""
-        print(f"{r['league']:<28} {r['season']:<10} {r['total']:>8} {r['bad']:>9} {r['rate']*100:>7.1f}%{marker}")
+        print(f"{r['league']:<28} {r['season']:<10} {r['total']:>8} {r['bad']:>9} {r['rate']*100:>7.1f}% {r['pending']:>14}{marker}")
 
     flagged = [r for r in results if r["flagged"]]
     print()

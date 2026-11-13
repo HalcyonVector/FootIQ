@@ -7,9 +7,10 @@ Stats-first: search a player, see their event-derived Advanced Metrics
 WhoScored/Opta match data (core/advanced/) — the old FBref-CSV-backed
 simple-stats/Compare/Scout system has been retired.
 """
+import time
+_BOOT_T0 = time.time()          # start of this process's imports (reported by /api/health)
 import os
 import threading
-import time
 import traceback
 from flask import Flask, render_template, request, jsonify
 from flask_cors import CORS
@@ -98,6 +99,7 @@ def _warm_up_in_background() -> None:
         progress("search index")
         build_search_index()
         progress("done")
+        _WARM_STATE["warm_took_s"] = round(time.time() - _WARM_STATE["since"], 1)
     except Exception:
         _WARM_STATE["step"] = "failed: " + traceback.format_exc().splitlines()[-1]
         traceback.print_exc()
@@ -114,10 +116,11 @@ def _start_warm_up() -> None:
     was held by a thread that no longer exists."""
     global _WARM
     _WARM = threading.Event()
-    _WARM_STATE.update(step="starting", since=time.time(), pid=os.getpid())
+    _WARM_STATE.update(step="starting", since=time.time(), pid=os.getpid(), warm_took_s=None)
     threading.Thread(target=_warm_up_in_background, name="warm-up", daemon=True).start()
 
 
+_WARM_STATE["import_s"] = round(time.time() - _BOOT_T0, 1)     # how long importing pandas/pyarrow/the app took
 _start_warm_up()
 if hasattr(os, "register_at_fork"):
     os.register_at_fork(after_in_child=_start_warm_up)
@@ -160,7 +163,8 @@ def _rss_mb():
 @app.route("/api/health")
 def api_health():
     out = {"warm": _WARM.is_set(), "step": _WARM_STATE["step"], "seconds": round(time.time() - _WARM_STATE["since"], 1),
-           "pid": os.getpid(), "warm_started_in_pid": _WARM_STATE.get("pid"), "rss_mb": _rss_mb()}
+           "pid": os.getpid(), "warm_started_in_pid": _WARM_STATE.get("pid"), "rss_mb": _rss_mb(),
+           "import_s": _WARM_STATE.get("import_s"), "warm_took_s": _WARM_STATE.get("warm_took_s")}
     if request.args.get("stack"):   # where is each thread right now? (for diagnosing a slow boot)
         import sys
         frames = sys._current_frames()
