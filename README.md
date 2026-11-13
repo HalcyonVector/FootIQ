@@ -6,7 +6,7 @@ Built with Python, pandas, pyarrow and Flask on parsed WhoScored/Opta match-even
 
 > **What it's for:** judging a player by what they actually do on the ball and against it, and knowing how much to trust each number, rather than reading a goals-and-assists line.
 
-**Live demo: [footiq-liard.vercel.app](https://footiq-liard.vercel.app)** (pages, player search and the home page load at once; player statistics come from a data server that sleeps when idle, so the first statistics after a quiet spell can take about 30 seconds)
+**Live demo: [footiq-app.vercel.app](https://footiq-app.vercel.app)** (pages, player search and the home page load at once; player statistics come from a data server that sleeps when idle, so the first statistics after a quiet spell can take about 30 seconds)
 
 ![Launcher: Player Stats, Compare, Tables, Scout and Explore modules](docs/screenshots/overview.png)
 

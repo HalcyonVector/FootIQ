@@ -29,7 +29,7 @@ Update it whenever templates, `static/`, the data or the featured players change
     py -3 deploy/build_static.py          # rebuilds site/ (keeps the .vercel link)
     cd site && vercel deploy --prod --yes
 
-The Vercel project is `footiq` (production alias https://footiq-liard.vercel.app). Preview URLs of a
+The Vercel project is `footiq` (production alias https://footiq-app.vercel.app). Preview URLs of a
 deployment are protected by Vercel login; the production alias is public. Commit `site/` too, since
 it is the source of what is deployed.
 
