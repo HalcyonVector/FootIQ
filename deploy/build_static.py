@@ -94,9 +94,11 @@ def write_config() -> None:
 
 
 def main() -> None:
-    if SITE.exists():
-        shutil.rmtree(SITE)
-    SITE.mkdir()
+    KEEP = {".vercel", ".env.local", ".gitignore"}        # the Vercel link and its ignore file survive a rebuild
+    SITE.mkdir(exist_ok=True)
+    for child in SITE.iterdir():
+        if child.name not in KEEP:
+            shutil.rmtree(child) if child.is_dir() else child.unlink()
     shutil.copytree(ROOT / "static", SITE / "static")
     build_pages()
     build_data()

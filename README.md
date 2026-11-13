@@ -6,7 +6,7 @@ Built with Python, pandas, pyarrow and Flask on parsed WhoScored/Opta match-even
 
 > **What it's for:** judging a player by what they actually do on the ball and against it, and knowing how much to trust each number, rather than reading a goals-and-assists line.
 
-**Live demo: [footiq.onrender.com](https://footiq.onrender.com)** (the first request after a quiet spell can take up to a minute while the server starts)
+**Live demo: [footiq-liard.vercel.app](https://footiq-liard.vercel.app)** (pages, player search and the home page load at once; player statistics come from a data server that sleeps when idle, so the first statistics after a quiet spell can take about 30 seconds)
 
 ![Launcher: Player Stats, Compare, Tables, Scout and Explore modules](docs/screenshots/overview.png)
 
@@ -173,7 +173,8 @@ FootIQ/
 ├── visuals/specs.py             JSON chart specs for every tab, Combination Play and Compare
 ├── scraping/                    Scraper, parquet builders, data release, weekly update, health check
 ├── templates/, static/          Pages, stylesheet and vanilla JS
-├── deploy/                      Hosting notes and the live check script
+├── deploy/                      Hosting notes, the static front end builder and the live check script
+├── site/                        The built static front end (pages, JS, search index) served by the CDN
 ├── tests/                       Pytest suite
 └── data/
     ├── DATA_VERSION               Pointer to the checksummed dataset (a GitHub Release asset)
@@ -201,6 +202,7 @@ FootIQ/
 
 - **Per-request slices, not full tables.** Only the player-season table (about 50 MB) and a compact link-up table are held in memory. Event, shot and heatmap data are Hive-partitioned by league and season, and each request reads only its own player, league and season slice.
 - **Memory.** The server runs one worker with two threads and returns freed memory to the operating system after loads and every twentieth data request. `/api/health` reports resident memory, which sits around 230 to 320 MB.
+- **Static front end.** `deploy/build_static.py` renders the pages and writes the search index, home-page facts and coverage table into `site/`, which a CDN serves. Search runs in the browser with the same ranking as the server, and every other `/api/` call is forwarded to the data server (a `vercel.json` rewrite), which starts waking the moment someone lands on a page.
 - **Start-up.** The server imports only Flask at first, so pages are served immediately; pandas, pyarrow and the data load in a background thread (started in the worker after the fork, never in the importing process). Data calls wait for it, and the client retries quietly and shows a short note while the server is waking. The home page's numbers and each metric's reliability are precomputed into `extras.json` with the data.
 - **Data release.** The dataset is a content-hashed zip attached to a GitHub Release, pinned by `data/DATA_VERSION`. A deploy downloads and checksum-verifies it, so a bad release fails the build and the previous version keeps serving.
 - **Charts.** The server builds JSON specs and the browser draws them as SVG, so every chart shares one theme-aware look with clickable legends and hover tooltips.
