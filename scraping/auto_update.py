@@ -64,6 +64,21 @@ def git(*args: str) -> subprocess.CompletedProcess:
     )
 
 
+def deploy_static_front() -> None:
+    """Publish site/ to Vercel with the CLI (logged in on this machine). Non-fatal."""
+    import shutil
+    exe = shutil.which("vercel")
+    if not exe:
+        log("Vercel CLI not found; deploy the static front end by hand (cd site && vercel deploy --prod --yes)")
+        return
+    try:
+        r = subprocess.run([exe, "deploy", "--prod", "--yes"], cwd=REPO_ROOT / "site", capture_output=True, text=True, timeout=600,
+                           creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0)
+        log("Static front end deployed to Vercel" if r.returncode == 0 else f"!!! Vercel deploy failed: {(r.stderr or r.stdout).strip()[-300:]}")
+    except Exception as e:
+        log(f"!!! Vercel deploy failed: {e}")
+
+
 def run(push: bool = True) -> None:
     log("=== auto_update starting ===")
 
@@ -172,8 +187,23 @@ def run(push: bool = True) -> None:
         log("=== auto_update complete ===")
         return
 
+    # The static front end (site/) embeds the search index and home-page facts, so it has to be
+    # rebuilt from the new data and committed with the pointer. A failure here is not fatal: the
+    # old front end keeps working and only its search index is a week behind.
+    static_ok = False
+    try:
+        from deploy.build_static import main as build_static_site
+        build_static_site()
+        static_ok = True
+    except Exception:
+        log("!!! static front end rebuild failed (non-fatal)")
+        import traceback
+        log(traceback.format_exc())
+
     log("Data published, committing the version pointer and pushing...")
     git("add", "data/DATA_VERSION")
+    if static_ok:
+        git("add", "site")
     commit_msg = f"Weekly auto-update: refresh {CURRENT_SEASON} data ({datetime.now():%Y-%m-%d})"
     commit = git("commit", "-m", commit_msg)
     if commit.returncode != 0:
@@ -185,6 +215,8 @@ def run(push: bool = True) -> None:
         log(f"!!! push failed: {push_result.stderr.strip()}")
     else:
         log("Pushed successfully")
+        if static_ok:
+            deploy_static_front()
 
     log("=== auto_update complete ===")
 
