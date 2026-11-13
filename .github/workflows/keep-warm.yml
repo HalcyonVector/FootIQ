@@ -1,29 +1,50 @@
-name: Keep Render instance warm (evenings only)
+name: Keep Render instance warm (daytime window)
 
 # Render's free tier sleeps a service after ~15 idle minutes, so the first visitor
-# pays a cold start. This pings the app every 10 minutes ONLY during the hours it
-# is actually used, then lets it sleep overnight.
+# pays a cold start. This keeps the app awake during the hours it is most likely to
+# be opened, then lets it sleep overnight.
 #
-# Budget (Render's free pool is 750 instance-hours per MONTH for the whole
-# workspace, shared with the other projects):
-#   5 hours/day x 30 days = ~150 hours/month   (an always-on instance is ~730)
-# leaving ~600 hours for the other services and for real traffic outside the window.
-# GitHub Actions is free and unmetered for a public repo, and each run takes a few seconds.
+# Why a loop and not "cron every 10 minutes": GitHub drops most runs of a
+# high-frequency schedule (the old */10 schedule fired about once a day), but it does
+# start a once-a-day trigger. So each trigger starts ONE job that pings every 4 minutes
+# until the end of the window.
 #
-# Window: cron runs in UTC. 12:00-16:50 UTC = 17:30-22:20 IST.
-# To move or widen it, change the hour range below and redo the maths above.
+# Budget (Render's free pool is 750 instance-hours per MONTH for the whole workspace,
+# shared with the other projects):
+#   window 08:00-18:00 UTC = 10 hours/day x 31 days = ~310 hours/month
+#   (an always-on instance is ~744), leaving ~440 hours for the other services and for
+#   real traffic outside the window.
+# GitHub Actions is free and unmetered for a public repo.
 #
-# Caveats: GitHub may delay or skip a scheduled run under load, and disables
-# scheduled workflows in a repo with no activity for 60 days (any push re-enables).
+# Window: UTC. 08:00-18:00 UTC = 13:30-23:30 IST. To move or shorten it change END_HOUR
+# and the two cron lines, and redo the maths above.
+#
+# Caveats: GitHub may start a scheduled run late, and disables scheduled workflows in a
+# repo with no activity for 60 days (any push re-enables them).
 on:
   schedule:
-    - cron: "*/10 12-16 * * *"
-  workflow_dispatch: {}  # manual "Run workflow" button in the Actions tab
+    - cron: "0 8 * * *"
+    - cron: "40 13 * * *"      # picks up where the first job (6 h limit) stops
+  workflow_dispatch: {}        # manual "Run workflow" button in the Actions tab
+
+concurrency:
+  group: keep-warm             # never two loops at once; a late one waits for the running one
+  cancel-in-progress: false
+
+env:
+  END_HOUR: "18"               # stop pinging at this UTC hour
 
 jobs:
   ping:
     runs-on: ubuntu-latest
+    timeout-minutes: 350
     steps:
-      - name: Ping the live app
-        # A cold start can take a minute+, so allow a long first request and one retry.
-        run: curl -sf --max-time 120 --retry 1 --retry-delay 10 https://footiq.onrender.com/ -o /dev/null
+      - name: Ping until the end of the window
+        run: |
+          start=$(date +%s)
+          while [ "$(date -u +%-H)" -lt "$END_HOUR" ] && [ $(( $(date +%s) - start )) -lt 21000 ]; do
+            code=$(curl -s --max-time 120 -o /dev/null -w '%{http_code}' https://footiq.onrender.com/api/health || true)
+            echo "$(date -u +%H:%M:%S) HTTP ${code:-none}"
+            sleep 240
+          done
+          echo "window over (UTC hour $(date -u +%-H), end $END_HOUR)"
