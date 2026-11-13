@@ -97,8 +97,12 @@ def get_advanced_df() -> pd.DataFrame:
                 # group on every single search/Scout/Explore request —
                 # turns a per-request O(n) Python-level pass into a
                 # one-time cost at load/reload.
-                _DF["_norm_name"] = _DF["player_name"].map(lambda p: _normalize_str(str(p)))
-                _DF["_pos_group"] = _DF["position"].map(pos_group)
+                # Per distinct value, then looked up per row: ~14k distinct names across
+                # 35k rows, and only a couple of dozen distinct positions.
+                names = {n: _normalize_str(str(n)) for n in _DF["player_name"].unique()}
+                groups = {p: pos_group(p) for p in _DF["position"].unique()}
+                _DF["_norm_name"] = _DF["player_name"].map(names)
+                _DF["_pos_group"] = _DF["position"].map(groups)
         else:
             _DF = pd.DataFrame()
     return _DF
@@ -287,6 +291,36 @@ def reload():
     return get_advanced_df()
 
 
+def warm_essentials(progress=None) -> None:
+    """The part of start-up every data request needs: the player-season table and the
+    link-up pairs. The app opens its gate as soon as these (and the search index) are
+    ready; the dataset handles in warm_datasets() are built after that."""
+    step = progress or (lambda name: None)
+    step("import aggregator")
+    from core.advanced.aggregator import CHART_CATEGORIES  # noqa: F401  (the import is the point)
+    step("player-season table")
+    get_advanced_df()
+    step("linkup summary")
+    _linkup_pairs()
+
+
+def warm_datasets(progress=None) -> None:
+    """Dataset handles for the event, shot and heatmap partitions. Each is a directory scan,
+    slow on a throttled disk and CPU; a request that arrives before its own handle exists
+    simply builds it (the accessors are lazy), so this only hides that cost."""
+    step = progress or (lambda name: None)
+    from core.advanced.aggregator import CHART_CATEGORIES
+    for category in CHART_CATEGORIES:
+        step(f"chart dataset: {category}")
+        _chart_dataset(category)
+    step("linkup receptions")
+    _linkup_receptions_dataset()
+    for name, path in (("matches", config.PLAYER_MATCHES_DIR), ("shots", config.SHOTS_DIR), ("heat", config.HEATMAPS_DIR)):
+        step(f"overview dataset: {name}")
+        _overview_dataset(name, path)
+    trim_memory()
+
+
 def warm_up(progress=None) -> None:
     """Pre-loads everything a chart/stats request would otherwise load lazily
     on first use — called once at app startup (app.py) so a fresh gunicorn
@@ -297,20 +331,6 @@ def warm_up(progress=None) -> None:
     everything already built, took under 6s. Building all 12 categories'
     Dataset objects up front (each one is a directory scan across every
     league/season partition) accounts for most of that gap."""
-    step = progress or (lambda name: None)   # reported by /api/health so a slow boot can be diagnosed
-    step("import aggregator")
-    from core.advanced.aggregator import CHART_CATEGORIES
-    step("player-season table")
-    get_advanced_df()
-    step("linkup summary")
-    _linkup_pairs()
-    for category in CHART_CATEGORIES:
-        step(f"chart dataset: {category}")
-        _chart_dataset(category)
-    step("linkup receptions")
-    _linkup_receptions_dataset()
-    for name, path in (("matches", config.PLAYER_MATCHES_DIR), ("shots", config.SHOTS_DIR), ("heat", config.HEATMAPS_DIR)):
-        step(f"overview dataset: {name}")
-        _overview_dataset(name, path)
-    trim_memory()
-    step("done")
+    warm_essentials(progress)
+    warm_datasets(progress)
+    (progress or (lambda name: None))("done")

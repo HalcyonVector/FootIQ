@@ -9,9 +9,20 @@ import time
 import unicodedata
 from urllib.parse import quote
 
-import requests
-
 from core import cache
+
+
+class _LazyRequests:
+    """`requests` (urllib3, charset_normalizer...) costs ~0.3 s to import, several times that
+    on a throttled free-tier CPU, and is only needed when a player photo is looked up for
+    the first time. Import it on first use instead of at server start."""
+
+    def __getattr__(self, name):
+        import requests as _requests
+        return getattr(_requests, name)
+
+
+requests = _LazyRequests()
 
 # Overall wall-clock budget for one photo lookup. A cache MISS (first time
 # any given player is looked up) previously had no ceiling at all — up to

@@ -90,16 +90,23 @@ import core.media, core.position                         # noqa: E402,F401
 def _warm_up_in_background() -> None:
     done = _WARM
     try:
-        _warm_up_store = _store_mod.warm_up
 
         def progress(name):
+            took = time.time() - _WARM_STATE["since"]
             _WARM_STATE["step"] = name
-            print(f"[warm-up] {time.time() - _WARM_STATE['since']:6.1f}s  {name}", flush=True)
-        _warm_up_store(progress)
+            _WARM_STATE.setdefault("timeline", []).append([name, round(took, 1)])
+            print(f"[warm-up] {took:6.1f}s  {name}", flush=True)
+        _WARM_STATE["timeline"] = []
+        # Open the gate as soon as what a request cannot do without is loaded...
+        _store_mod.warm_essentials(progress)
         progress("search index")
         build_search_index()
-        progress("done")
         _WARM_STATE["warm_took_s"] = round(time.time() - _WARM_STATE["since"], 1)
+        done.set()
+        progress("ready")
+        # ...then build the per-category dataset handles in the background.
+        _store_mod.warm_datasets(progress)
+        progress("done")
     except Exception:
         _WARM_STATE["step"] = "failed: " + traceback.format_exc().splitlines()[-1]
         traceback.print_exc()
@@ -116,7 +123,7 @@ def _start_warm_up() -> None:
     was held by a thread that no longer exists."""
     global _WARM
     _WARM = threading.Event()
-    _WARM_STATE.update(step="starting", since=time.time(), pid=os.getpid(), warm_took_s=None)
+    _WARM_STATE.update(step="starting", since=time.time(), pid=os.getpid(), warm_took_s=None, timeline=[])
     threading.Thread(target=_warm_up_in_background, name="warm-up", daemon=True).start()
 
 
@@ -165,6 +172,8 @@ def api_health():
     out = {"warm": _WARM.is_set(), "step": _WARM_STATE["step"], "seconds": round(time.time() - _WARM_STATE["since"], 1),
            "pid": os.getpid(), "warm_started_in_pid": _WARM_STATE.get("pid"), "rss_mb": _rss_mb(),
            "import_s": _WARM_STATE.get("import_s"), "warm_took_s": _WARM_STATE.get("warm_took_s")}
+    if request.args.get("detail"):
+        out["timeline"] = _WARM_STATE.get("timeline")
     if request.args.get("stack"):   # where is each thread right now? (for diagnosing a slow boot)
         import sys
         frames = sys._current_frames()
