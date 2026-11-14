@@ -143,6 +143,8 @@ python scraping/check_data_health.py           # reports matches with no usable 
 python scraping/data_release.py publish        # uploads the dataset and rewrites data/DATA_VERSION
 ```
 
+On Windows, `py -3 scraping/run_hidden.py -- py -3 scraping/auto_update.py` runs the whole update on a separate invisible desktop, so the scraper's Chrome never shows a window or a flashing taskbar button.
+
 `scraping/auto_update.py` does all of this weekly, and a daily GitHub workflow checks that the published dataset is recent and still downloads.
 
 ---
