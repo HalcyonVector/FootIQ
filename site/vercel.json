@@ -3,6 +3,10 @@
   "trailingSlash": false,
   "rewrites": [
     {
+      "source": "/favicon.ico",
+      "destination": "/static/favicon.ico"
+    },
+    {
       "source": "/api/:path*",
       "destination": "https://footiq.onrender.com/api/:path*"
     }

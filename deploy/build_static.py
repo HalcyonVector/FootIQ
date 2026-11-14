@@ -84,7 +84,8 @@ def write_config() -> None:
     cfg = {
         "cleanUrls": True,
         "trailingSlash": False,
-        "rewrites": [{"source": "/api/:path*", "destination": f"{BACKEND}/api/:path*"}],
+        "rewrites": [{"source": "/favicon.ico", "destination": "/static/favicon.ico"},
+                     {"source": "/api/:path*", "destination": f"{BACKEND}/api/:path*"}],
         "headers": [
             {"source": "/static/(.*)", "headers": [{"key": "Cache-Control", "value": "public, max-age=300, must-revalidate"}]},
             {"source": "/data/(.*)", "headers": [{"key": "Cache-Control", "value": "public, max-age=3600, must-revalidate"}]},

@@ -314,6 +314,12 @@ def team_page():
     return render_template("team.html", leagues=LEAGUES, seasons=SEASONS)
 
 
+@app.route("/favicon.ico")
+def favicon():
+    from flask import send_from_directory
+    return send_from_directory(app.static_folder, "favicon.ico", mimetype="image/x-icon")
+
+
 @app.route("/coverage")
 def coverage_page():
     return render_template("coverage.html", leagues=LEAGUES)
