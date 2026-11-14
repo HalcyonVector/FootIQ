@@ -18,6 +18,7 @@ See scraping/setup_scheduled_task.py for the Task Scheduler registration
 (weekly, catch-up-if-missed, AC-power-only, hidden window).
 """
 import argparse
+import os
 import subprocess
 import sys
 import time
@@ -79,8 +80,21 @@ def deploy_static_front() -> None:
         log(f"!!! Vercel deploy failed: {e}")
 
 
+def start_taskbar_hider() -> None:
+    """Windows: keep the scraper's off-screen Chrome windows out of the taskbar, so their buttons
+    do not flash while someone is working. The helper exits by itself when this process does."""
+    if sys.platform != "win32":
+        return
+    try:
+        subprocess.Popen([sys.executable, str(Path(__file__).parent / "taskbar_hider.py"), "--parent-pid", str(os.getpid())],
+                         creationflags=subprocess.CREATE_NO_WINDOW)
+    except Exception as e:
+        log(f"(could not start the taskbar hider: {e})")
+
+
 def run(push: bool = True) -> None:
     log("=== auto_update starting ===")
+    start_taskbar_hider()
 
     try:
         # scrape()/_scrape_one() construct soccerdata.WhoScored(leagues=...)
