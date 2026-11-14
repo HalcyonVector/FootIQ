@@ -5,8 +5,10 @@ auto_update.py weekly. Run this once to set it up:
     python scraping/setup_scheduled_task.py
 
 Re-run any time (e.g. after changing the day/time constants below) to
-update the existing registration -- it deletes and recreates the task by
-name, so it's always safe to re-run.
+update the existing registration -- it replaces the task of the same name, so
+it's always safe to re-run. Run it from an ADMINISTRATOR prompt: the task uses
+a non-interactive (S4U) logon, which Windows only lets an elevated user create
+or change.
 
 Covers, specifically:
   - Weekly cadence (default: Monday 03:00 local time -- change DAY/TIME below)
@@ -20,6 +22,9 @@ Covers, specifically:
     silently skipping that week.
   - AC power only: <DisallowStartIfOnBatteries> (won't start on battery) and
     <StopIfGoingOnBatteries> (aborts if unplugged mid-run).
+  - The scraper's Chrome runs on a separate invisible Windows desktop (scraping/run_hidden.py), so
+    it can never show a window or a flashing taskbar button, even when the task catches up while
+    someone is at the computer.
   - Survives screen lock/sleep during the run (<LogonType>S4U</LogonType>) --
     S4U runs independent of the interactive session (no stored password
     needed, unlike "run whether user is logged on or not" which requires
@@ -37,7 +42,10 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).parent.parent
 PYTHONW = Path(r"C:\Users\basus\AppData\Local\Python\pythoncore-3.14-64\pythonw.exe")
+PYTHON = PYTHONW.with_name("python.exe")        # the real command; run_hidden.py itself is started with the console-less pythonw
 AUTO_UPDATE_SCRIPT = Path(__file__).parent / "auto_update.py"
+RUN_HIDDEN_SCRIPT = Path(__file__).parent / "run_hidden.py"
+RUN_LOG = Path(__file__).parent / "run_hidden.log"
 
 TASK_NAME = "FootIQ Weekly Data Refresh"
 DAY = "Monday"     # Monday/Tuesday/Wednesday/Thursday/Friday/Saturday/Sunday
@@ -83,7 +91,7 @@ XML_TEMPLATE = """<?xml version="1.0" encoding="UTF-16"?>
   <Actions Context="Author">
     <Exec>
       <Command>{pythonw}</Command>
-      <Arguments>"{script}"</Arguments>
+      <Arguments>"{run_hidden}" --log "{log}" -- "{python}" -X utf8 "{script}"</Arguments>
       <WorkingDirectory>{cwd}</WorkingDirectory>
     </Exec>
   </Actions>
@@ -109,17 +117,20 @@ def main():
         user_id=user_id,
         pythonw=str(PYTHONW),
         script=str(AUTO_UPDATE_SCRIPT),
+        run_hidden=str(RUN_HIDDEN_SCRIPT),
+        python=str(PYTHON),
+        log=str(RUN_LOG),
         cwd=str(REPO_ROOT),
     )
 
     xml_path = Path(__file__).parent / "_scheduled_task.xml"
     xml_path.write_text(xml, encoding="utf-16")
 
-    # Delete any existing registration first so re-running this is always safe.
-    subprocess.run(["schtasks", "/Delete", "/TN", TASK_NAME, "/F"], capture_output=True)
-
+    # /F replaces an existing task of the same name in one step. (It used to delete first, which
+    # would have left no task at all if the create then failed; registering a task for a
+    # non-interactive logon needs an elevated prompt, so that failure is a real possibility.)
     result = subprocess.run(
-        ["schtasks", "/Create", "/TN", TASK_NAME, "/XML", str(xml_path)],
+        ["schtasks", "/Create", "/TN", TASK_NAME, "/XML", str(xml_path), "/F"],
         capture_output=True, text=True,
     )
     print(result.stdout)
