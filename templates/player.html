@@ -212,11 +212,6 @@
 
       <div class="profile-header glass-card" id="profile-header"></div>
 
-      <div class="charts-loading" id="charts-loading" style="display:none">
-        <div class="mini-spinner"></div>
-        <span>Fetching stats…</span>
-      </div>
-
       <!-- Season overview: stat line, form, shot map + xG, heatmaps, career
            (filled by static/js/overview.js; stays hidden until data exists) -->
       <section id="overview-section" class="glass-card ov-section" style="display:none">
@@ -275,6 +270,11 @@
           <div class="ov-table-wrap" id="ov-career"></div>
         </div>
       </section>
+
+      <div class="charts-loading" id="charts-loading" style="display:none">
+        <div class="mini-spinner"></div>
+        <span>Fetching stats…</span>
+      </div>
 
       <!-- Advanced Metrics (Opta/WhoScored event data) -->
       <section id="advanced-section" class="glass-card" style="display:none; padding:20px 24px; margin-top:18px">

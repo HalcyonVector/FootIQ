@@ -351,15 +351,21 @@ const FootIQOverview = (() => {
     state.data = null;
     state.pass = null;
     const s = $("overview-section");
-    if (s) s.style.display = "none";
+    if (s) { s.style.display = "none"; s.classList.remove("ov-loading"); }
   }
 
   async function load(player, league, season) {
     const section = $("overview-section");
     if (!section) return;
     const token = ++state.token;
-    section.style.display = "none";
+    // Reserve the block's place right away (content hidden, a quiet "loading" label in its
+    // spot) so nothing above the Advanced Metrics panel appears later and shoves it down.
+    section.style.display = "block";
+    section.classList.add("ov-loading");
+    section.dataset.loading = "Loading season overview…";
+    $("ov-pass-card").style.display = "none";
     $("ov-insights").innerHTML = "";   // previous player's chips; the new ones arrive with /api/advanced-stats
+    const giveUp = () => { if (token === state.token) { section.style.display = "none"; section.classList.remove("ov-loading"); } };
     let data;
     try {
       const res = await fetch("/api/player-overview", {
@@ -367,8 +373,9 @@ const FootIQOverview = (() => {
         body: JSON.stringify({ player_id: player.id, league, season }),
       });
       data = await res.json();
-    } catch { return; }
-    if (token !== state.token || !data || !data.available) return;   // stale response or no data built yet
+    } catch { giveUp(); return; }
+    if (token !== state.token) return;                      // stale response: a newer load owns the section
+    if (!data || !data.available) { giveUp(); return; }    // no overview data built for this season
 
     state.data = data;
     state.isGK = /^GK/i.test(player.position || "");
@@ -385,15 +392,18 @@ const FootIQOverview = (() => {
     renderHeat();
     renderCareer(data.career);
     wireToggles();
-    section.style.display = "block";
+    section.classList.remove("ov-loading");
     loadPassMap(player, league, data.season, token);
   }
 
   async function loadPassMap(player, league, season, token) {
     const card = $("ov-pass-card");
     if (!card) return;
-    card.style.display = "none";
     state.pass = null;
+    card.style.display = "";                       // hold its place while the pass map loads
+    card.classList.add("ov-loading");
+    card.dataset.loading = "Loading pass map…";
+    const hide = () => { if (token === state.token) { card.style.display = "none"; card.classList.remove("ov-loading"); } };
     let pm;
     try {
       const res = await fetch("/api/pass-map", {
@@ -401,14 +411,15 @@ const FootIQOverview = (() => {
         body: JSON.stringify({ player_id: player.id, league, season }),
       });
       pm = await res.json();
-    } catch { return; }
-    if (token !== state.token || !pm || !pm.available) return;
+    } catch { hide(); return; }
+    if (token !== state.token) return;
+    if (!pm || !pm.available) { hide(); return; }
     state.pass = pm;
     // open on the most interesting layer this player actually has
     state.passMode = pm.chances.length ? "chances" : "progressive";
     document.querySelectorAll("#ov-pass-modes [data-p]").forEach(x => x.classList.toggle("active", x.dataset.p === state.passMode));
     renderPassMap();
-    card.style.display = "";
+    card.classList.remove("ov-loading");
   }
 
   return { load, reset, renderInsights, draw: { shotMap, heat: heatSVG, ratingColor } };

@@ -231,13 +231,13 @@ async function selectPrimaryPlayer(player, { scroll = true } = {}) {
 
   // Overview (stat line, form, shot map, heatmaps, career) loads in parallel
   // and shows itself when ready; it hides silently if no overview data exists.
-  FootIQOverview.load(player, primaryLeague, primarySeason);
+  const overviewSettled = FootIQOverview.load(player, primaryLeague, primarySeason);
   FootIQSimilar.load(player, primaryLeague, primarySeason);   // lazy: fetches once the Advanced block scrolls into view
 
   // Stats are precomputed (fast parquet lookup) — reveal them immediately.
   // Charts (Combination Play now, per-category charts later) load lazily
   // per-tab from activateTab(), so a slow chart never blocks the page.
-  await fetchAdvancedStats(player);
+  await fetchAdvancedStats(player, overviewSettled);
   chartsLoading.style.display = "none";
 }
 
@@ -480,7 +480,7 @@ function wireScopeControl() {
   });
 }
 
-async function fetchAdvancedStats(player) {
+async function fetchAdvancedStats(player, holdUntil) {
   if (!advancedSection) return;
   const activeCat = advTabs && advTabs.querySelector(".adv-tab-btn.active")
     ? advTabs.querySelector(".adv-tab-btn.active").dataset.cat : null;
@@ -505,6 +505,8 @@ async function fetchAdvancedStats(player) {
     renderProfileRadar(data.profile);
     renderProfileScore(data.composite);
     FootIQOverview.renderInsights(data.insights);
+    if (holdUntil) await holdUntil;        // reveal it after the overview has taken (or given up) its place above
+    if (primaryPlayer !== player) return;  // the user already moved on to someone else
     advancedSection.style.display = "block";
   } catch {
     showToast("Could not load advanced stats.");

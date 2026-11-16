@@ -1775,6 +1775,13 @@ footer {
 
 /* ══ Player Overview (stat line, form, shot map, heatmap, career) ══ */
 .ov-section{padding:20px 24px;margin-top:18px}
+/* while a block is loading it keeps its footprint: content hidden, a label in its place */
+.ov-loading{position:relative;min-height:640px}
+.ov-card.ov-loading{min-height:620px}
+.ov-loading>*{visibility:hidden}
+.ov-loading::after{content:attr(data-loading);position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  color:var(--muted);font-size:14px;animation:ov-pulse 1.4s ease-in-out infinite}
+@keyframes ov-pulse{0%,100%{opacity:.45}50%{opacity:1}}
 .ov-tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:10px;margin:6px 0 16px}
 .ov-tile{background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
 .ov-tile-val{font-size:24px;font-weight:800;letter-spacing:-.5px;color:var(--text);line-height:1.1}
