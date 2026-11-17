@@ -64,7 +64,7 @@ function initMainDropdown() {
   ddMenu.innerHTML = window.LEAGUES.map(lg => `
     <div class="dd-item ${lg.id === "Premier League" ? "active" : ""}"
          data-value="${lg.id}" data-logo="${lg.logo}" data-name="${lg.name}">
-      <img src="${lg.logo}" style="width:20px;height:20px;object-fit:contain;margin-right:8px;" />
+      <img src="${lg.logo}" alt="" style="width:20px;height:20px;object-fit:contain;margin-right:8px;" />
       <span>${lg.name}</span>
     </div>
   `).join("");
@@ -77,7 +77,7 @@ function initMainDropdown() {
   ddMenu.querySelectorAll(".dd-item").forEach(item => {
     item.addEventListener("click", () => {
       primaryLeague = item.dataset.value;
-      ddSel.innerHTML = `<img src="${item.dataset.logo}" style="width:20px;height:20px;object-fit:contain;margin-right:8px;" /><span class="dd-name">${item.dataset.name}</span><span class="dd-arrow">▾</span>`;
+      ddSel.innerHTML = `<img src="${item.dataset.logo}" alt="" style="width:20px;height:20px;object-fit:contain;margin-right:8px;" /><span class="dd-name">${item.dataset.name}</span><span class="dd-arrow">▾</span>`;
       dd.classList.remove("open");
       ddMenu.querySelectorAll(".dd-item").forEach(i => i.classList.remove("active"));
       item.classList.add("active");
@@ -155,7 +155,7 @@ function _syncPrimaryFilters(player) {
       .find(i => i.dataset.value === player.league);
     if (lgItem) {
       document.getElementById("dd-sel-main").innerHTML =
-        `<img src="${lgItem.dataset.logo}" style="width:20px;height:20px;object-fit:contain;margin-right:8px;" /><span class="dd-name">${lgItem.dataset.name}</span><span class="dd-arrow">▾</span>`;
+        `<img src="${lgItem.dataset.logo}" alt="" style="width:20px;height:20px;object-fit:contain;margin-right:8px;" /><span class="dd-name">${lgItem.dataset.name}</span><span class="dd-arrow">▾</span>`;
       document.querySelectorAll("#dd-menu-main .dd-item").forEach(i => i.classList.remove("active"));
       lgItem.classList.add("active");
     }

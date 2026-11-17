@@ -1808,6 +1808,12 @@ footer {
 .ov-card-title span{color:var(--muted);font-weight:500;margin-left:6px}
 .ov-two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 .ov-two .ov-card{margin-top:14px}
+/* Touch screens: bigger targets for the small chips and in-table team links (fingers are less precise than a mouse) */
+@media (pointer:coarse){
+  .hint-btn{min-height:38px;padding-top:8px;padding-bottom:8px}
+  td a, .team-link{display:inline-block;padding:9px 0}
+  .credit-name{display:inline-block;padding:8px 2px}
+}
 .custom-select-group{padding:10px 12px 4px;font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);pointer-events:none}
 .custom-select-group:not(:first-child){margin-top:4px;border-top:1px solid var(--border)}
 .fc-quad{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;fill:var(--muted);opacity:.55;pointer-events:none}

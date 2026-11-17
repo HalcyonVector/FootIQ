@@ -90,7 +90,7 @@ function renderSlots() {
         <div class="slot-player-card filled">
           <div class="slot-player-inner">
             <img class="slot-photo" src="${slot.player.photo || _initialsAvatar(slot.player.name)}"
-                 onerror="this.src='${_initialsAvatar(slot.player.name)}'" />
+                 onerror="this.src='${_initialsAvatar(slot.player.name)}'" alt="${slot.player.name}" />
             <div class="slot-info">
               <div class="slot-name">${slot.player.name}</div>
               <div class="slot-detail">${slot.player.team} · ${slot.league} · ${slot.season}</div>

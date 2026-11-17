@@ -273,7 +273,8 @@ footer .footer-inner { max-width: 1200px !important; padding: 0 40px !important;
       hubShowcase.classList.add("ready");
       setInterval(async () => {
         idx = (idx + 1) % facts.featured.length;
-        const p = await load(idx);
+        let p;
+        try { p = await load(idx); } catch { return; }   // offline for a moment: keep showing the current player
         if (p.error) return;
         hubShowcase.style.opacity = "0";
         setTimeout(() => { paintHubPlayer(p); hubShowcase.style.opacity = ""; }, 400);
