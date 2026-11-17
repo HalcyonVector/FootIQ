@@ -65,6 +65,7 @@
     </div>
     <div class="nav-right" style="display:flex;align-items:center;gap:12px;white-space:nowrap">
       <button id="theme-toggle" style="background:transparent;border:1px solid var(--border);color:var(--text);font-size:16px;padding:6px;border-radius:50%;cursor:pointer;width:34px;height:34px;display:flex;align-items:center;justify-content:center;transition:background 0.2s">🌙</button>
+      <span class="nav-fresh" id="nav-fresh"></span>
       <span class="nav-credit">Built by <a href="https://github.com/HalcyonVector" target="_blank" rel="noopener"><strong>HalcyonVector</strong></a></span>
     </div>
   </nav>
@@ -91,7 +92,7 @@
       <div class="lg-note" id="cov-note"></div>
       <div class="ov-table-wrap"><div id="cov-table"></div></div>
       <div class="ov-legend">
-        <span class="ov-legend-note">Ranked: players above the minutes floor used for percentiles (450 minutes in a finished season, less while one is in progress, never under 270). Season played: share of the season done (a league's double round-robin, or matches played against a full 189-match edition for the Champions League and Europa League; one-off tournaments are scraped whole).</span>
+        <span class="ov-legend-note">Ranked: players above the minutes floor used for percentiles (450 minutes in a finished season, less while one is in progress, never under 270). Missing: matches the source has no event data for (finished seasons only; above 5% is highlighted, and those players' profiles say so). Season played: share of the season done (a league's double round-robin, or matches played against a full 189-match edition for the Champions League and Europa League; one-off tournaments are scraped whole).</span>
       </div>
     </section>
 
@@ -216,6 +217,22 @@
       draw();
     })();
 
+    // ── Data freshness ──
+    // "Data updated 2 days ago" next to the credit, from the same home-page facts (answered in the
+    // browser on the static site, so it costs no server request there).
+    (async () => {
+      const el = document.getElementById('nav-fresh');
+      if (!el) return;
+      try {
+        const f = await (await fetch('/api/hub')).json();
+        if (!f || !f.updated_iso) return;
+        const days = Math.max(0, Math.floor((Date.now() - new Date(f.updated_iso + 'T00:00:00').getTime()) / 864e5));
+        el.textContent = 'Data updated ' + (days === 0 ? 'today' : days === 1 ? 'yesterday' : days + ' days ago');
+        el.title = `Last data update ${f.updated}, ${Number(f.matches).toLocaleString('en-GB')} matches parsed. Updated weekly.`;
+        if (days > 10) el.classList.add('stale');
+      } catch (e) { /* leave it empty */ }
+    })();
+
     // ── Scroll reveal ──
     // One effect for everything below the fold (see .reveal in style.css).
     // Stagger is per *batch*: whatever scrolls into view together is
@@ -309,8 +326,8 @@
       const totalMatches = rows.reduce((a, r) => a + r.matches, 0);
       $("cov-note").textContent = `${rows.length} competition-seasons, ${nf(totalMatches)} matches parsed.`;
       $("cov-table").innerHTML = `<table class="ov-table cov-table"><thead><tr>
-        <th>Competition</th><th>Season</th><th>Matches</th><th>Players</th><th>Ranked</th><th>Season played</th></tr></thead><tbody>${
-        rows.map(r => `<tr><td>${esc(name(r.league))}</td><td>${esc(r.season)}</td><td>${nf(r.matches)}</td><td>${nf(r.players)}</td>
+        <th>Competition</th><th>Season</th><th>Matches</th><th>Missing</th><th>Players</th><th>Ranked</th><th>Season played</th></tr></thead><tbody>${
+        rows.map(r => `<tr><td>${esc(name(r.league))}</td><td>${esc(r.season)}</td><td>${nf(r.matches)}</td><td${r.scheduled && r.missing / r.scheduled > 0.05 ? ' class="cov-warn"' : ""}>${r.scheduled ? (r.missing ? nf(r.missing) + " (" + Math.round(100 * r.missing / r.scheduled) + "%)" : "0") : "–"}</td><td>${nf(r.players)}</td>
           <td>${nf(r.ranked)}</td><td>${r.progress >= 1 ? "Finished" : Math.round(r.progress * 100) + "%"}</td></tr>`).join("")
       }</tbody></table>`;
       $("cov-section").style.display = "block";

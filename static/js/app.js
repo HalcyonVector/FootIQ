@@ -275,6 +275,14 @@ async function loadSeasonSwitcher(player) {
       row.appendChild(chip);
     }
 
+    if (row && data.sample && data.sample.missing_note && !row.querySelector(".missing-chip")) {
+      const chip = document.createElement("span");
+      chip.className = "profile-stat-chip warn-chip missing-chip";
+      chip.textContent = "Missing matches";
+      chip.title = data.sample.missing_note;
+      row.appendChild(chip);
+    }
+
     if (row && data.sample && data.sample.early_season && !row.querySelector(".early-chip")) {
       const chip = document.createElement("span");
       chip.className = "profile-stat-chip warn-chip early-chip";
@@ -641,6 +649,16 @@ function renderAdvancedStats(categories) {
   advTabs.innerHTML = categories.map((cat, i) =>
     `<button class="adv-tab-btn${i === 0 ? " active" : ""}" data-cat="${cat.key}">${cat.label}</button>`
   ).join("");
+  // On a phone the 12 tabs do not fit in a row, so the same choice is offered as a native picker;
+  // it just clicks the matching tab, so both stay in step.
+  const tabSelect = document.getElementById("adv-tab-select");
+  if (tabSelect) {
+    tabSelect.innerHTML = categories.map(cat => `<option value="${cat.key}">${cat.label}</option>`).join("");
+    tabSelect.onchange = () => {
+      const b = advTabs.querySelector(`.adv-tab-btn[data-cat="${tabSelect.value}"]`);
+      if (b) b.click();
+    };
+  }
 
   advPanels.innerHTML = categories.map((cat, i) => `
     <div class="adv-panel" data-cat="${cat.key}" id="adv-panel-${cat.key}" style="display:${i === 0 ? "block" : "none"}">
@@ -675,6 +693,7 @@ function renderAdvancedStats(categories) {
       _cancelPrefetch();  // a real click always wins over a queued background prefetch
       advTabs.querySelectorAll(".adv-tab-btn").forEach(b => b.classList.remove("active"));
       btn.classList.add("active");
+      if (tabSelect) tabSelect.value = btn.dataset.cat;
       // The strip scrolls horizontally instead of wrapping now, so a tab
       // near either edge can be half-cut-off when clicked — bring it fully
       // into view within the strip itself (not the whole page).

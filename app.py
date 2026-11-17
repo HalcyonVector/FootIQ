@@ -391,8 +391,16 @@ def api_player():
     played_for = {r["team"] for r in store.get_player_matches(player["id"], player["league"], player["season"])}
     counts = store.get_team_match_counts(player["league"], player["season"])
     team_matches = max((counts.get(t, 0) for t in played_for), default=0)
-    return jsonify({"player": player, "seasons": seasons,
-                    "sample": sample_info(player["minutes"], team_matches, floor=floor, progress=progress)})
+    sample = sample_info(player["minutes"], team_matches, floor=floor, progress=progress)
+    # Matches the source has no events for in this competition-season: a player's totals there are
+    # likely a little low, so the profile says so when it is more than a few percent.
+    from core.advanced import extras
+    cov = next((r for r in extras.coverage() if r["league"] == player["league"] and r["season"] == player["season"]), None)
+    if cov and cov.get("scheduled") and cov.get("missing", 0) / cov["scheduled"] > 0.05:
+        pct = round(100 * cov["missing"] / cov["scheduled"])
+        sample["missing_note"] = (f"{cov['missing']} of {cov['scheduled']} matches in {player['league']} {player['season']} "
+                                  f"({pct}%) have no event data at the source, so this player's totals may be a little low.")
+    return jsonify({"player": player, "seasons": seasons, "sample": sample})
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -436,8 +444,9 @@ def _hub_facts() -> dict:
         built = _json.load(open(os.path.join(advanced_config.ADVANCED_DATA_DIR, "..", "DATA_VERSION")))["built"]
         d = date.fromisoformat(built)
         facts["updated"] = f"{d.day} {d.strftime('%b %Y')}"
+        facts["updated_iso"] = d.isoformat()
     except Exception:
-        facts["updated"] = ""
+        facts["updated"] = facts["updated_iso"] = ""
     return facts
 
 

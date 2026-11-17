@@ -441,6 +441,22 @@ footer .footer-inner { max-width: 1200px !important; padding: 0 40px !important;
       draw();
     })();
 
+    // ── Data freshness ──
+    // "Data updated 2 days ago" next to the credit, from the same home-page facts (answered in the
+    // browser on the static site, so it costs no server request there).
+    (async () => {
+      const el = document.getElementById('nav-fresh');
+      if (!el) return;
+      try {
+        const f = await (await fetch('/api/hub')).json();
+        if (!f || !f.updated_iso) return;
+        const days = Math.max(0, Math.floor((Date.now() - new Date(f.updated_iso + 'T00:00:00').getTime()) / 864e5));
+        el.textContent = 'Data updated ' + (days === 0 ? 'today' : days === 1 ? 'yesterday' : days + ' days ago');
+        el.title = `Last data update ${f.updated}, ${Number(f.matches).toLocaleString('en-GB')} matches parsed. Updated weekly.`;
+        if (days > 10) el.classList.add('stale');
+      } catch (e) { /* leave it empty */ }
+    })();
+
     // ── Scroll reveal ──
     // One effect for everything below the fold (see .reveal in style.css).
     // Stagger is per *batch*: whatever scrolls into view together is
