@@ -162,13 +162,14 @@ async function runScoutSearch() {
 
   const maxAge = document.getElementById("scout-max-age").value;
   const leaguePool = document.getElementById("scout-league-pool").value;
+  const seasonPool = (document.getElementById("scout-season-pool") || {}).value || "recent";
 
   try {
     const res = await fetch("/api/scout-similar", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         player_id: scoutTarget.id, league: scoutTarget.league, season: scoutTarget.season,
-        max_age: maxAge === "none" ? null : maxAge, league_pool: leaguePool,
+        max_age: maxAge === "none" ? null : maxAge, league_pool: leaguePool, season_pool: seasonPool,
       }),
     });
     const data = await res.json();
@@ -230,6 +231,7 @@ initScoutDropdown();
 initScoutSearch();
 document.getElementById("scout-max-age")?.addEventListener("change", () => runScoutSearch());
 document.getElementById("scout-league-pool")?.addEventListener("change", () => runScoutSearch());
+document.getElementById("scout-season-pool")?.addEventListener("change", () => runScoutSearch());
 
 const scoutThemeBtn = document.getElementById("theme-toggle");
 if (scoutThemeBtn) {

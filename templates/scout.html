@@ -62,6 +62,15 @@
             </select>
           </div>
           <div class="filter-group">
+            <label>Seasons</label>
+            <select class="filter-select" id="scout-season-pool">
+              <option value="recent" selected>Recent ({{ seasons[1] }} and {{ seasons[0] }})</option>
+              <option value="current">{{ seasons[0] }} only{% if seasons[0] in in_progress %} (in progress){% endif %}</option>
+              <option value="previous">{{ seasons[1] }} only</option>
+              <option value="all">All seasons</option>
+            </select>
+          </div>
+          <div class="filter-group">
             <label>League Pool</label>
             <select class="filter-select" id="scout-league-pool">
               <option value="all">All leagues</option>

@@ -1044,6 +1044,10 @@ def api_scout_similar():
         limit     = min(max(int(body.get("limit", 20)), 1), 20)
         max_age   = body.get("max_age")
         max_age   = int(max_age) if max_age not in (None, "", "none") else None
+        # Which seasons the candidates may come from. "recent" (the default) is the two newest seasons,
+        # so a scout sees players as they are now rather than someone's best match from years ago.
+        season_pool = body.get("season_pool", "recent")
+        seasons = {"recent": SEASONS[:2], "current": SEASONS[:1], "previous": SEASONS[1:2]}.get(season_pool)
         league_pool = body.get("league_pool", "all")
         if league_pool == "top5":
             leagues = TOP5_LEAGUES
@@ -1068,7 +1072,8 @@ def api_scout_similar():
         # (with an initials placeholder) from the /api/search result before
         # this request even started, and lazy-loads the real photo itself.
 
-        matches, widened = find_similar(df, player_id, league, season, limit=limit, max_age=max_age, leagues=leagues)
+        matches, widened = find_similar(df, player_id, league, season, limit=limit, max_age=max_age, leagues=leagues,
+                                        seasons=seasons)
         return jsonify({
             "target": {
                 "player_id": player_id, "name": target_row.get("player_name"),

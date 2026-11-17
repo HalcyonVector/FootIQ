@@ -50,7 +50,7 @@ const FootIQSimilar = (() => {
     try {
       const res = await fetch("/api/scout-similar", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ player_id: player.id, league, season, limit: COUNT, max_age: null, league_pool: "all" }),
+        body: JSON.stringify({ player_id: player.id, league, season, limit: COUNT, max_age: null, league_pool: "all", season_pool: "recent" }),
       });
       data = await res.json();
     } catch {

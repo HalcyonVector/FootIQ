@@ -63,7 +63,7 @@ What the data showed, and the problems found while building it:
 
 ### Scout
 
-- A statistical-twin search across every competition and season, or just the top five leagues, filterable by maximum age. The same engine lists six similar players on each player page.
+- A statistical-twin search across every competition, or just the top five leagues, filterable by maximum age. Candidates come from the two most recent seasons by default (or one season, or every season back to 2022), so the list shows players as they are now; each player appears once, in their best-matching season inside that window. The same engine lists six similar players from recent seasons on each player page.
 
 ### League Tables and Team Pages
 

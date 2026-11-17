@@ -76,7 +76,8 @@ def _get_percentiles(df: pd.DataFrame, position_group: str) -> tuple:
 
 
 def find_similar(df: pd.DataFrame, target_pid: int, target_league: str, target_season: str,
-                  limit: int = 20, max_age: int | None = None, leagues: list[str] | None = None) -> tuple:
+                  limit: int = 20, max_age: int | None = None, leagues: list[str] | None = None,
+                  seasons: list[str] | None = None) -> tuple:
     """Up to `limit` most statistically-similar OTHER REAL PLAYERS (never the
     target — not just their exact league/season row, but every season of
     theirs, since the cohort pools across seasons and a player's own other
@@ -84,11 +85,14 @@ def find_similar(df: pd.DataFrame, target_pid: int, target_league: str, target_s
     of percentile vectors. Each real player contributes at most one result —
     their single best-matching season — rather than occupying several slots
     just because they have multiple qualifying seasons.
-    `max_age`/`leagues` filter which CANDIDATES are eligible — they never
+    `max_age`/`leagues`/`seasons` filter which CANDIDATES are eligible; they never
     affect the percentile computation itself, which always ranks against the
     full cross-league/season position cohort regardless of these filters.
-    Returns (matches, widened) — widened=True if the filters excluded every
-    candidate and were dropped to show the best available matches instead."""
+    `seasons` keeps the list to players as they are now (recent seasons) instead of
+    someone's best match from years ago.
+    Returns (matches, widened): widened=True if the filters excluded every candidate and
+    were loosened to show the best available matches. Age and league are loosened first;
+    the season window is only dropped if nothing at all is left inside it."""
     target_rows = df[(df["whoscored_player_id"] == int(target_pid)) & (df["league"] == target_league) & (df["season"] == target_season)]
     if target_rows.empty:
         return [], False
@@ -136,21 +140,41 @@ def find_similar(df: pd.DataFrame, target_pid: int, target_league: str, target_s
         seen_pids.add(pid)
         deduped.append((similarity, idx))
 
-    def _passes(idx) -> bool:
-        r = cohort.loc[idx]
-        if max_age is not None:
+    season_of = cohort["season"]
+
+    def _passes(idx, use_age=True, use_league=True, use_season=True) -> bool:
+        if use_season and seasons and season_of.loc[idx] not in seasons:
+            return False
+        r = cohort.loc[idx] if (use_age and max_age is not None) or (use_league and leagues) else None
+        if use_age and max_age is not None:
             age = _clean_age(r.get("age"))
             if age is None or age > max_age:  # unknown age treated as "doesn't qualify", not benefit-of-the-doubt
                 return False
-        if leagues and r["league"] not in leagues:
+        if use_league and leagues and r["league"] not in leagues:
             return False
         return True
 
-    # no filters (the profile page's call): skip the per-candidate row lookups entirely
-    filtered = [(s, idx) for s, idx in deduped if _passes(idx)] if (max_age is not None or leagues) else deduped
+    # One result per player inside the season window (their best season in it), so the
+    # dedupe has to look only at seasons that are allowed.
+    if seasons:
+        in_window, seen = [], set()
+        for similarity, idx in scored:
+            pid = int(pid_by_idx.loc[idx])
+            if pid in seen or season_of.loc[idx] not in seasons:
+                continue
+            seen.add(pid)
+            in_window.append((similarity, idx))
+        pool = in_window
+    else:
+        pool = deduped
+
+    filtered = [(s, idx) for s, idx in pool if _passes(idx)] if (max_age is not None or leagues) else pool
     widened = False
-    if not filtered and (max_age is not None or leagues) and deduped:
-        filtered = deduped
+    if not filtered and (max_age is not None or leagues) and pool:
+        filtered = pool                       # loosen age and league, keep the season window
+        widened = True
+    if not filtered and seasons and deduped:
+        filtered = deduped                    # nothing recent at all: fall back to every season
         widened = True
 
     out = []
