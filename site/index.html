@@ -59,15 +59,15 @@
     <div class="hero-left">
       <div class="hero-eyebrow">
         <span class="eyebrow-dot"></span>
-        <span>Football analytics from match events</span>
+        <span>Event-Level Football Analytics</span>
         <span class="eyebrow-dot"></span>
       </div>
 
       <h1 class="hero-title hub-title">
-        Football stats from match events.
+        Elite Football Data Engine.
       </h1>
       <p class="hero-desc" style="margin-bottom:24px">
-        Passes, carries, duels and shots from 15 competitions, ranked against players in the same position.
+        Pick a module to start analyzing data across 15 leagues and competitions.
       </p>
 
       <div class="hub-grid">
@@ -75,23 +75,23 @@
           <div class="card-glow-bg"></div>
           <div>
             <h2 class="hub-card-title">Player Stats</h2>
-            <p class="hub-card-desc">Search a player and read their numbers by category, ranked against others in their position.</p>
+            <p class="hub-card-desc">Search any player and browse 12 event-derived metric categories, like progressive passes, aerial duels, half-spaces, and Combination Play, all built from real match data.</p>
           </div>
         </a>
 
         <a href="/compare" class="hub-card">
-          <div class="card-glow-bg" style="background:radial-gradient(circle at 80% 50%, rgba(236,72,153,.15) 0%, transparent 60%)"></div>
+          <div class="card-glow-bg" style="background:radial-gradient(circle at 80% 50%, rgba(168,85,247,.15) 0%, transparent 60%)"></div>
           <div>
             <h2 class="hub-card-title">Compare</h2>
-            <p class="hub-card-desc">Two to four players side by side, from any league and season.</p>
+            <p class="hub-card-desc">Put 2-4 players side by side, any league, any season, with a headline radar and a full per-category stat breakdown.</p>
           </div>
         </a>
 
         <a href="/league" class="hub-card">
-          <div class="card-glow-bg" style="background:radial-gradient(circle at 80% 50%, rgba(236,72,153,.14) 0%, transparent 60%)"></div>
+          <div class="card-glow-bg" style="background:radial-gradient(circle at 80% 50%, rgba(34,197,94,.14) 0%, transparent 60%)"></div>
           <div>
             <h2 class="hub-card-title">Tables</h2>
-            <p class="hub-card-desc">League tables with form and expected goals, and a page for every team.</p>
+            <p class="hub-card-desc">League standings with form and expected goals for every team, plus team pages with results and a sortable squad.</p>
           </div>
         </a>
 
@@ -99,7 +99,7 @@
           <div class="card-glow-bg card-glow-bg-scout"></div>
           <div>
             <h2 class="hub-card-title">Scout</h2>
-            <p class="hub-card-desc">Find the players whose profile is closest to one you already know.</p>
+            <p class="hub-card-desc">Find statistically similar players to any target, pooled across all leagues and seasons (or narrowed to the top 5), built on the same event data as Player Stats.</p>
           </div>
         </a>
 
@@ -107,7 +107,7 @@
           <div class="card-glow-bg card-glow-bg-explore"></div>
           <div>
             <h2 class="hub-card-title">Explore</h2>
-            <p class="hub-card-desc">Rank every player on one stat, or plot two stats against each other to sort players into types.</p>
+            <p class="hub-card-desc">Don't have a name in mind yet? Rank every player by a single stat, filtered by league, season, position and age, to browse instead of search.</p>
           </div>
         </a>
       </div>
@@ -122,7 +122,7 @@
           <div class="radar-ring-1"></div>
           <div class="radar-ring-2"></div>
           <svg width="190" height="190" class="radar-poly">
-            <polygon id="hub-radar-poly" points="95,95 95,95 95,95 95,95 95,95 95,95" fill="rgba(236,72,153,0.25)" stroke="#ec4899" stroke-width="1.5" stroke-linejoin="round" style="transition:all .6s ease"/>
+            <polygon id="hub-radar-poly" points="95,95 95,95 95,95 95,95 95,95 95,95" fill="rgba(59,130,246,0.25)" stroke="#3b82f6" stroke-width="1.5" stroke-linejoin="round" style="transition:all .6s ease"/>
           </svg>
           <svg width="190" height="190" class="radar-axes">
             <line x1="95" y1="0" x2="95" y2="190" stroke="white" stroke-width="1"/>
@@ -194,17 +194,17 @@ footer .footer-inner { max-width: 1200px !important; padding: 0 40px !important;
   border: 1px solid var(--float-border); overflow: hidden;
   transition: all .4s cubic-bezier(.4,0,.2,1);
 }
-.hub-card:hover { transform: translateX(10px); border-color: var(--c0); box-shadow: 0 20px 40px rgba(0,0,0,.2), 0 0 30px rgba(236,72,153,.1); }
+.hub-card:hover { transform: translateX(10px); border-color: var(--c0); box-shadow: 0 20px 40px rgba(0,0,0,.2), 0 0 30px rgba(59,130,246,.1); }
 #hub-showcase { opacity: 0; transition: opacity .5s ease; }
 #hub-showcase.ready { opacity: 1; }
 .hub-card-disabled { cursor: default; opacity: .55; }
 .hub-card-disabled:hover { transform: none; box-shadow: none; border-color: var(--float-border); }
 .hub-card-title { font-size: 15px; font-weight: 800; color: var(--text); margin: 0 0 3px; letter-spacing: -.5px; display: flex; align-items: center; gap: 10px; }
 .hub-card-desc { color: var(--muted); font-size: 11.5px; margin: 0; line-height: 1.4; }
-.hub-card-badge { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: #ec4899; background: rgba(236,72,153,.12); border: 1px solid rgba(236,72,153,.3); border-radius: 20px; padding: 3px 9px; }
-.card-glow-bg { position: absolute; inset: 0; background: radial-gradient(circle at 80% 50%, rgba(236,72,153,.15) 0%, transparent 60%); z-index: -1; border-radius: inherit; }
-.card-glow-bg-scout { background: radial-gradient(circle at 80% 50%, rgba(236,72,153,.12) 0%, transparent 60%); }
-.card-glow-bg-explore { background: radial-gradient(circle at 80% 50%, rgba(236,72,153,.12) 0%, transparent 60%); }
+.hub-card-badge { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: #f43f5e; background: rgba(244,63,94,.12); border: 1px solid rgba(244,63,94,.3); border-radius: 20px; padding: 3px 9px; }
+.card-glow-bg { position: absolute; inset: 0; background: radial-gradient(circle at 80% 50%, rgba(59,130,246,.15) 0%, transparent 60%); z-index: -1; border-radius: inherit; }
+.card-glow-bg-scout { background: radial-gradient(circle at 80% 50%, rgba(244,63,94,.12) 0%, transparent 60%); }
+.card-glow-bg-explore { background: radial-gradient(circle at 80% 50%, rgba(16,185,129,.12) 0%, transparent 60%); }
 
 .glow-container { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; overflow: hidden; z-index: 0; pointer-events: none; }
 .super-glow { position: absolute; top: -20%; left: -10%; width: 60vw; height: 60vw; background: radial-gradient(circle, rgba(59,130,246,.15) 0%, transparent 70%); filter: blur(80px); animation: hubFloatGlow 10s ease-in-out infinite alternate; }
@@ -241,7 +241,7 @@ footer .footer-inner { max-width: 1200px !important; padding: 0 40px !important;
   }
   .hub-mobile-logo{
     display: block; font-size: 18px; font-weight: 900; letter-spacing: -.5px;
-    background: linear-gradient(135deg,#f472b6,#ec4899,#db2777);
+    background: linear-gradient(135deg,#3b82f6,#a855f7,#f43f5e);
     -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
   }
   .hub-theme-toggle{ position: static; top: auto; right: auto; }
@@ -269,7 +269,7 @@ footer .footer-inner { max-width: 1200px !important; padding: 0 40px !important;
 
   // Everything in the right-hand visual comes from the dataset (/api/hub and
   // /api/hub-player); if those calls fail the visual simply stays hidden.
-  const HUB_COLORS = [["#ec4899", "#f472b6"], ["#ec4899", "#f472b6"], ["#ec4899", "#f472b6"], ["#ec4899", "#f472b6"]];
+  const HUB_COLORS = [["#3b82f6", "#60a5fa"], ["#10b981", "#34d399"], ["#a855f7", "#c084fc"], ["#f43f5e", "#fb7185"]];
   const hubShowcase = document.getElementById("hub-showcase");
   const hubFmt = n => Number(n).toLocaleString("en-GB");
   const hubOrd = n => { const t = n % 100, u = n % 10; return n + (t >= 11 && t <= 13 ? "th" : u === 1 ? "st" : u === 2 ? "nd" : u === 3 ? "rd" : "th"); };
