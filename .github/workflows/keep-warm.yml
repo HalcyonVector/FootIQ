@@ -1,4 +1,4 @@
-name: Keep Render instance warm (daytime window)
+name: Keep Render instance warm (evening window)
 
 # Render's free tier sleeps a service after ~15 idle minutes, so the first visitor
 # pays a cold start. This keeps the app awake during the hours it is most likely to
@@ -6,33 +6,38 @@ name: Keep Render instance warm (daytime window)
 #
 # Why a loop and not "cron every 10 minutes": GitHub drops most runs of a
 # high-frequency schedule (the old */10 schedule fired about once a day), but it does
-# start a once-a-day trigger. So each trigger starts ONE job that pings every 4 minutes
-# until the end of the window.
+# start a low-frequency trigger, often hours late. So each trigger starts ONE job that
+# pings every 4 minutes until the end of the window, and there are several triggers
+# spread through the window so that when one is late another still covers the rest.
 #
 # Budget (Render's free pool is 750 instance-hours per MONTH for the whole workspace,
 # shared with the other projects):
-#   window 08:00-18:00 UTC = 10 hours/day x 31 days = ~310 hours/month
+#   window 10:30-20:30 UTC = 10 hours/day x 31 days = ~310 hours/month
 #   (an always-on instance is ~744), leaving ~440 hours for the other services and for
 #   real traffic outside the window.
 # GitHub Actions is free and unmetered for a public repo.
 #
-# Window: UTC. 08:00-18:00 UTC = 13:30-23:30 IST. To move or shorten it change END_HOUR
-# and the two cron lines, and redo the maths above.
+# Window: UTC. 10:30-20:30 UTC = 16:00-02:00 IST. To move or shorten it change
+# START_HHMM / END_HHMM (UTC, 24-hour HHMM) and the cron lines, and redo the maths above.
 #
 # Caveats: GitHub may start a scheduled run late, and disables scheduled workflows in a
 # repo with no activity for 60 days (any push re-enables them).
 on:
   schedule:
-    - cron: "0 8 * * *"
-    - cron: "40 13 * * *"      # picks up where the first job (6 h limit) stops
+    - cron: "30 10 * * *"
+    - cron: "30 12 * * *"      # extra triggers: a loop that starts late, or stops at its
+    - cron: "30 14 * * *"      # 6 h job limit, is picked up by the next one
+    - cron: "30 16 * * *"
+    - cron: "30 18 * * *"
   workflow_dispatch: {}        # manual "Run workflow" button in the Actions tab
 
 concurrency:
-  group: keep-warm             # never two loops at once; a late one waits for the running one
+  group: keep-warm             # never two loops at once; a later trigger waits for the running one
   cancel-in-progress: false
 
 env:
-  END_HOUR: "18"               # stop pinging at this UTC hour
+  START_HHMM: "1030"           # do not ping before this UTC time
+  END_HHMM: "2030"             # stop pinging at this UTC time
 
 jobs:
   ping:
@@ -42,9 +47,11 @@ jobs:
       - name: Ping until the end of the window
         run: |
           start=$(date +%s)
-          while [ "$(date -u +%-H)" -lt "$END_HOUR" ] && [ $(( $(date +%s) - start )) -lt 21000 ]; do
+          now() { date -u +%H%M; }
+          if [ "$(now)" -lt "$START_HHMM" ]; then echo "before the window ($(now) UTC)"; exit 0; fi
+          while [ "$(now)" -lt "$END_HHMM" ] && [ $(( $(date +%s) - start )) -lt 21000 ]; do
             code=$(curl -s --max-time 120 -o /dev/null -w '%{http_code}' https://footiq.onrender.com/api/health || true)
             echo "$(date -u +%H:%M:%S) HTTP ${code:-none}"
             sleep 240
           done
-          echo "window over (UTC hour $(date -u +%-H), end $END_HOUR)"
+          echo "window over (UTC $(now), end $END_HHMM)"

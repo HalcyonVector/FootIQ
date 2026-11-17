@@ -11,9 +11,9 @@
   and the search index are loaded (`ready` in `/api/health?detail=1`); the link-up table and
   the per-category dataset handles load afterwards. `requests` is imported lazily.
 - **Spins down after 15 minutes idle**, so the first visitor pays the whole boot.
-  `.github/workflows/keep-warm.yml` keeps it awake 08:00-18:00 UTC (about 310 of the 750
+  `.github/workflows/keep-warm.yml` keeps it awake 10:30-20:30 UTC, i.e. 16:00-02:00 IST (about 310 of the 750
   instance-hours a month, a pool shared with the other projects) with one looping job per
-  trigger, because GitHub drops most runs of a `*/10` schedule. Outside that window the
+  trigger (five triggers spread through the window, since GitHub often starts them late), because GitHub drops most runs of a `*/10` schedule. Outside that window the
   first visit still pays the boot.
 
 ## Static front end on Vercel (what visitors hit)
