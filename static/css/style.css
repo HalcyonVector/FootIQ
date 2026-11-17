@@ -2034,3 +2034,13 @@ footer {
 /* Numbers in the stats strip: plain white */
 .stat-num{background:none;-webkit-background-clip:border-box;background-clip:border-box;color:var(--text);-webkit-text-fill-color:var(--text);
   text-shadow:none}
+
+/* Stats strip on phones: a tidy 3 + 2 grid (the vertical dividers only make sense in one row) */
+@media (max-width:640px){
+  .stats-strip{display:grid;grid-template-columns:repeat(6,1fr);row-gap:14px;padding:18px 10px;align-items:start}
+  .stats-strip .stat-divider{display:none}
+  .stats-strip .stat-item{grid-column:span 2;min-width:0;padding:4px 6px}
+  .stats-strip .stat-item:nth-child(7){grid-column:2 / span 2}
+  .stats-strip .stat-num{font-size:28px}
+  .stats-strip .stat-lbl{white-space:normal;text-align:center;line-height:1.3}
+}

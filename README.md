@@ -29,6 +29,7 @@ What the data showed, and the problems found while building it:
 - **Minimum-sample gates hid a regular starter's profile early in a season.** A fixed "at least 10 aerial duels" gate is sensible over 38 games and wrong after 9. Bruno Fernandes had played over 700 minutes in 2026-27 and still showed dashes for open-play aerial win rate. The gates now scale with the share of the season played (never below 3 attempts), the percentile cohort's minutes floor relaxes from 450 to a minimum of 270, and the open-play aerial win rate now reads 25.0% (16th percentile). Finished seasons keep the full gates and are unchanged.
 - **The weekly update ran for weeks without fetching anything.** The scheduler passed display names where the scraper needed the source's own league keys, every task crashed before its first request, and the error handling swallowed each crash and logged "No failures". Every weekly rebuild was quietly re-reading the cache from earlier manual scrapes. Fixed, and the scrape now reports any competition whose schedule could not be fetched instead of looking clean.
 - **A health check reported 60 to 79% of current-season matches as unusable.** The cache holds a placeholder for every scheduled fixture, so a season a quarter played looked three quarters broken. Unplayed fixtures are now counted separately, which leaves the real gaps visible: finished seasons such as the Belgian Pro League 2025-26 (about 23% of matches without event data) and Scottish Premiership 2025-26 (about 13%).
+- **A half-played Champions League was listed as finished, with nobody ranked.** Season progress was only measured for round-robin leagues, and every cup was treated as 100% done. The 2026-27 Champions League and Europa League were 72 matches into a 189-match edition, so the full 450-minute floor applied and not one player cleared it. Progress for those two cups is now matches played against a full edition (38% at the time), which brings 248 and 222 players into the rankings.
 - **A competition with no data at all was found by hand, then made a check.** Europa Conference League returned null event data for all 447 matches, a gap on the source's side, so it is excluded and the health check now looks for the same symptom after every scrape.
 
 ---
@@ -37,7 +38,7 @@ What the data showed, and the problems found while building it:
 
 ### Player Page
 
-- Search across 15 competitions; every metric is a percentile against same-position players in the same competition and season.
+- Search across 15 competitions; every metric is a percentile against same-position players in the same season. The season pickers open on the newest season that is mostly played (2025-26 at the moment), and seasons still in progress are marked as such.
 - 12 Advanced Metrics tabs: Passing, Shooting and Footedness, Carrying, Half-Spaces, Tempo Control, Decision Making, Final Third, Aerial Duels, Defending, Hold-Up Play, Post-Recovery and Link-Up. Goalkeepers get a Goalkeeping tab instead.
 - A "Profile at a glance" radar of the player's average percentile in every category, above the tabs.
 - A switch for who the percentiles are ranked against: every competition that season (the default), the Top 5 leagues together (Premier League, La Liga, Serie A, Bundesliga, Ligue 1; offered to players in those leagues), or only the player's own competition. The bars, radar, strengths, composite rating and per-tab charts all follow it.
@@ -87,8 +88,9 @@ What the data showed, and the problems found while building it:
 |--------|------|-------------------|
 | [WhoScored](https://www.whoscored.com/) match centre (Opta event data) | Match-event JSON, scraped | Every pass, carry, duel, tackle and shot with pitch coordinates and Opta qualifiers, plus line-ups, substitutions and ratings |
 | [Wikipedia REST API](https://en.wikipedia.org/api/rest_v1/) | JSON | Player photos, cached locally |
+| [API-Football](https://www.api-football.com/) media | Images | League logos |
 
-Coverage is Premier League, La Liga, Serie A, Bundesliga, Ligue 1, Championship, Eredivisie, Primeira Liga, Belgian Pro League, Super Lig, Scottish Premiership, Champions League and Europa League for 2023-24 onwards (2026-27 in progress), plus the 2022 World Cup and Euro 2024 as one-off entries. That is 13,449 matches and 35,628 player-season rows. Europa Conference League was scraped in full and excluded because the source returned no usable events for any of its 447 matches.
+Coverage is Premier League, La Liga, Serie A, Bundesliga, Ligue 1, Championship, Eredivisie, Primeira Liga, Belgian Pro League, Super Lig, Scottish Premiership, Champions League and Europa League for 2023-24 onwards (2026-27 in progress), plus the 2022 World Cup and Euro 2024 as one-off entries. That is 13,723 matches and 37,572 player-season rows. Europa Conference League was scraped in full and excluded because the source returned no usable events for any of its 447 matches.
 
 **Cleaning and joining.** Raw match JSON is parsed into per-player events. Minutes are derived from line-ups and substitutions (stoppage-time aware), carries are reconstructed from gaps between a player's own touches, and open-play, set-piece, assist and cross events are separated using Opta qualifier codes. Events are aggregated per player-season into per-90 and percentage metrics, then percentile-ranked within position-group cohorts (attacker, midfielder, defender, goalkeeper) that must clear a minutes floor. Progressive passes and carries use the published three-tier yard rule; xG comes from a logistic model fitted on the dataset's own shots.
 
@@ -228,6 +230,8 @@ FootIQ/
 | `/api/compare-stats` | POST | Side-by-side table and radar |
 | `/api/scout-similar` | POST | Ranked statistical twins |
 | `/api/explore` | POST | Ranked player-seasons for one metric |
+| `/api/explore-scatter`, `/api/explore-quadrant` | POST | Two metrics, or a curated pair of indexes, for the whole cohort |
+| `/api/coverage`, `/api/hub` | GET | The coverage table and the home page's facts |
 | `/api/league-table`, `/api/team` | GET | Standings, results and squad |
 | `/api/health` | GET | Warm-up state and memory use |
 
@@ -240,7 +244,7 @@ pip install pytest
 python -m pytest tests/
 ```
 
-112 tests cover the metric math and the data handling around it: progressive-action geometry, position-group classification, the Composite Rating's power mean, the xG model and shot data, league tables, chart specs, the player search ranking, the link-up lookup, the season-progress gates (including that every category module that uses them imports them), partition-preserving writes and the dataset release logic. The scraper's schedule retries and the health check's treatment of unplayed fixtures are tested against simulated failures. Two tests are skipped on machines without the raw data.
+145 tests cover the metric math and the data handling around it: progressive-action geometry, position-group classification, the Composite Rating's power mean, the xG model and shot data, league tables, chart specs, the player search ranking, the link-up lookup, the season-progress gates (including the European cups and that every category module that uses them imports them), the quadrant indexes, the Top 5 and percentile-scope filters, Scout's season window, the default season, partition-preserving writes and the dataset release logic. The scraper's schedule retries and the health check's treatment of unplayed fixtures are tested against simulated failures. Two tests are skipped on machines without the raw data.
 
 ---
 
@@ -248,7 +252,7 @@ python -m pytest tests/
 
 - **The data is not mine to redistribute.** Events are scraped from a public site and kept out of the repository, so the project is for analysis and learning, and a copy of it needs its own scrape or a copy of the dataset release.
 - **Single-season percentiles on rate metrics are noisy.** Tackle success is almost unrelated from one season to the next (r = 0.09). Gates and the early-season chip reduce the problem, they do not remove it.
-- **In-progress seasons are approximate.** Season progress is estimated from matches played and teams in the competition, the gates are relaxed in proportion, and the cohort is smaller, so percentiles move more week to week.
+- **In-progress seasons are approximate.** Season progress is estimated from matches played and teams in the competition (for the Champions League and Europa League, against a full 189-match edition), the gates are relaxed in proportion, and the cohort is smaller, so percentiles move more week to week.
 - **Four position groups only.** A wing-back and a centre-back share a cohort, and a false nine and a target man share another.
 - **Events, not tracking.** There is no off-ball movement, pressing intensity from positions or player speed, only what the event feed records.
 - **xG is a home-grown model**, fitted on the dataset's own shots with no goalkeeper position or defender pressure, so it will not match Opta's or other providers' figures.
@@ -261,8 +265,11 @@ python -m pytest tests/
 ## Suggested Future Features
 
 - **A metric glossary** with what each number measures, how it is computed and its minimum sample, shown from the stat itself.
-- **Cohort choice:** rank a player against their own league or against every league.
-- **Match-by-match trends for any metric**, not only the match rating.
+- **Form over the last 5 and 10 matches** for the key metrics, so a player's trend within a season shows, not only the season average.
+- **Team style pages:** pressing intensity (passes allowed per defensive action), directness, where each team progresses the ball, and a pass network.
+- **Age curves:** the typical value of a metric at each age by position, with a player's own seasons drawn on top.
+- **A methodology page** in the app with the validation against WhoScored (for example shots per 90 correlate at 0.98, the composite rating at about 0.7 for attackers) and how the xG model was fitted.
+- **A watchlist** kept in the browser, filled from Scout and Explore and opened straight into Compare.
 
 ---
 
