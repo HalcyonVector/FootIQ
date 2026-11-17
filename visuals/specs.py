@@ -633,7 +633,7 @@ def linkup_map(passer_name: str, receptions: list) -> dict:
 from core.advanced.composite import category_percentile        # noqa: E402  (kept next to its only users)
 from core.advanced.metrics_master import CATEGORY_ORDER        # noqa: E402
 
-PLAYER_COLORS = ["#3b82f6", "#f43f5e", "#10b981", "#f59e0b"]
+PLAYER_COLORS = ["#ec4899", "#10b981", "#f59e0b", "#94a3b8"]
 CATEGORY_LABELS_SHORT = {
     "passing": "Passing", "shooting": "Shooting", "carrying": "Carrying", "half_spaces": "Half-Spaces", "tempo": "Tempo",
     "decision_making": "Decisions", "final_third": "Final Third", "aerial": "Aerial", "defending": "Defending",

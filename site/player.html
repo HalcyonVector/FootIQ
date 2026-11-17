@@ -3,8 +3,8 @@
 <head><script>window.FOOTIQ_STATIC=true;</script><script src="/static/js/static-shim.js"></script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>FootIQ: Event-Level Football Analytics</title>
-  <meta name="description" content="Event-derived football player stats: passing, carrying, duels, and combination play, built from match event data." />
+  <title>FootIQ: football stats from match events</title>
+  <meta name="description" content="Player stats built from match events: passes, carries, duels and shots from 15 competitions, per 90 minutes and ranked by position." />
   <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
   <link rel="icon" type="image/png" sizes="32x32" href="/static/icon-192.png" />
   <link rel="alternate icon" href="/static/favicon.ico" sizes="16x16 32x32 48x48" />
@@ -13,8 +13,8 @@
   <meta name="theme-color" content="#070b14" />
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="FootIQ" />
-  <meta property="og:title" content="FootIQ: Event-Level Football Analytics" />
-  <meta property="og:description" content="Player profiles built from every pass, carry and duel: 15 competitions, 131 metrics, percentile-ranked against their position." />
+  <meta property="og:title" content="FootIQ: football stats from match events" />
+  <meta property="og:description" content="Player stats built from match events: passes, carries, duels and shots from 15 competitions, per 90 minutes and ranked by position." />
   <meta property="og:image" content="https://footiq-app.vercel.app/static/og-image.png" />
   <meta name="twitter:card" content="summary_large_image" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -30,7 +30,6 @@
 </head>
 <body>
 
-  <canvas id="particle-canvas"></canvas>
   <div class="bg-orb orb-1"></div>
   <div class="bg-orb orb-2"></div>
   <div class="bg-orb orb-3"></div>
@@ -78,38 +77,16 @@
     ══════════════════════════════════════ -->
     <section class="hero">
 
-      <div class="hero-eyebrow">
-        <span class="eyebrow-dot"></span>
-        <span>Event-Level Football Analytics</span>
-        <span class="eyebrow-dot"></span>
-      </div>
-
-      <h1 class="hero-title">
-        Every Touch.<br/>
-        <span class="gradient-text">Every Duel.</span><br/>
-        <span class="hero-title-sub">Every Player.</span>
-      </h1>
+      <h1 class="hero-title">Player stats from <span class="gradient-text">match events</span></h1>
 
       <p class="hero-desc">
-        Search any player across 15 leagues and competitions. Built directly from<br/>
-        match event data: passes, carries, duels, and pressure, not just box scores.
+        Pick a league and season, then search for a player. Every number comes from the passes, carries, duels and
+        shots in that player's matches, scaled to 90 minutes and ranked against players in the same position.
       </p>
 
-      <!-- Capability chips -->
-      <div class="capability-chips">
-        <span class="cap-chip">12 Metric Categories</span>
-        <span class="cap-chip">Combination Play</span>
-        <span class="cap-chip">Half-Space Mapping</span>
-        <span class="cap-chip">Decision-Making</span>
-      </div>
-
-      <!-- ── Search Card ── -->
+      <!-- Search card -->
       <div class="search-card glass-card">
-        <div class="search-card-label">
-          <span class="pulse-dot"></span>
-          Search across 15 football leagues and competitions
-        </div>
-
+        <div class="search-card-label">Find a player</div>
         <div class="filter-row">
           <div class="filter-group">
             <label>League</label>
@@ -162,42 +139,12 @@
     </section>
 
     <!-- ══════════════════════════════════════
-         STATS COUNTER STRIP
-    ══════════════════════════════════════ -->
-    <div class="stats-strip">
-      <div class="stat-item">
-        <span class="stat-num">15</span>
-        <span class="stat-lbl">Leagues &amp; Competitions</span>
-      </div>
-      <div class="stat-divider"></div>
-      <div class="stat-item">
-        <span class="stat-num">3</span>
-        <span class="stat-lbl">Seasons</span>
-      </div>
-      <div class="stat-divider"></div>
-      <div class="stat-item">
-        <span class="stat-num">12</span>
-        <span class="stat-lbl">Metric Categories</span>
-      </div>
-      <div class="stat-divider"></div>
-      <div class="stat-item">
-        <span class="stat-num">12K+</span>
-        <span class="stat-lbl">Matches Parsed</span>
-      </div>
-      <div class="stat-divider"></div>
-      <div class="stat-item">
-        <span class="stat-num">100+</span>
-        <span class="stat-lbl">Metrics per Player</span>
-      </div>
-    </div>
-
-    <!-- ══════════════════════════════════════
          SUPPORTED LEAGUES
     ══════════════════════════════════════ -->
     <section class="leagues-section">
       <div class="section-intro">
         <span class="section-eyebrow">Coverage</span>
-        <h2 class="section-heading">Supported Leagues</h2>
+        <h2 class="section-heading">Competitions covered</h2>
       </div>
       <div class="leagues-grid">
         
@@ -299,45 +246,44 @@
     ══════════════════════════════════════ -->
     <section class="features-section">
       <div class="section-intro">
-        <span class="section-eyebrow">What you get</span>
-        <h2 class="section-heading">Event-Derived Analytics</h2>
+        <h2 class="section-heading">What a player page shows</h2>
       </div>
       <div class="features-grid">
         <div class="feature-card glass-card">
-          <div class="fc-title">Passing & Carrying Profiles</div>
-          <div class="fc-desc">Progressive passes and carries measured from real ball movement, not FBref's box-score approximation, plus half-space activity and tempo control.</div>
+          <div class="fc-title">Passing and carrying</div>
+          <div class="fc-desc">How far forward a player moves the ball by pass and by carry, measured from where the ball actually travelled, and how quickly they release it.</div>
         </div>
         <div class="feature-card glass-card">
-          <div class="fc-title">Aerial Duels & Hold-Up Play</div>
-          <div class="fc-desc">Traces what happens after a header is won or a ball is held up: who keeps it, who loses it, and what it leads to.</div>
+          <div class="fc-title">Aerial duels and hold-up play</div>
+          <div class="fc-desc">Who wins headers, and what happens next: whether the ball stays with a teammate, goes to the opponent or goes out of play.</div>
         </div>
         <div class="feature-card glass-card">
-          <div class="fc-title">Decision Making</div>
-          <div class="fc-desc">Space-finding, press resistance, and shot creation, judged by what a pass buys the receiver, not just whether it was completed.</div>
+          <div class="fc-title">Decision making</div>
+          <div class="fc-desc">Press resistance, finding space and creating shots, judged by what a pass gave the receiver and not just whether it was completed.</div>
         </div>
         <div class="feature-card glass-card">
-          <div class="fc-title">Final Third Composite</div>
-          <div class="fc-desc">Completeness and Impact scores: a geometric-mean floor across four pillars, plus a per-touch score from a player's two strongest.</div>
+          <div class="fc-title">Final-third scores</div>
+          <div class="fc-desc">Two scores for attacking play. Completeness is only high if a player is good at all four parts of it; Impact scores each touch on a player's two strongest parts.</div>
         </div>
         <div class="feature-card glass-card">
-          <div class="fc-title">Combination Play</div>
-          <div class="fc-desc">See a player's most-found teammates, and a pitch chart of exactly what that teammate does after receiving from them.</div>
+          <div class="fc-title">Combination play</div>
+          <div class="fc-desc">A player's most frequent passing partners, and what each partner does with the ball after receiving it.</div>
         </div>
         <div class="feature-card glass-card">
-          <div class="fc-title">Zone-Based Defending</div>
-          <div class="fc-desc">Box, channel, and flank actions kept separate: a center-back's job isn't a full-back's job, and the numbers shouldn't be blended together.</div>
+          <div class="fc-title">Defending by zone</div>
+          <div class="fc-desc">Actions in the box, the channels and the flanks are counted separately, because a centre-back's job is not a full-back's.</div>
         </div>
         <div class="feature-card glass-card">
-          <div class="fc-title">Tempo & Transitions</div>
-          <div class="fc-desc">Who speeds the game up versus who settles it, and what a player does in the two actions right after winning the ball back.</div>
+          <div class="fc-title">Tempo and transitions</div>
+          <div class="fc-desc">Whether a player speeds the game up or settles it, and what they do in the two actions after winning the ball.</div>
         </div>
         <div class="feature-card glass-card">
-          <div class="fc-title">Compare Any Players</div>
-          <div class="fc-desc">Put 2-4 players side by side across every category, with a position-weighted Composite Rating and a full percentile breakdown.</div>
+          <div class="fc-title">Compare players</div>
+          <div class="fc-desc">Two to four players side by side, with a position-weighted rating and the full percentile breakdown.</div>
         </div>
         <div class="feature-card glass-card">
-          <div class="fc-title">Scout Similar Players</div>
-          <div class="fc-desc">Find statistical twins for any player across all leagues and seasons (or narrowed to the top 5), filtered by age and league, built for finding the next one, not just the current one.</div>
+          <div class="fc-title">Similar players</div>
+          <div class="fc-desc">The players with the closest statistical profile across all leagues and seasons, which you can filter by age and league.</div>
         </div>
       </div>
     </section>
@@ -348,25 +294,25 @@
     <section class="how-section">
       <div class="section-intro">
         <span class="section-eyebrow">Simple</span>
-        <h2 class="section-heading">How it works</h2>
+        <h2 class="section-heading">How to read it</h2>
       </div>
       <div class="steps-row">
         <div class="step">
           <div class="step-num">01</div>
-          <div class="step-title">Search a Player</div>
-          <div class="step-desc">Pick a league and season, then type any player name.</div>
+          <div class="step-title">Search a player</div>
+          <div class="step-desc">Pick a league and season, then type a name.</div>
         </div>
         <div class="step-arrow">→</div>
         <div class="step">
           <div class="step-num">02</div>
-          <div class="step-title">Browse the Tabs</div>
-          <div class="step-desc">12 metric categories, percentile-ranked against same-position peers.</div>
+          <div class="step-title">Open a tab</div>
+          <div class="step-desc">There are 12 categories of stats. Each is ranked against players in the same position.</div>
         </div>
         <div class="step-arrow">→</div>
         <div class="step">
           <div class="step-num">03</div>
-          <div class="step-title">Explore Combinations</div>
-          <div class="step-desc">See who they link up with, and what happens after the pass.</div>
+          <div class="step-title">Follow the passes</div>
+          <div class="step-desc">See who they pass to most and what happens after the pass.</div>
         </div>
       </div>
     </section>
@@ -448,7 +394,7 @@
       <!-- Advanced Metrics (Opta/WhoScored event data) -->
       <section id="advanced-section" class="glass-card" style="display:none; padding:20px 24px; margin-top:18px">
         <div class="pct-title-row">
-          <span class="section-label">Advanced Metrics <span style="color:var(--muted);font-weight:500">: event-level detail from match data</span></span>
+          <span class="section-label">Advanced Metrics <span style="color:var(--muted);font-weight:500">: stats built from the match events</span></span>
         </div>
         <div class="adv-scope" id="adv-scope" role="group" aria-label="Rank percentiles against" style="display:none">
           <span class="adv-scope-lbl">Percentiles against</span>
@@ -480,17 +426,38 @@
 
   <div class="toast" id="toast"></div>
 
-  <footer>
-    <div class="footer-inner">
-      <div class="footer-brand">
-        <span class="logo-text" style="font-size:16px">FootIQ</span>
-      </div>
-      <div class="footer-credits">
-        Built by <a href="https://github.com/HalcyonVector" target="_blank" rel="noopener" class="credit-name"><strong>HalcyonVector</strong></a>
-        &nbsp;·&nbsp; Data via <strong>Opta</strong> / <strong>WhoScored</strong>
-        &nbsp;·&nbsp; Photos via <strong>Wikipedia</strong>
-        &nbsp;·&nbsp; <a href="/coverage" class="credit-name">Data coverage</a>
-      </div>
+  <footer class="site-footer">
+    <div class="footer-cols">
+      <section>
+        <h3>About</h3>
+        <p>FootIQ turns match event data into per-90 player stats and ranks each player against others in the same position. It is a personal project: the numbers are only as good as the event data behind them, and nothing here is betting or transfer advice.</p>
+        <p><a href="https://github.com/HalcyonVector/FootIQ" target="_blank" rel="noopener">Source code on GitHub</a></p>
+      </section>
+      <section>
+        <h3>Data</h3>
+        <ul>
+          <li><a href="https://www.whoscored.com" target="_blank" rel="noopener">WhoScored</a>: match events (Opta data) with pitch coordinates for every pass, carry, duel and shot.</li>
+          <li><a href="https://soccerdata.readthedocs.io/" target="_blank" rel="noopener">soccerdata</a>: the Python library used to fetch and cache those match files.</li>
+          <li><a href="https://commons.wikimedia.org/" target="_blank" rel="noopener">Wikimedia Commons</a>: player photos.</li>
+          <li><a href="https://www.api-football.com/" target="_blank" rel="noopener">API-Football</a>: league logos.</li>
+        </ul>
+        <p><a href="/coverage">What is in the dataset</a></p>
+      </section>
+      <section>
+        <h3>References</h3>
+        <ul>
+          <li><a href="https://en.wikipedia.org/wiki/Expected_goals" target="_blank" rel="noopener">Expected goals</a>: the idea behind the xG numbers.</li>
+          <li><a href="https://en.wikipedia.org/wiki/Percentile_rank" target="_blank" rel="noopener">Percentile rank</a>: how each bar is scored.</li>
+          <li><a href="https://en.wikipedia.org/wiki/Cosine_similarity" target="_blank" rel="noopener">Cosine similarity</a>: how Scout compares profiles.</li>
+          <li><a href="https://en.wikipedia.org/wiki/Reliability_(statistics)" target="_blank" rel="noopener">Reliability</a>: behind the "noisy stat" flag.</li>
+        </ul>
+      </section>
+    </div>
+    <div class="footer-bar">
+      <span>Built by <strong>Sagnik</strong></span>
+      <a href="https://github.com/HalcyonVector" target="_blank" rel="noopener">GitHub @HalcyonVector</a>
+      <a href="https://github.com/HalcyonVector/FootIQ" target="_blank" rel="noopener">Repository</a>
+      <a href="https://github.com/HalcyonVector/FootIQ#license" target="_blank" rel="noopener">License</a>
     </div>
   </footer>
 
@@ -531,65 +498,6 @@
       document.addEventListener('click', () => navPageSelect.classList.remove('open'));
       navPageMenu.addEventListener('click', e => e.stopPropagation());
     }
-
-    // ── Particle canvas ──
-    (function() {
-      const canvas = document.getElementById('particle-canvas');
-      if (!canvas) return;
-      const ctx = canvas.getContext('2d');
-      let W, H, particles = [];
-
-      const COLORS = ['rgba(0,212,255,', 'rgba(191,95,255,', 'rgba(255,45,120,', 'rgba(0,255,136,'];
-
-      function resize() {
-        W = canvas.width  = window.innerWidth;
-        H = canvas.height = window.innerHeight;
-      }
-
-      function mkParticle() {
-        return {
-          x: Math.random() * W,
-          y: Math.random() * H,
-          r: Math.random() * 1.5 + 0.3,
-          dx: (Math.random() - 0.5) * 0.25,
-          dy: (Math.random() - 0.5) * 0.25,
-          col: COLORS[Math.floor(Math.random() * COLORS.length)],
-          alpha: Math.random() * 0.5 + 0.1,
-          pulse: Math.random() * Math.PI * 2,
-          pulseSpeed: 0.01 + Math.random() * 0.02,
-        };
-      }
-
-      // 45 plain dots, no per-dot shadowBlur: 120 dots with a canvas shadow
-      // each cost a blur pass per frame and competed with scrolling for
-      // the main thread. Honors "reduce motion" by not animating at all.
-      const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-      function init() {
-        resize();
-        particles = Array.from({ length: 45 }, mkParticle);
-      }
-
-      function draw() {
-        ctx.clearRect(0, 0, W, H);
-        particles.forEach(p => {
-          p.pulse += p.pulseSpeed;
-          const a = p.alpha * (0.6 + 0.4 * Math.sin(p.pulse));
-          ctx.beginPath();
-          ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-          ctx.fillStyle = p.col + a + ')';
-          ctx.fill();
-          p.x += p.dx; p.y += p.dy;
-          if (p.x < 0 || p.x > W) p.dx *= -1;
-          if (p.y < 0 || p.y > H) p.dy *= -1;
-        });
-        if (!reduceMotion) requestAnimationFrame(draw);
-      }
-
-      window.addEventListener('resize', resize, { passive: true });
-      init();
-      draw();
-    })();
 
     // ── Scroll reveal ──
     // One effect for everything below the fold (see .reveal in style.css).
@@ -669,8 +577,7 @@
   <div class="loading-overlay" id="loading-overlay" style="display:none">
     <div class="loading-content">
       <div class="spinner"></div>
-      <p>Crunching player data…</p>
-      <div class="loading-sub">Powered by Local Dataset</div>
+      <p>Loading player data…</p>
     </div>
   </div>
   <script>

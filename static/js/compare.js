@@ -14,7 +14,7 @@ const CATEGORY_LABELS = {
   final_third: "Final Third", aerial: "Aerial Duels", defending: "Defending Profile",
   holdup: "Hold-Up Play", post_recovery: "Post-Recovery", goalkeeping: "Goalkeeping",
 };
-const SLOT_COLORS = ["#3b82f6", "#f43f5e", "#10b981", "#f59e0b"];
+const SLOT_COLORS = ["#ec4899", "#10b981", "#f59e0b", "#94a3b8"];
 
 let slots = [
   { league: "Premier League", season: window.DEFAULT_SEASON || (window.SEASONS && window.SEASONS[0]) || "2024-25", player: null },
@@ -42,7 +42,7 @@ function debounce(fn, ms) {
 
 function _initialsAvatar(name, size = 38) {
   const initials = (name || "?").split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase();
-  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='${size}' height='${size}' viewBox='0 0 ${size} ${size}'><circle cx='${size/2}' cy='${size/2}' r='${size/2}' fill='#3b82f622'/><text x='${size/2}' y='${size/2+size*0.15}' text-anchor='middle' font-family='system-ui,sans-serif' font-size='${size*0.34}' font-weight='700' fill='#3b82f6'>${initials}</text></svg>`;
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='${size}' height='${size}' viewBox='0 0 ${size} ${size}'><circle cx='${size/2}' cy='${size/2}' r='${size/2}' fill='#ec489922'/><text x='${size/2}' y='${size/2+size*0.15}' text-anchor='middle' font-family='system-ui,sans-serif' font-size='${size*0.34}' font-weight='700' fill='#ec4899'>${initials}</text></svg>`;
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }
 

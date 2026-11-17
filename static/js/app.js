@@ -317,7 +317,7 @@ function resetPrimaryPlayer() {
 
 function _initialsAvatar(name, size=80) {
   const initials = name.split(" ").map(w => w[0]).slice(0,2).join("").toUpperCase();
-  const colors = ["#3b82f6","#8b5cf6","#10b981","#f59e0b","#ef4444","#06b6d4"];
+  const colors = ["#ec4899","#f472b6","#db2777","#ec4899","#f472b6","#db2777"];
   const color = colors[name.charCodeAt(0) % colors.length];
   const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='${size}' height='${size}' viewBox='0 0 ${size} ${size}'><circle cx='${size/2}' cy='${size/2}' r='${size/2}' fill='${color}22'/><circle cx='${size/2}' cy='${size/2}' r='${size/2-1}' fill='none' stroke='${color}' stroke-width='1.5'/><text x='${size/2}' y='${size/2+size*0.15}' text-anchor='middle' font-family='system-ui,sans-serif' font-size='${size*0.3}' font-weight='700' fill='${color}'>${initials}</text></svg>`;
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;
