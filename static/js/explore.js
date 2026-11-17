@@ -87,8 +87,53 @@ function populateYMetricSelect() {
 }
 
 function isScatterView() { return document.getElementById("explore-view").value === "scatter"; }
+function isQuadrantView() { return document.getElementById("explore-view").value === "quadrant"; }
+const QUADRANTS = window.EXPLORE_QUADRANTS || [];
+let _plotToken = 0;   // a slow earlier request must not draw over a newer choice
+
+// The plot's own position group is the default (a goalkeeper plot should not start on outfielders);
+// the Position filter still overrides it. "all" in the filter means "the plot's group" server-side.
+function describeQuadrant() {
+  const q = QUADRANTS.find(p => p.id === document.getElementById("explore-quad").value);
+  const el = document.getElementById("explore-quad-question");
+  const who = { attacking: "forwards, wingers and attacking midfielders", attacker: "forwards", midfielder: "midfielders and wingers",
+                defender: "defenders", goalkeeper: "goalkeepers" };
+  if (q && el) el.textContent = `${q.question} Shown for ${who[q.positions] || q.positions} unless you pick a position below.`;
+  return q;
+}
+
+async function runQuadrant() {
+  const q = describeQuadrant();
+  const token = ++_plotToken;
+  const host = document.getElementById("explore-scatter");
+  document.getElementById("explore-results-section").style.display = "block";
+  document.getElementById("explore-list").style.display = "none";
+  host.style.display = "block";
+  document.getElementById("explore-results-heading").textContent = q ? q.title : "Quadrant plot";
+  host.innerHTML = `<div style="text-align:center;color:var(--muted);padding:32px"><div class="mini-spinner" style="margin:0 auto 10px"></div>Plotting players…</div>`;
+  const minMinutes = document.getElementById("explore-min-minutes").value;
+  try {
+    const res = await fetch("/api/explore-quadrant", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        preset: q && q.id,
+        league: document.getElementById("explore-league").value,
+        season: document.getElementById("explore-season").value,
+        position_group: document.getElementById("explore-position").value,
+        min_minutes: minMinutes === "none" ? null : minMinutes,
+      }),
+    });
+    const data = await res.json();
+    if (token !== _plotToken) return;
+    if (!res.ok || data.error) { host.innerHTML = `<div class="fc-empty">${data.error || "Could not load the plot."}</div>`; return; }
+    FootIQCharts.render(host, data.spec);
+  } catch {
+    if (token === _plotToken) host.innerHTML = `<div class="fc-empty">Could not load the plot.</div>`;
+  }
+}
 
 async function runScatter() {
+  const token = ++_plotToken;
   const xm = document.getElementById("explore-metric").value, ym = document.getElementById("explore-metric-y").value;
   const host = document.getElementById("explore-scatter");
   document.getElementById("explore-results-section").style.display = "block";
@@ -113,22 +158,27 @@ async function runScatter() {
       }),
     });
     const data = await res.json();
+    if (token !== _plotToken) return;
     if (!res.ok || data.error) { host.innerHTML = `<div class="fc-empty">${data.error || "Could not load the plot."}</div>`; return; }
     FootIQCharts.render(host, data.spec);
   } catch {
-    host.innerHTML = `<div class="fc-empty">Could not load the plot.</div>`;
+    if (token === _plotToken) host.innerHTML = `<div class="fc-empty">Could not load the plot.</div>`;
   }
 }
 
 function applyView() {
-  const scatter = isScatterView();
+  const scatter = isScatterView(), quad = isQuadrantView(), plot = scatter || quad;
   document.getElementById("explore-y-row").style.display = scatter ? "flex" : "none";
-  document.getElementById("explore-scatter").style.display = scatter ? "block" : "none";
-  document.getElementById("explore-list").style.display = scatter ? "none" : "";
+  document.getElementById("explore-quad-row").style.display = quad ? "flex" : "none";
+  document.getElementById("explore-metric-row").style.display = quad ? "none" : "";
+  document.getElementById("explore-scatter").style.display = plot ? "block" : "none";
+  document.getElementById("explore-list").style.display = plot ? "none" : "";
   runExplore();
 }
 
 async function runExplore() {
+  if (!isQuadrantView() && !isScatterView()) _plotToken++;
+  if (isQuadrantView()) { await runQuadrant(); return; }
   if (isScatterView()) { await runScatter(); return; }
   document.getElementById("explore-list").style.display = "";
   document.getElementById("explore-scatter").style.display = "none";
@@ -211,7 +261,7 @@ populateYSelects();
 document.getElementById("explore-category").addEventListener("change", () => { populateMetricSelect(); });
 document.getElementById("explore-category-y").addEventListener("change", populateYMetricSelect);
 document.getElementById("explore-view").addEventListener("change", applyView);
-["explore-metric", "explore-metric-y", "explore-league", "explore-season", "explore-position", "explore-min-minutes"].forEach(id => {
+["explore-metric", "explore-metric-y", "explore-quad", "explore-league", "explore-season", "explore-position", "explore-min-minutes"].forEach(id => {
   document.getElementById(id).addEventListener("change", runExplore);
 });
 

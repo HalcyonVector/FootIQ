@@ -1807,6 +1807,8 @@ footer {
 .ov-card-title span{color:var(--muted);font-weight:500;margin-left:6px}
 .ov-two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 .ov-two .ov-card{margin-top:14px}
+.fc-quad{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;fill:var(--muted);opacity:.55;pointer-events:none}
+.quad-question{margin-top:8px;font-size:12.5px;line-height:1.45;color:var(--muted)}
 .ov-col{display:flex;flex-direction:column;min-width:0}   /* heatmap with the pass map under it, so the column matches the shot map's height */
 .ov-svg{width:100%;height:auto;display:block}
 .ov-pitch{border-radius:10px}

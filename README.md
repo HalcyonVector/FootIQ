@@ -76,7 +76,8 @@ What the data showed, and the problems found while building it:
 ### Explore
 
 - Rank every player-season on one chosen metric, filtered by competition, season, position and minutes played.
-- Or switch to a scatter plot of two metrics against each other for the whole cohort: dashed medians, the standouts named, lower-is-better metrics flipped so up and right always mean better, and every dot links to that player's profile.
+- Or open one of ten curated quadrant plots that turn a football question into four player types: ball winning against carrying, chance creation against shot threat, progressing by passing against by carrying, ball security against ambition, dribbling volume against success, tackling, aerial duels, what happens after winning the ball, tempo, and goalkeeper shot stopping against distribution. Each axis is a 0 to 100 index, the average percentile of a few related per-90 metrics, so one noisy number cannot decide where a player lands; the quadrant lines sit at the median and the furthest players in each corner are named.
+- Or switch to a scatter plot of any two metrics against each other for the whole cohort: dashed medians, the standouts named, lower-is-better metrics flipped so up and right always mean better, and every dot links to that player's profile.
 
 ---
 

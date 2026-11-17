@@ -375,6 +375,8 @@ const FootIQCharts = (() => {
     if (y1 === y0) { y0 -= 1; y1 += 1; }
     const px = (x1 - x0) * 0.04, py = (y1 - y0) * 0.04;
     x0 -= px; x1 += px; y0 -= py; y1 += py;
+    const quad = spec.quad || null;                    // quadrant plot: both axes are 0-100 indexes, split at 50
+    if (quad) { x0 = y0 = -3; x1 = y1 = 103; }
     const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
     // Axes run so that "better" is always up and to the right, even for lower-is-better metrics.
     const sx = v => { const f = (clamp(v, x0, x1) - x0) / (x1 - x0); return L + (spec.xinvert ? 1 - f : f) * (W - L - R); };
@@ -382,12 +384,25 @@ const FootIQCharts = (() => {
     let g = "";
     niceTicks(x0, x1).forEach(v => { g += `<line x1="${r1(sx(v))}" x2="${r1(sx(v))}" y1="${T}" y2="${H - B}" class="fc-grid"/><text x="${r1(sx(v))}" y="${H - B + 17}" class="fc-t" text-anchor="middle">${fmtVal(v, "")}</text>`; });
     niceTicks(y0, y1).forEach(v => { g += `<line x1="${L}" x2="${W - R}" y1="${r1(sy(v))}" y2="${r1(sy(v))}" class="fc-grid"/><text x="${L - 8}" y="${r1(sy(v) + 4)}" class="fc-t" text-anchor="end">${fmtVal(v, "")}</text>`; });
-    const mx = qnt(xs, 0.5), my = qnt(ys, 0.5);
+    const mx = quad ? 50 : qnt(xs, 0.5), my = quad ? 50 : qnt(ys, 0.5);
     g += `<line x1="${r1(sx(mx))}" x2="${r1(sx(mx))}" y1="${T}" y2="${H - B}" style="stroke:var(--dim);stroke-dasharray:5 4"/>
           <line x1="${L}" x2="${W - R}" y1="${r1(sy(my))}" y2="${r1(sy(my))}" style="stroke:var(--dim);stroke-dasharray:5 4"/>`;
 
+    if (quad) {
+      const q = (txt, x, y, anchor) => `<text x="${r1(x)}" y="${r1(y)}" class="fc-quad" text-anchor="${anchor}">${esc(txt)}</text>`;
+      g += q(quad.tl, L + 8, T + 16, "start") + q(quad.tr, W - R - 8, T + 16, "end")
+         + q(quad.bl, L + 8, H - B - 9, "start") + q(quad.br, W - R - 8, H - B - 9, "end");
+    }
     const url = p => `/player?${new URLSearchParams({ player_id: p[4], league: p[5], season: p[6] })}`;
-    const tip = p => `${p[2]}\n${p[3]} · ${p[5]}\n${spec.xlabel}: ${fmtVal(p[0], spec.xunit)}\n${spec.ylabel}: ${fmtVal(p[1], spec.yunit)}\n${p[8]} min`.replace(/\\n/g, "\n");
+    const partLines = p => {
+      if (!quad || !p[9]) return "";
+      const nx = spec.xparts.length, line = (part, v) => `\n  ${part[0]}: ${fmtVal(v, part[1])}`;
+      return `\n${spec.xlabel.replace(" index", "")}:` + spec.xparts.map((part, i) => line(part, p[9][i])).join("")
+           + `\n${spec.ylabel.replace(" index", "")}:` + spec.yparts.map((part, i) => line(part, p[9][nx + i])).join("");
+    };
+    const tip = p => (quad
+      ? `${p[2]}\n${p[3]} · ${p[5]}\n${spec.xlabel}: ${Math.round(p[0])}   ${spec.ylabel}: ${Math.round(p[1])}${partLines(p)}\n${p[8]} min`
+      : `${p[2]}\n${p[3]} · ${p[5]}\n${spec.xlabel}: ${fmtVal(p[0], spec.xunit)}\n${spec.ylabel}: ${fmtVal(p[1], spec.yunit)}\n${p[8]} min`).replace(/\\n/g, "\n");
     g += pts.map(p => {
       const out = p[0] < x0 || p[0] > x1 || p[1] < y0 || p[1] > y1, c = spec.colors[p[7]] || "#64748b";
       return `<a href="${esc(url(p))}"><circle cx="${r1(sx(p[0]))}" cy="${r1(sy(p[1]))}" r="3.6" fill="${out ? "none" : c}" fill-opacity=".62" stroke="${c}" stroke-opacity="${out ? 0.9 : 0.25}" stroke-width="1.2" class="fc-xy-dot" data-tip="${esc(tip(p))}"/></a>`;
@@ -398,11 +413,20 @@ const FootIQCharts = (() => {
     const ix = iqr(xs), iy = iqr(ys);
     const score = p => ((p[0] - mx) / ix) * (spec.xinvert ? -1 : 1) + ((p[1] - my) / iy) * (spec.yinvert ? -1 : 1);
     const placed = [];
-    [...pts].sort((a, b) => score(b) - score(a)).slice(0, 40).forEach(p => {
-      if (placed.length >= (narrow ? 5 : 8)) return;
+    // Quadrant plots name the furthest players in EACH corner; ordinary plots name the overall best.
+    const corner = p => (p[0] >= mx ? "r" : "l") + (p[1] >= my ? "t" : "b");
+    const dist = p => Math.hypot(p[0] - mx, p[1] - my);
+    const perCorner = narrow ? 1 : 2, used = {};
+    const order = quad ? [...pts].sort((a, b) => dist(b) - dist(a)) : [...pts].sort((a, b) => score(b) - score(a));
+    order.slice(0, quad ? 120 : 40).forEach(p => {
+      if (quad) { if ((used[corner(p)] || 0) >= perCorner) return; }
+      else if (placed.length >= (narrow ? 5 : 8)) return;
       const cx = sx(p[0]), cy = sy(p[1]);
+      // keep player names off the four corner titles
+      if (quad && (cy < T + 30 || cy > H - B - 24) && (cx < L + 150 || cx > W - R - 170)) return;
       if (placed.some(q => Math.abs(q[0] - cx) < (narrow ? 110 : 90) && Math.abs(q[1] - cy) < 17)) return;
       placed.push([cx, cy]);
+      if (quad) used[corner(p)] = (used[corner(p)] || 0) + 1;
       const right = cx > W - (narrow ? 120 : 140);
       g += `<text x="${r1(cx + (right ? -8 : 8))}" y="${r1(Math.max(T + 12, cy - 7))}" class="fc-t fc-t-strong fc-halo" text-anchor="${right ? "end" : "start"}">${esc(p[2])}</text>`;
     });

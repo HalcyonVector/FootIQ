@@ -19,7 +19,7 @@
         <div class="search-card-label">
           Choose a metric
         </div>
-        <div class="scout-filter-row" style="margin-top:0">
+        <div class="scout-filter-row" id="explore-metric-row" style="margin-top:0">
           <div class="filter-group">
             <label>Category</label>
             <select class="filter-select" id="explore-category"></select>
@@ -39,12 +39,24 @@
             <select class="filter-select" id="explore-metric-y"></select>
           </div>
         </div>
+        <div class="scout-filter-row" id="explore-quad-row" style="display:none">
+          <div class="filter-group" style="flex:1">
+            <label>Quadrant plot</label>
+            <select class="filter-select" id="explore-quad">
+              {% for q in quadrants %}
+              <option value="{{ q.id }}">{{ q.title }}</option>
+              {% endfor %}
+            </select>
+            <div class="quad-question" id="explore-quad-question"></div>
+          </div>
+        </div>
         <div class="scout-filter-row">
           <div class="filter-group">
             <label>View</label>
             <select class="filter-select" id="explore-view">
               <option value="list" selected>Ranked list</option>
-              <option value="scatter">Scatter plot (two metrics)</option>
+              <option value="quadrant">Quadrant plots (player types)</option>
+              <option value="scatter">Scatter plot (any two metrics)</option>
             </select>
           </div>
         </div>
@@ -107,6 +119,7 @@
     window.LEAGUES = {{ leagues | tojson }};
     window.SEASONS = {{ seasons | tojson }};
     window.EXPLORE_CATEGORIES = {{ categories | tojson }};
+    window.EXPLORE_QUADRANTS = {{ quadrants | tojson }};
     document.getElementById("nav-explore").classList.add("active");
   </script>
   <script src="/static/js/charts.js"></script>

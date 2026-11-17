@@ -692,6 +692,20 @@ def metric_scatter(points: list, x_label: str, y_label: str, x_unit: str = "", y
                         p["group"], p["minutes"]] for p in points]}
 
 
+def quadrant_plot(result: dict, info: dict, sub: str = None) -> dict:
+    """A quadrant plot (core/advanced/quadrants.py): the xy renderer on two 0-100 indexes, with the four
+    corner names and the metrics behind each axis so a dot's tooltip can show why it landed there.
+    info maps a column to its {label, unit}."""
+    preset, pts = result["preset"], result["points"]
+    part = lambda col: [info.get(col, {}).get("label", col), info.get(col, {}).get("unit", "")]
+    return {"type": "xy", "sub": sub, "xlabel": preset["x"]["label"] + " index", "ylabel": preset["y"]["label"] + " index",
+            "xunit": "", "yunit": "", "xinvert": False, "yinvert": False, "colors": GROUP_COLORS,
+            "quad": preset["quad"], "xparts": [part(c) for c in preset["x"]["cols"]],
+            "yparts": [part(c) for c in preset["y"]["cols"]],
+            "points": [[_r(p["x"], 1), _r(p["y"], 1), p["name"], p["team"], p["id"], p["league"], p["season"],
+                        p["group"], p["minutes"], [_r(v, 2) for v in p["raw"]]] for p in pts]}
+
+
 def compare_composite(players: list) -> dict:
     items = []
     for i, p in enumerate(players):

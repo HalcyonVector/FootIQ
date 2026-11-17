@@ -328,7 +328,9 @@ def coverage_page():
 @app.route("/explore")
 def explore_page():
     from core.advanced.explore import explorable_metrics
-    return render_template("explore.html", leagues=LEAGUES, seasons=SEASONS, categories=explorable_metrics())
+    from core.advanced.quadrants import public_presets
+    return render_template("explore.html", leagues=LEAGUES, seasons=SEASONS, categories=explorable_metrics(),
+                           quadrants=public_presets())
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1117,6 +1119,36 @@ def api_explore_scatter():
                                  x_col in INVERTED_METRICS, y_col in INVERTED_METRICS,
                                  sub=f"{len(pts)} players. Dashed lines are the medians. Click a dot for the profile.")
         return jsonify({"spec": spec, "n": len(pts)})
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/explore-quadrant", methods=["POST"])
+def api_explore_quadrant():
+    """One of the curated quadrant plots (core/advanced/quadrants.py)."""
+    try:
+        body = request.get_json(force=True)
+        min_minutes = body.get("min_minutes")
+        min_minutes = int(min_minutes) if min_minutes not in (None, "", "none") else None
+
+        from core.advanced.store import get_advanced_df
+        from core.advanced.explore import explorable_metrics
+        from core.advanced import quadrants
+        from visuals import specs as sp
+
+        if body.get("preset") not in quadrants.BY_ID:
+            return jsonify({"error": "Unknown plot"}), 400
+        df = get_advanced_df()
+        if df.empty:
+            return jsonify({"error": "No data"}), 404
+        info = {**quadrants.EXTRA_LABELS, **{m["col"]: m for c in explorable_metrics() for m in c["metrics"]}}
+        res = quadrants.quadrant_points(df, body["preset"], body.get("season", "2024-25"), body.get("league", "all"),
+                                        body.get("position_group", "all"), min_minutes)
+        n = len(res["points"])
+        spec = sp.quadrant_plot(res, info, sub=f"{n} players. Each axis is a 0-100 index: the average percentile of the "
+                                               f"metrics behind it. Hover a dot to see them; click for the profile.")
+        return jsonify({"spec": spec, "n": n})
     except Exception as e:
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
