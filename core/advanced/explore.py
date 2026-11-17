@@ -41,8 +41,7 @@ def scatter_points(df: pd.DataFrame, x_col: str, y_col: str, season: str, league
     """Every player-season with both metrics present, under the same filters as rank_players.
     Capped at `limit`, keeping the players with the most minutes, so the payload stays small."""
     subset = df[df["season"] == season]
-    if league and league != "all":
-        subset = subset[subset["league"] == league]
+    subset = subset[config.league_mask(subset, league)]
     if position_group and position_group != "all":
         subset = subset[subset["_pos_group"] == position_group]
     floor = min_minutes if min_minutes is not None else config.minutes_floor(subset)
@@ -75,8 +74,7 @@ def rank_players(
     discovery tool should allow even though every OTHER cohort/percentile
     view in the app stays pinned to the stricter default floor."""
     subset = df[df["season"] == season]
-    if league and league != "all":
-        subset = subset[subset["league"] == league]
+    subset = subset[config.league_mask(subset, league)]
     if position_group and position_group != "all":
         subset = subset[subset["_pos_group"] == position_group]
     minutes_floor = min_minutes if min_minutes is not None else config.minutes_floor(subset)

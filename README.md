@@ -40,7 +40,7 @@ What the data showed, and the problems found while building it:
 - Search across 15 competitions; every metric is a percentile against same-position players in the same competition and season.
 - 12 Advanced Metrics tabs: Passing, Shooting and Footedness, Carrying, Half-Spaces, Tempo Control, Decision Making, Final Third, Aerial Duels, Defending, Hold-Up Play, Post-Recovery and Link-Up. Goalkeepers get a Goalkeeping tab instead.
 - A "Profile at a glance" radar of the player's average percentile in every category, above the tabs.
-- A switch for who the percentiles are ranked against: every competition that season (the default) or only the player's own competition. The bars, radar, strengths, composite rating and per-tab charts all follow it.
+- A switch for who the percentiles are ranked against: every competition that season (the default), the Top 5 leagues together (Premier League, La Liga, Serie A, Bundesliga, Ligue 1; offered to players in those leagues), or only the player's own competition. The bars, radar, strengths, composite rating and per-tab charts all follow it.
 - A header button to Compare, which becomes "Compare with" the closest statistical match once the similar players load.
 - A season switcher for every competition and season a player appears in, and shareable URLs (`/player?player_id=&league=&season=`).
 - A position-weighted Composite Rating that combines every category with a power mean, so a player's strongest categories are rewarded rather than diluted by ones that were never their job.
@@ -75,7 +75,7 @@ What the data showed, and the problems found while building it:
 
 ### Explore
 
-- Rank every player-season on one chosen metric, filtered by competition, season, position and minutes played.
+- Rank every player-season on one chosen metric, filtered by competition (or the Top 5 leagues together), season, position and minutes played. The same filter drives the scatter and quadrant plots.
 - Or open one of 71 curated quadrant plots that turn a football question into four player types. They are grouped by theme: attacking (chances against goals, shot volume against quality, shot location, final-third output, half-space threat), creation and passing (progressing by passing against carrying, ball security against ambition, quick release, crossing, through balls), carrying and dribbling, midfield and tempo (ball winning against carrying, destroyers against creators, what happens after a recovery, press resistance, tempo), defending, aerial play, hold-up play, goalkeepers, and role profiles for full-backs, wingers, centre-backs and strikers. Each axis is a 0 to 100 index, the average percentile of a few related per-90 metrics (flipped where lower is better, such as fouls or goals conceded), so one noisy number cannot decide where a player lands; the quadrant lines sit at the median and the furthest players in each corner are named. A search box lights up any player on the chart, dot size shows minutes played so thin samples are easy to spot, and a note under each plot lists exactly which metrics feed each axis.
 - Or switch to a scatter plot of any two metrics against each other for the whole cohort: dashed medians, the standouts named, lower-is-better metrics flipped so up and right always mean better, and every dot links to that player's profile.
 

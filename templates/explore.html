@@ -61,6 +61,7 @@
             <label>League</label>
             <select class="filter-select" id="explore-league">
               <option value="all" selected>All leagues</option>
+              <option value="top5">Top 5 leagues only</option>
               {% for lg in leagues %}
               <option value="{{ lg.id }}">{{ lg.name }}</option>
               {% endfor %}

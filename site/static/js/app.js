@@ -455,7 +455,8 @@ function renderStatCard(cat, containerId) {
 // Advanced (Opta/WhoScored event-derived) stats
 // ─────────────────────────────────────────────────────────────────────────────
 // Who the percentiles are ranked against: every competition that season ("all", the default) or
-// only the player's own competition ("league"). Changing it refetches the stats and charts.
+// only the player's own competition ("league"), or the five biggest leagues together ("top5", offered to players
+// who play in one of them). Changing it refetches the stats and charts.
 let statScope = "all";
 
 function syncScopeControl() {
@@ -464,6 +465,11 @@ function syncScopeControl() {
   const lg = (window.LEAGUES || []).find(l => l.id === primaryLeague);
   const btn = document.getElementById("adv-scope-league");
   if (btn) btn.textContent = `${(lg && lg.name) || primaryLeague} only`;
+  // A player outside those five leagues is not in the Top 5 pool, so there is nothing to rank them against: hide it
+  const inTop5 = (window.TOP5_LEAGUES || []).includes(primaryLeague);
+  const top5Btn = document.getElementById("adv-scope-top5");
+  if (top5Btn) top5Btn.style.display = inTop5 ? "" : "none";
+  if (statScope === "top5" && !inTop5) statScope = "all";
   box.querySelectorAll(".adv-scope-btn").forEach(b => b.classList.toggle("active", b.dataset.scope === statScope));
   box.style.display = "flex";
 }

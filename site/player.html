@@ -453,6 +453,7 @@
         <div class="adv-scope" id="adv-scope" role="group" aria-label="Rank percentiles against" style="display:none">
           <span class="adv-scope-lbl">Percentiles against</span>
           <button type="button" class="adv-scope-btn active" data-scope="all">Every league</button>
+          <button type="button" class="adv-scope-btn" data-scope="top5" id="adv-scope-top5" title="Premier League, La Liga, Serie A, Bundesliga and Ligue 1 together">Top 5 leagues only</button>
           <button type="button" class="adv-scope-btn" data-scope="league" id="adv-scope-league">This league</button>
         </div>
         <div class="adv-profile" id="adv-profile" style="display:none">
@@ -676,7 +677,8 @@
     window.LEAGUES = [{"country": "England", "id": "Premier League", "logo": "https://media.api-sports.io/football/leagues/39.png", "name": "Premier League"}, {"country": "Spain", "id": "La Liga", "logo": "https://media.api-sports.io/football/leagues/140.png", "name": "La Liga"}, {"country": "Italy", "id": "Serie A", "logo": "https://media.api-sports.io/football/leagues/135.png", "name": "Serie A"}, {"country": "Germany", "id": "Bundesliga", "logo": "https://media.api-sports.io/football/leagues/78.png", "name": "Bundesliga"}, {"country": "France", "id": "Ligue 1", "logo": "https://static.wikia.nocookie.net/logopedia/images/3/31/Ligue_1_2024.png", "name": "Ligue 1"}, {"country": "England", "id": "Championship", "logo": "https://media.api-sports.io/football/leagues/40.png", "name": "Championship (England)"}, {"country": "Netherlands", "id": "Eredivisie", "logo": "https://media.api-sports.io/football/leagues/88.png", "name": "Eredivisie"}, {"country": "Portugal", "id": "Primeira Liga", "logo": "https://media.api-sports.io/football/leagues/94.png", "name": "Primeira Liga"}, {"country": "Belgium", "id": "Belgian Pro League", "logo": "https://media.api-sports.io/football/leagues/144.png", "name": "Belgian Pro League"}, {"country": "Turkey", "id": "S\u00fcper Lig", "logo": "https://media.api-sports.io/football/leagues/203.png", "name": "S\u00fcper Lig"}, {"country": "Scotland", "id": "Scottish Premiership", "logo": "https://media.api-sports.io/football/leagues/179.png", "name": "Scottish Premiership"}, {"country": "Europe", "id": "Champions League", "logo": "https://media.api-sports.io/football/leagues/2.png", "name": "Champions League"}, {"country": "Europe", "id": "Europa League", "logo": "https://media.api-sports.io/football/leagues/3.png", "name": "Europa League"}, {"country": "International", "id": "World Cup", "logo": "https://media.api-sports.io/football/leagues/1.png", "name": "World Cup"}, {"country": "International", "id": "European Championship", "logo": "https://media.api-sports.io/football/leagues/4.png", "name": "European Championship"}];
     window.SEASONS = ["2026-27", "2025-26", "2024-25", "2023-24", "2022", "2024"];
     window.DEFAULT_SEASON = "2025-26";
-    window.IN_PROGRESS = ["2026-27"];    document.getElementById("nav-player").classList.add("active");
+    window.IN_PROGRESS = ["2026-27"];
+    window.TOP5_LEAGUES = ["Premier League", "La Liga", "Serie A", "Bundesliga", "Ligue 1"];    document.getElementById("nav-player").classList.add("active");
   </script>
   <script src="/static/js/charts.js"></script>
   <script src="/static/js/overview.js"></script>

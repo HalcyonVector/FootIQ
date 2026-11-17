@@ -277,7 +277,7 @@ SEASONS = advanced_config.all_domestic_seasons() + ["2022", "2024"]
 # Scottish Premiership) surfacing as someone's "most similar" player purely
 # because the position cohort there is thinner, not because the profile
 # actually matches better.
-TOP5_LEAGUES = ["Premier League", "La Liga", "Serie A", "Bundesliga", "Ligue 1"]
+TOP5_LEAGUES = advanced_config.TOP5_LEAGUES
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -289,7 +289,7 @@ def _season_pickers() -> dict:
     season) and which listed seasons are still in progress."""
     from core.advanced import extras
     default, in_progress = extras.season_status(SEASONS)
-    return {"seasons": SEASONS, "default_season": default, "in_progress": in_progress}
+    return {"seasons": SEASONS, "default_season": default, "in_progress": in_progress, "top5": TOP5_LEAGUES}
 
 
 @app.route("/")
@@ -485,19 +485,34 @@ EXCLUDED_COMPETITIONS = [{"name": "Europa Conference League",
 _SCOPED: dict = {}
 
 
+def _parse_scope(body, league) -> str:
+    """The percentile scope a request asks for: "all", "league" or "top5". "top5" only applies to a player
+    who plays in one of the five leagues (the cohort has to contain the player's own row), otherwise it
+    is treated as "all"."""
+    scope = body.get("scope")
+    if scope == "league":
+        return "league"
+    if scope == "top5" and league in TOP5_LEAGUES:
+        return "top5"
+    return "all"
+
+
 def _scoped_df(df, league, scope):
     """The table percentiles are ranked against. 'all' (default) is every competition that season;
     'league' is just the player's own competition, so a Premier League midfielder is ranked
-    against Premier League midfielders only. League subsets are kept (a few at most) so the same
-    object comes back for repeated requests."""
-    if scope != "league" or not league or league == "all":
+    against Premier League midfielders only; 'top5' is the five biggest leagues together. Subsets
+    are kept (a few at most) so the same object comes back for repeated requests."""
+    if scope == "top5":
+        key = (id(df), "top5")
+    elif scope == "league" and league and league != "all":
+        key = (id(df), league)
+    else:
         return df
-    key = (id(df), league)
     sub = _SCOPED.get(key)
     if sub is None:
         if len(_SCOPED) >= 5:
             _SCOPED.pop(next(iter(_SCOPED)))
-        sub = _SCOPED[key] = df[df["league"] == league]
+        sub = _SCOPED[key] = df[df["league"].isin(TOP5_LEAGUES)] if scope == "top5" else df[df["league"] == league]
     return sub
 
 
@@ -508,7 +523,7 @@ def api_advanced_stats():
         player_id = body["player_id"]
         league    = body.get("league", "Premier League")
         season    = body.get("season", "2024-25")
-        scope     = "league" if body.get("scope") == "league" else "all"
+        scope     = _parse_scope(body, league)
 
         raw = get_player_stats(player_id, league, season)
         if not raw:
@@ -549,6 +564,7 @@ def api_advanced_stats():
                         "profile": _sp.profile_radar(
                             categories, raw.get("name") or "",
                             f"{league} players in the same position group" if scope == "league"
+                            else "Top 5 league players in the same position group" if scope == "top5"
                             else "players in the same position group, every league")})
     except Exception as e:
         traceback.print_exc()
@@ -770,7 +786,7 @@ def api_category_chart():
         season      = body.get("season", "2024-25")
         category    = body["category"]
         filt        = body.get("filter", "")
-        scope       = "league" if body.get("scope") == "league" else "all"
+        scope       = _parse_scope(body, league)
 
         cache_key = ("category_chart", player_id, league, season, category, filt, scope)
         if cache_key in _chart_cache:

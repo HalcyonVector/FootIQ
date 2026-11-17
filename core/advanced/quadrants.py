@@ -409,8 +409,7 @@ def quadrant_points(df: pd.DataFrame, preset_id: str, season: str, league: str |
     preset = BY_ID[preset_id]
     cols = preset["x"]["cols"] + preset["y"]["cols"]
     subset = df[df["season"] == season]
-    if league and league != "all":
-        subset = subset[subset["league"] == league]
+    subset = subset[config.league_mask(subset, league)]
     subset = _select(subset, preset["positions"] if not position_group or position_group == "all" else position_group)
     floor = min_minutes if min_minutes is not None else config.minutes_floor(subset)
     subset = subset[subset["total_minutes"] >= floor]

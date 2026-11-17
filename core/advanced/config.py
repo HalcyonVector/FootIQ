@@ -112,6 +112,21 @@ ADV_MIN_MINUTES = 450
 PARTIAL_SEASON_MIN_MINUTES = 270
 
 
+# The five biggest domestic leagues: the "Top 5 leagues only" option on Explore, the quadrant plots and the
+# percentile scope (Scout has its own copy of the same idea). Domestic competitions only, no European cups.
+TOP5_LEAGUES = ["Premier League", "La Liga", "Serie A", "Bundesliga", "Ligue 1"]
+
+
+def league_mask(df, league):
+    """Boolean mask for a league filter: a competition name, "top5" (the five leagues above) or
+    "all"/None/"" (everyone)."""
+    if not league or league == "all":
+        return df["league"].notna()
+    if league == "top5":
+        return df["league"].isin(TOP5_LEAGUES)
+    return df["league"] == league
+
+
 def minutes_floor_for(progress) -> int:
     """minutes_floor() for a single season-progress value (None = finished season)."""
     p = 1.0 if progress is None else max(0.0, min(1.0, float(progress)))

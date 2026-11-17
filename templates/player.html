@@ -287,6 +287,7 @@
         <div class="adv-scope" id="adv-scope" role="group" aria-label="Rank percentiles against" style="display:none">
           <span class="adv-scope-lbl">Percentiles against</span>
           <button type="button" class="adv-scope-btn active" data-scope="all">Every league</button>
+          <button type="button" class="adv-scope-btn" data-scope="top5" id="adv-scope-top5" title="Premier League, La Liga, Serie A, Bundesliga and Ligue 1 together">Top 5 leagues only</button>
           <button type="button" class="adv-scope-btn" data-scope="league" id="adv-scope-league">This league</button>
         </div>
         <div class="adv-profile" id="adv-profile" style="display:none">
@@ -321,7 +322,8 @@
     window.LEAGUES = {{ leagues | tojson }};
     window.SEASONS = {{ seasons | tojson }};
     window.DEFAULT_SEASON = {{ default_season | tojson }};
-    window.IN_PROGRESS = {{ in_progress | tojson }};    document.getElementById("nav-player").classList.add("active");
+    window.IN_PROGRESS = {{ in_progress | tojson }};
+    window.TOP5_LEAGUES = {{ top5 | tojson }};    document.getElementById("nav-player").classList.add("active");
   </script>
   <script src="/static/js/charts.js"></script>
   <script src="/static/js/overview.js"></script>
