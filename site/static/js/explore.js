@@ -96,10 +96,18 @@ let _plotToken = 0;   // a slow earlier request must not draw over a newer choic
 function describeQuadrant() {
   const q = QUADRANTS.find(p => p.id === document.getElementById("explore-quad").value);
   const el = document.getElementById("explore-quad-question");
-  const who = { attacking: "forwards, wingers and attacking midfielders", attacker: "forwards", midfielder: "midfielders and wingers",
-                defender: "defenders", goalkeeper: "goalkeepers" };
-  if (q && el) el.textContent = `${q.question} Shown for ${who[q.positions] || q.positions} unless you pick a position below.`;
+  if (q && el) el.textContent = `${q.question} Shown for ${q.who} unless you pick a position below.`;
   return q;
+}
+
+// The plots are grouped by theme, in the order they are defined.
+function populateQuadrantSelect() {
+  const sel = document.getElementById("explore-quad");
+  const groups = [...new Set(QUADRANTS.map(q => q.group))];
+  sel.innerHTML = groups.map(g => `<optgroup label="${g}">` +
+    QUADRANTS.filter(q => q.group === g).map(q => `<option value="${q.id}">${q.title}</option>`).join("") + `</optgroup>`).join("");
+  const label = sel.closest(".filter-group").querySelector("label");
+  if (label) label.textContent = `Quadrant plot (${QUADRANTS.length})`;
 }
 
 async function runQuadrant() {
@@ -258,6 +266,8 @@ function renderResults(results) {
 // ─────────────────────────────────────────────────────────────────────────────
 populateCategorySelect();
 populateYSelects();
+populateQuadrantSelect();
+if (typeof upgradeSelects === "function") upgradeSelects();
 document.getElementById("explore-category").addEventListener("change", () => { populateMetricSelect(); });
 document.getElementById("explore-category-y").addEventListener("change", populateYMetricSelect);
 document.getElementById("explore-view").addEventListener("change", applyView);

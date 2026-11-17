@@ -44,7 +44,17 @@ function _buildCustomSelect(selectEl) {
     const selOpt = selectEl.options[selectEl.selectedIndex];
     labelSpan.textContent = selOpt ? selOpt.text : "";
     menu.innerHTML = "";
+    let lastGroup = null;
     [...selectEl.options].forEach((opt, i) => {
+      // a native <optgroup> becomes a small heading above its first option (headings are not items)
+      const group = opt.parentElement && opt.parentElement.tagName === "OPTGROUP" ? opt.parentElement.label : null;
+      if (group && group !== lastGroup) {
+        const head = document.createElement("div");
+        head.className = "custom-select-group";
+        head.textContent = group;
+        menu.appendChild(head);
+      }
+      lastGroup = group;
       const item = document.createElement("div");
       item.className = "custom-select-item" + (i === selectEl.selectedIndex ? " active" : "");
       item.textContent = opt.text;
@@ -72,7 +82,7 @@ function _buildCustomSelect(selectEl) {
   // arrow keys, Enter, Escape, Home/End for free — a plain clickable div
   // doesn't, so that's rebuilt here rather than just left worse than before.
   btn.addEventListener("keydown", e => {
-    const items = [...menu.children];
+    const items = _menuItems(menu);
     if (!items.length) return;
     const isOpen = wrap.classList.contains("open");
 
@@ -126,9 +136,12 @@ function _positionMenu(wrap, btn) {
   wrap.classList.toggle("drop-up", dropUp);
 }
 
+const _menuItems = menu => [...menu.querySelectorAll(".custom-select-item")];
+
 function _kbSetActive(menu, idx) {
-  [...menu.children].forEach((item, i) => item.classList.toggle("kb-active", i === idx));
-  const target = menu.children[idx];
+  const items = _menuItems(menu);
+  items.forEach((item, i) => item.classList.toggle("kb-active", i === idx));
+  const target = items[idx];
   if (target) target.scrollIntoView({ block: "nearest" });
 }
 

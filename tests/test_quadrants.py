@@ -16,14 +16,14 @@ def _df():
     for i in range(6):
         rows.append({"whoscored_player_id": i, "player_name": f"P{i}", "team_name": "T", "league": "La Liga",
                      "season": "2025-26", "_pos_group": "midfielder" if i < 5 else "goalkeeper",
-                     "total_minutes": 2000, "ax": float(i), "ay": float(5 - i), "az": float(i)})
+                     "position": "MC", "total_minutes": 2000, "ax": float(i), "ay": float(5 - i), "az": float(i)})
     return pd.DataFrame(rows)
 
 
 @pytest.fixture
 def tiny(monkeypatch):
     preset = {"id": "t", "title": "t", "positions": "midfielder", "question": "q",
-              "x": {"label": "X", "cols": ["ax", "az"]}, "y": {"label": "Y", "cols": ["ay"]},
+              "x": {"label": "X", "cols": ["ax", "az"], "lower": []}, "y": {"label": "Y", "cols": ["ay"], "lower": []},
               "quad": {"tr": "a", "tl": "b", "br": "c", "bl": "d"}}
     monkeypatch.setitem(quadrants.BY_ID, "t", preset)
     return preset
@@ -53,7 +53,9 @@ def test_presets_are_well_formed():
     assert len({p["id"] for p in quadrants.PRESETS}) == len(quadrants.PRESETS)
     for p in quadrants.PRESETS:
         assert set(p["quad"]) == {"tr", "tl", "br", "bl"}
-        assert p["positions"] in {"attacker", "attacking", "midfielder", "defender", "goalkeeper"}
+        assert p["positions"] in {"attacker", "midfielder", "defender", "goalkeeper", "outfield"} | set(quadrants.ROLES)
+        assert p["group"] in quadrants.GROUPS and len(p["x"]["cols"]) and len(p["y"]["cols"])
+    assert len(quadrants.PRESETS) >= 50
 
 
 def test_every_preset_uses_labelled_columns():
@@ -72,3 +74,23 @@ def test_every_preset_has_players_in_the_real_data():
     for p in quadrants.PRESETS:
         res = quadrants.quadrant_points(df, p["id"], season, "all", "all", 450)
         assert len(res["points"]) >= 30, (p["id"], len(res["points"]))
+
+
+def test_lower_is_better_axis_is_flipped():
+    df = _df()
+    preset = {"id": "t2", "title": "t", "positions": "midfielder", "question": "q", "group": "g",
+              "x": {"label": "X", "cols": ["ax"], "lower": ["ax"]}, "y": {"label": "Y", "cols": ["ay"], "lower": []},
+              "quad": {"tr": "a", "tl": "b", "br": "c", "bl": "d"}}
+    quadrants.BY_ID["t2"] = preset
+    try:
+        pts = {p["name"]: p for p in quadrants.quadrant_points(df, "t2", "2025-26", "all", "all", 450)["points"]}
+    finally:
+        del quadrants.BY_ID["t2"]
+    assert pts["P0"]["x"] > pts["P4"]["x"]          # the smallest raw value is the best when lower is better
+
+
+def test_roles_pick_players_by_position_code():
+    df = _df()
+    df.loc[0, "position"] = "DL"
+    assert len(quadrants._select(df, "fullback")) == 1
+    assert len(quadrants._select(df, "outfield")) == 5      # the goalkeeper is left out
