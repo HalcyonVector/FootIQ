@@ -14,12 +14,18 @@ Two layers:
     Done before the window is first shown, the taskbar button is never created, so there is no flash.
   * A fast polling pass as a safety net for anything the hook missed.
 
-Which windows: Chrome windows that belong to the scraper (a descendant of --parent-pid), or, if that
-cannot be told, ones sitting far off-screen. A Chrome window you are using is never touched.
+Which windows: only chrome.exe windows whose process descends from --parent-pid (the scraper's own
+Chrome). Nothing else is ever touched.
 
-    py -3 scraping/taskbar_hider.py                      # until stopped
+An earlier version also caught any Chrome-style window parked far off-screen. Electron apps (the Claude
+and ChatGPT desktop apps, Discord, VS Code...) use the same window class, and Windows parks a
+minimised window at (-32000, -32000), so a minimised app could lose its taskbar button until it was
+restarted. That rule is gone, and the helper refuses to run without --parent-pid. (The weekly update
+now runs on a separate hidden desktop via run_hidden.py, where this helper's hook cannot see your
+desktop's windows at all.)
+
     py -3 scraping/taskbar_hider.py --parent-pid 1234    # exits when that process ends (auto_update does this)
-    py -3 scraping/taskbar_hider.py --verbose            # print what it does
+    py -3 scraping/taskbar_hider.py --parent-pid 1234 --verbose
 """
 import argparse
 import sys
@@ -44,7 +50,6 @@ GWL_EXSTYLE = -20
 WS_EX_TOOLWINDOW = 0x00000080
 WS_EX_APPWINDOW = 0x00040000
 SW_HIDE, SW_SHOWNA = 0, 8
-OFFSCREEN = -10000          # the scraper's windows sit at about -32000; anything past this is "off-screen"
 PROCESS_QUERY_LIMITED = 0x1000
 EVENT_OBJECT_CREATE, EVENT_OBJECT_SHOW = 0x8000, 0x8002
 OBJID_WINDOW = 0
@@ -68,21 +73,22 @@ def _log(msg: str) -> None:
 
 
 def _is_scraper_pid(pid: int) -> bool:
-    """True if `pid` is the parent or one of its descendants (the scraper's Chrome tree)."""
+    """True if `pid` is a chrome.exe that descends from the parent (the scraper's Chrome tree)."""
     if not PARENT or psutil is None:
         return False
     cached = _scraper_pids.get(pid)
     if cached and (cached[0] or time.time() - cached[1] < 2.0):
         return cached[0]
     try:
-        ok = pid == PARENT or any(p.pid == PARENT for p in psutil.Process(pid).parents())
+        proc = psutil.Process(pid)
+        ok = proc.name().lower() == "chrome.exe" and any(p.pid == PARENT for p in proc.parents())
     except Exception:
         ok = False
     _scraper_pids[pid] = (ok, time.time())
     return ok
 
 
-def _wanted(hwnd, check_position: bool) -> bool:
+def _wanted(hwnd, check_position: bool = False) -> bool:
     cls = ctypes.create_unicode_buffer(64)
     user32.GetClassNameW(hwnd, cls, 64)
     if not cls.value.startswith("Chrome_WidgetWin"):
@@ -91,13 +97,7 @@ def _wanted(hwnd, check_position: bool) -> bool:
         return False
     pid = wt.DWORD()
     user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
-    if _is_scraper_pid(pid.value):
-        return True
-    if not check_position:
-        return False
-    rect = wt.RECT()
-    user32.GetWindowRect(hwnd, ctypes.byref(rect))
-    return rect.left <= OFFSCREEN or rect.top <= OFFSCREEN
+    return _is_scraper_pid(pid.value)                   # the scraper's Chrome only; window position is never used
 
 
 def _style_it(hwnd, was_visible: bool) -> None:
@@ -161,10 +161,12 @@ def _watch_loop(stop: threading.Event) -> None:
 def main() -> None:
     global VERBOSE, PARENT
     ap = argparse.ArgumentParser()
-    ap.add_argument("--parent-pid", type=int, default=0, help="the scraper's process; exit when it ends")
+    ap.add_argument("--parent-pid", type=int, default=0, help="the scraper's process (required); exit when it ends")
     ap.add_argument("--verbose", action="store_true")
     args = ap.parse_args()
     VERBOSE, PARENT = args.verbose, args.parent_pid
+    if not PARENT or psutil is None:
+        sys.exit("taskbar_hider needs --parent-pid (and psutil) so it only ever touches the scraper's own Chrome")
 
     stop = threading.Event()
     threading.Thread(target=_watch_loop, args=(stop,), daemon=True).start()
