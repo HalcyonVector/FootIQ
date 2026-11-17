@@ -30,8 +30,29 @@ def gate(n: int) -> int:
     return max(min(n, _FLOOR), math.ceil(n * _SCALE))
 
 
-def season_progress(league: str, n_matches: int, n_teams: int) -> float:
-    """Share of a double round-robin season played so far (1.0 = finished or not applicable)."""
+# Matches in a full edition of a European cup (36-team league phase of 144, then the play-offs, round of 16,
+# quarter-finals, semi-finals and final), from 2024-25 on. Earlier editions had a different format and are
+# all complete, and one-off tournaments (World Cup, Euros) are scraped whole, so those count as finished.
+CUP_EDITION_MATCHES = {"Champions League": 189, "Europa League": 189}
+CUP_NEW_FORMAT_FROM = 2024
+
+
+def season_progress(league: str, n_matches: int, n_teams: int, season: str = "") -> float:
+    """Share of a season played so far (1.0 = finished or not applicable).
+
+    A league is a double round-robin, so the share follows from games played per team. A European cup
+    is not, so it is matches parsed against a full edition's 189 (the season may be half over, which the
+    old "cups are always 100%" rule hid: the coverage page called it Finished and nobody cleared the
+    minutes floor)."""
+    if league in CUP_EDITION_MATCHES:
+        try:
+            start = int(str(season)[:4])
+        except ValueError:
+            return 1.0
+        if start < CUP_NEW_FORMAT_FROM or n_matches <= 0:
+            return 1.0
+        p = n_matches / CUP_EDITION_MATCHES[league]
+        return 1.0 if p >= FINISHED_AT else round(p, 4)
     if league in NO_ROUND_ROBIN or n_teams < 8 or n_matches <= 0:
         return 1.0
     per_team = 2 * n_matches / n_teams

@@ -139,7 +139,7 @@ def build_player_season_table(league: str, season: str, collect_linkup: bool = T
     # How much of this season has been played decides how strict the minimum-sample
     # gates are (see core/advanced/gates.py); a finished season keeps the full gates.
     n_teams = len({m["team_name"] for m in meta.values() if m["team_name"]})
-    progress = gates.season_progress(league, n_matches, n_teams)
+    progress = gates.season_progress(league, n_matches, n_teams, season)
     gates.set_scale(progress)
     try:
         finalized_by_category = [finalize_fn(totals) for finalize_fn in ALL_FINALIZERS]

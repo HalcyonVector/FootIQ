@@ -23,7 +23,11 @@ def test_season_progress():
     assert gates.season_progress("Premier League", 380, 20) == 1.0           # finished
     assert gates.season_progress("Premier League", 95, 20) == 0.25           # 9.5 games each of 38
     assert gates.season_progress("Premier League", 360, 20) == 1.0           # >= 90% counts as finished
-    assert gates.season_progress("Champions League", 40, 36) == 1.0          # not a round-robin
+    assert gates.season_progress("World Cup", 20, 32, "2022") == 1.0         # one-off tournaments are scraped whole
+    assert gates.season_progress("Champions League", 189, 36, "2025-26") == 1.0
+    assert gates.season_progress("Champions League", 72, 36, "2026-27") == round(72 / 189, 4)   # half-way through the league phase
+    assert gates.season_progress("Europa League", 175, 36, "2026-27") == 1.0                    # >= 90% of an edition
+    assert gates.season_progress("Champions League", 125, 32, "2023-24") == 1.0                 # older format, complete
     assert gates.season_progress("Premier League", 0, 20) == 1.0
 
 
