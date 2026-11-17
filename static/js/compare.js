@@ -17,8 +17,8 @@ const CATEGORY_LABELS = {
 const SLOT_COLORS = ["#3b82f6", "#f43f5e", "#10b981", "#f59e0b"];
 
 let slots = [
-  { league: "Premier League", season: (window.SEASONS && window.SEASONS[0]) || "2024-25", player: null },
-  { league: "Premier League", season: (window.SEASONS && window.SEASONS[0]) || "2024-25", player: null },
+  { league: "Premier League", season: window.DEFAULT_SEASON || (window.SEASONS && window.SEASONS[0]) || "2024-25", player: null },
+  { league: "Premier League", season: window.DEFAULT_SEASON || (window.SEASONS && window.SEASONS[0]) || "2024-25", player: null },
 ];
 let lastResult = null;
 
@@ -104,7 +104,7 @@ function renderSlots() {
             ${leagues.map(lg => `<option value="${lg.id}" ${lg.id === slot.league ? "selected" : ""}>${lg.name}</option>`).join("")}
           </select>
           <select class="slot-season-sel" data-season-idx="${idx}">
-            ${seasons.map(s => `<option value="${s}" ${s === slot.season ? "selected" : ""}>${s}</option>`).join("")}
+            ${seasons.map(s => `<option value="${s}" ${s === slot.season ? "selected" : ""}>${s}${(window.IN_PROGRESS || []).includes(s) ? " (in progress)" : ""}</option>`).join("")}
           </select>
         </div>
         <div class="slot-search-wrap">
@@ -192,7 +192,7 @@ function updateAddButton() {
 document.getElementById("add-slot-btn").addEventListener("click", () => {
   if (slots.length >= 4) return;
   const seasons = window.SEASONS || [];
-  slots.push({ league: "Premier League", season: seasons[0] || "2024-25", player: null });
+  slots.push({ league: "Premier League", season: window.DEFAULT_SEASON || seasons[0] || "2024-25", player: null });
   renderSlots();
   updateGoButton();
   updateAddButton();

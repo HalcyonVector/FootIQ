@@ -39,6 +39,8 @@
   <script>
     window.LEAGUES = {{ leagues | tojson }};
     window.SEASONS = {{ seasons | tojson }};
+    window.DEFAULT_SEASON = {{ default_season | tojson }};
+    window.IN_PROGRESS = {{ in_progress | tojson }};
     document.getElementById("nav-league").classList.add("active");
   </script>
   <script src="/static/js/overview.js"></script>

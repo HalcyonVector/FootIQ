@@ -5,7 +5,7 @@
  */
 
 let scoutLeague = "Premier League";
-let scoutSeason = (window.SEASONS && window.SEASONS[0]) || "2024-25";
+let scoutSeason = window.DEFAULT_SEASON || (window.SEASONS && window.SEASONS[0]) || "2024-25";
 let scoutTarget = null;
 
 function debounce(fn, ms) {
@@ -173,13 +173,13 @@ async function runScoutSearch() {
     });
     const data = await res.json();
     if (!res.ok || data.error) {
-      listEl.innerHTML = `<div class="glass-card" style="color:var(--muted);padding:24px;text-align:center">${data.error || "Could not find matches."}</div>`;
+      FootIQUI.error(listEl, data.error || "Could not find matches.", runScoutSearch);
       return;
     }
     widenedEl.style.display = data.widened ? "block" : "none";
     renderMatches(data.matches || []);
   } catch {
-    listEl.innerHTML = `<div class="glass-card" style="color:var(--muted);padding:24px;text-align:center">Could not load matches.</div>`;
+    FootIQUI.error(listEl, "Could not load matches.", runScoutSearch);
   }
 }
 

@@ -53,7 +53,12 @@ const FootIQSimilar = (() => {
         body: JSON.stringify({ player_id: player.id, league, season, limit: COUNT, max_age: null, league_pool: "all" }),
       });
       data = await res.json();
-    } catch { return; }
+    } catch {
+      if (mine !== token) return;
+      section.style.display = "block";                       // a failed request is not "no matches": offer a retry
+      FootIQUI.error($("sim-row"), "Could not load similar players.", () => fetchAndRender(player, league, season, mine));
+      return;
+    }
     if (mine !== token || !data || !data.matches || !data.matches.length) return;   // stale, or not enough data to compare
     $("sim-row").innerHTML = data.matches.map(m => card(player, league, season, m)).join("");
     section.style.display = "block";

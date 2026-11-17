@@ -29,7 +29,7 @@
             <label>Season</label>
             <select class="filter-select" id="lg-season">
               {% for s in seasons %}
-              <option value="{{ s }}" {% if s == seasons[0] %}selected{% endif %}>{{ s }}</option>
+              <option value="{{ s }}" {% if s == default_season %}selected{% endif %}>{{ s }}{% if s in in_progress %} (in progress){% endif %}</option>
               {% endfor %}
             </select>
           </div>
@@ -55,6 +55,8 @@
   <script>
     window.LEAGUES = {{ leagues | tojson }};
     window.SEASONS = {{ seasons | tojson }};
+    window.DEFAULT_SEASON = {{ default_season | tojson }};
+    window.IN_PROGRESS = {{ in_progress | tojson }};
     document.getElementById("nav-league").classList.add("active");
   </script>
   <script src="/static/js/league.js"></script>

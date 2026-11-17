@@ -284,6 +284,14 @@ TOP5_LEAGUES = ["Premier League", "La Liga", "Serie A", "Bundesliga", "Ligue 1"]
 # Pages
 # ─────────────────────────────────────────────────────────────────────────────
 
+def _season_pickers() -> dict:
+    """Template context for every page with a season picker: the list, the default (newest mostly-played
+    season) and which listed seasons are still in progress."""
+    from core.advanced import extras
+    default, in_progress = extras.season_status(SEASONS)
+    return {"seasons": SEASONS, "default_season": default, "in_progress": in_progress}
+
+
 @app.route("/")
 def index():
     return render_template("hub.html")
@@ -291,27 +299,27 @@ def index():
 
 @app.route("/player")
 def player_page():
-    return render_template("player.html", leagues=LEAGUES, seasons=SEASONS)
+    return render_template("player.html", leagues=LEAGUES, **_season_pickers())
 
 
 @app.route("/compare")
 def compare_page():
-    return render_template("compare.html", leagues=LEAGUES, seasons=SEASONS)
+    return render_template("compare.html", leagues=LEAGUES, **_season_pickers())
 
 
 @app.route("/scout")
 def scout_page():
-    return render_template("scout.html", leagues=LEAGUES, seasons=SEASONS)
+    return render_template("scout.html", leagues=LEAGUES, **_season_pickers())
 
 
 @app.route("/league")
 def league_page():
-    return render_template("league.html", leagues=LEAGUES, seasons=SEASONS)
+    return render_template("league.html", leagues=LEAGUES, **_season_pickers())
 
 
 @app.route("/team")
 def team_page():
-    return render_template("team.html", leagues=LEAGUES, seasons=SEASONS)
+    return render_template("team.html", leagues=LEAGUES, **_season_pickers())
 
 
 @app.route("/favicon.ico")
@@ -329,7 +337,7 @@ def coverage_page():
 def explore_page():
     from core.advanced.explore import explorable_metrics
     from core.advanced.quadrants import public_presets
-    return render_template("explore.html", leagues=LEAGUES, seasons=SEASONS, categories=explorable_metrics(),
+    return render_template("explore.html", leagues=LEAGUES, **_season_pickers(), categories=explorable_metrics(),
                            quadrants=public_presets())
 
 

@@ -55,7 +55,7 @@
             <label>Season</label>
             <select class="filter-select" id="main-season">
               {% for s in seasons %}
-              <option value="{{ s }}" {% if s == seasons[0] %}selected{% endif %}>{{ s }}</option>
+              <option value="{{ s }}" {% if s == default_season %}selected{% endif %}>{{ s }}{% if s in in_progress %} (in progress){% endif %}</option>
               {% endfor %}
             </select>
           </div>
@@ -212,6 +212,8 @@
 
       <div class="profile-header glass-card" id="profile-header"></div>
 
+      <div id="ov-error" class="glass-card" style="display:none;margin-top:18px"></div>
+
       <!-- Season overview: stat line, form, shot map + xG, heatmaps, career
            (filled by static/js/overview.js; stays hidden until data exists) -->
       <section id="overview-section" class="glass-card ov-section" style="display:none">
@@ -317,7 +319,9 @@
   </div>
   <script>
     window.LEAGUES = {{ leagues | tojson }};
-    window.SEASONS = {{ seasons | tojson }};    document.getElementById("nav-player").classList.add("active");
+    window.SEASONS = {{ seasons | tojson }};
+    window.DEFAULT_SEASON = {{ default_season | tojson }};
+    window.IN_PROGRESS = {{ in_progress | tojson }};    document.getElementById("nav-player").classList.add("active");
   </script>
   <script src="/static/js/charts.js"></script>
   <script src="/static/js/overview.js"></script>

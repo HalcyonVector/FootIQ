@@ -10,7 +10,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 let primaryPlayer = null;   // {id, name, team, league, season, position, minutes}
 let primaryLeague = "Premier League";
-let primarySeason = (window.SEASONS && window.SEASONS[0]) || "2024-25";
+let primarySeason = window.DEFAULT_SEASON || (window.SEASONS && window.SEASONS[0]) || "2024-25";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DOM refs
@@ -19,6 +19,7 @@ const toast           = document.getElementById("toast");
 const profileSection  = document.getElementById("profile-section");
 const chartsLoading   = document.getElementById("charts-loading");
 const advancedSection = document.getElementById("advanced-section");
+const CHARTS_LOADING_HTML = chartsLoading ? chartsLoading.innerHTML : "";
 const advTabs         = document.getElementById("adv-tabs");
 const advPanels       = document.getElementById("adv-panels");
 
@@ -203,6 +204,7 @@ async function selectPrimaryPlayer(player, { scroll = true } = {}) {
   renderProfileHeader(player);
   loadSeasonSwitcher(player);
 
+  chartsLoading.innerHTML = CHARTS_LOADING_HTML;          // restore the spinner (a failed load may have swapped in an error card)
   chartsLoading.style.display = "flex";
   advancedSection.style.display = "none";
 
@@ -237,8 +239,7 @@ async function selectPrimaryPlayer(player, { scroll = true } = {}) {
   // Stats are precomputed (fast parquet lookup) — reveal them immediately.
   // Charts (Combination Play now, per-category charts later) load lazily
   // per-tab from activateTab(), so a slow chart never blocks the page.
-  await fetchAdvancedStats(player, overviewSettled);
-  chartsLoading.style.display = "none";
+  if (await fetchAdvancedStats(player, overviewSettled)) chartsLoading.style.display = "none";
 }
 
 // Shareable link: the same ?player_id=&league=&season= params Explore's
@@ -480,8 +481,16 @@ function wireScopeControl() {
   });
 }
 
+// Returns true when the Advanced panel is showing. On a failure the spinner's place shows an error card with a
+// retry (and for "no data" an empty-state note) instead of a toast that disappears.
 async function fetchAdvancedStats(player, holdUntil) {
-  if (!advancedSection) return;
+  if (!advancedSection) return true;
+  const settle = card => { chartsLoading.style.display = "block"; card(chartsLoading); renderProfileScore(null); return false; };
+  const retry = () => {
+    chartsLoading.innerHTML = CHARTS_LOADING_HTML;
+    chartsLoading.style.display = "flex";
+    fetchAdvancedStats(player, holdUntil).then(ok => { if (ok) chartsLoading.style.display = "none"; });
+  };
   const activeCat = advTabs && advTabs.querySelector(".adv-tab-btn.active")
     ? advTabs.querySelector(".adv-tab-btn.active").dataset.cat : null;
   try {
@@ -491,9 +500,9 @@ async function fetchAdvancedStats(player, holdUntil) {
     });
     const data = await res.json();
     if (!res.ok || !data.categories || !data.categories.length) {
-      showToast("No advanced stats found for this player/season.");
-      renderProfileScore(null);
-      return;
+      if (res.status >= 500) return settle(h => FootIQUI.error(h, "Could not load the advanced stats.", retry));
+      return settle(h => FootIQUI.empty(h, "No advanced stats for this player-season",
+        "Try another season from the Season menu above, or a player with more minutes."));
     }
     renderAdvancedStats(data.categories);
     if (activeCat) {                       // a scope change keeps you on the tab you were reading
@@ -506,11 +515,11 @@ async function fetchAdvancedStats(player, holdUntil) {
     renderProfileScore(data.composite);
     FootIQOverview.renderInsights(data.insights);
     if (holdUntil) await holdUntil;        // reveal it after the overview has taken (or given up) its place above
-    if (primaryPlayer !== player) return;  // the user already moved on to someone else
+    if (primaryPlayer !== player) return true;  // the user already moved on to someone else
     advancedSection.style.display = "block";
+    return true;
   } catch {
-    showToast("Could not load advanced stats.");
-    renderProfileScore(null);
+    return settle(h => FootIQUI.error(h, "Could not load the advanced stats.", retry));
   }
 }
 

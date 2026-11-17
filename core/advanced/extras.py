@@ -207,6 +207,30 @@ def stability() -> dict:
     return _loaded["stability"]
 
 
+def season_status(seasons: list[str]) -> tuple[str, list[str]]:
+    """(default season, seasons still in progress) for the season pickers.
+
+    The default is the newest season that is at least 90% played in a typical competition (the median
+    across competitions), so a visitor lands on full-sample numbers instead of a season three matches
+    old; the newer, part-played seasons stay in the list, marked in progress. Reads the extras file
+    directly (no data load), and falls back to the first listed season if the file is missing."""
+    try:
+        with open(EXTRAS_JSON, encoding="utf-8") as fh:
+            rows = json.load(fh)["coverage"]
+    except (OSError, ValueError, KeyError):
+        return seasons[0], []
+    by_season: dict[str, list[float]] = {}
+    for r in rows:
+        by_season.setdefault(r["season"], []).append(r.get("progress", 1.0))
+    def complete(s):
+        vals = sorted(by_season.get(s, []))
+        return bool(vals) and vals[len(vals) // 2] >= 0.9
+    for i, s in enumerate(seasons):
+        if complete(s):
+            return s, [x for x in seasons[:i] if x in by_season]
+    return seasons[0], []
+
+
 def coverage() -> list[dict]:
     f = _file()
     if f:

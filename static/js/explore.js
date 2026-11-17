@@ -118,7 +118,7 @@ async function runQuadrant() {
   document.getElementById("explore-list").style.display = "none";
   host.style.display = "block";
   document.getElementById("explore-results-heading").textContent = q ? q.title : "Quadrant plot";
-  host.innerHTML = `<div style="text-align:center;color:var(--muted);padding:32px"><div class="mini-spinner" style="margin:0 auto 10px"></div>Plotting players…</div>`;
+  FootIQUI.loading(host, "Plotting players…");
   const minMinutes = document.getElementById("explore-min-minutes").value;
   try {
     const res = await fetch("/api/explore-quadrant", {
@@ -133,10 +133,10 @@ async function runQuadrant() {
     });
     const data = await res.json();
     if (token !== _plotToken) return;
-    if (!res.ok || data.error) { host.innerHTML = `<div class="fc-empty">${data.error || "Could not load the plot."}</div>`; return; }
+    if (!res.ok || data.error) { FootIQUI.error(host, data.error || "Could not load the plot.", runExplore); return; }
     FootIQCharts.render(host, data.spec);
   } catch {
-    if (token === _plotToken) host.innerHTML = `<div class="fc-empty">Could not load the plot.</div>`;
+    if (token === _plotToken) FootIQUI.error(host, "Could not load the plot.", runExplore);
   }
 }
 
@@ -167,10 +167,10 @@ async function runScatter() {
     });
     const data = await res.json();
     if (token !== _plotToken) return;
-    if (!res.ok || data.error) { host.innerHTML = `<div class="fc-empty">${data.error || "Could not load the plot."}</div>`; return; }
+    if (!res.ok || data.error) { FootIQUI.error(host, data.error || "Could not load the plot.", runExplore); return; }
     FootIQCharts.render(host, data.spec);
   } catch {
-    if (token === _plotToken) host.innerHTML = `<div class="fc-empty">Could not load the plot.</div>`;
+    if (token === _plotToken) FootIQUI.error(host, "Could not load the plot.", runExplore);
   }
 }
 
@@ -217,19 +217,19 @@ async function runExplore() {
     });
     const data = await res.json();
     if (!res.ok || data.error) {
-      listEl.innerHTML = `<div class="glass-card" style="color:var(--muted);padding:24px;text-align:center">${data.error || "Could not load results."}</div>`;
+      FootIQUI.error(listEl, data.error || "Could not load results.", runExplore);
       return;
     }
     renderResults(data.results || []);
   } catch {
-    listEl.innerHTML = `<div class="glass-card" style="color:var(--muted);padding:24px;text-align:center">Could not load results.</div>`;
+    FootIQUI.error(listEl, "Could not load results.", runExplore);
   }
 }
 
 function renderResults(results) {
   const listEl = document.getElementById("explore-list");
   if (!results.length) {
-    listEl.innerHTML = `<div class="glass-card" style="color:var(--muted);padding:24px;text-align:center">No players meet these filters. Try widening the age limit or position.</div>`;
+    FootIQUI.empty(listEl, "No players meet these filters", "Try another season, league or position, or lower the minimum minutes.");
     return;
   }
   const unit = currentMetricUnit();

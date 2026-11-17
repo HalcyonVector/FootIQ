@@ -119,7 +119,7 @@
   }
 
   async function initTeam() {
-    const league = q.get("league") || "Premier League", season = q.get("season") || window.SEASONS[0], team = q.get("team") || "";
+    const league = q.get("league") || "Premier League", season = q.get("season") || window.DEFAULT_SEASON || window.SEASONS[0], team = q.get("team") || "";
     const fail = msg => { $("tm-error-msg").textContent = msg; $("tm-error").style.display = "block"; };
     if (!team) return fail("No team selected.");
     let res, data;

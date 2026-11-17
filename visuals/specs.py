@@ -700,7 +700,7 @@ def quadrant_plot(result: dict, info: dict, sub: str = None) -> dict:
     part = lambda col: [info.get(col, {}).get("label", col), info.get(col, {}).get("unit", "")]
     return {"type": "xy", "sub": sub, "xlabel": preset["x"]["label"] + " index", "ylabel": preset["y"]["label"] + " index",
             "xunit": "", "yunit": "", "xinvert": False, "yinvert": False, "colors": GROUP_COLORS,
-            "quad": preset["quad"], "xparts": [part(c) for c in preset["x"]["cols"]],
+            "question": preset["question"], "quad": preset["quad"], "xparts": [part(c) for c in preset["x"]["cols"]],
             "yparts": [part(c) for c in preset["y"]["cols"]],
             "points": [[_r(p["x"], 1), _r(p["y"], 1), p["name"], p["team"], p["id"], p["league"], p["season"],
                         p["group"], p["minutes"], [_r(v, 2) for v in p["raw"]]] for p in pts]}

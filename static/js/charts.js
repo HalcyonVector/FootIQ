@@ -360,9 +360,16 @@ const FootIQCharts = (() => {
   }
   const fmtVal = (v, unit) => `${Math.abs(v) >= 100 ? Math.round(v) : Math.round(v * 100) / 100}${unit === "%" || unit === "m" || unit === "s" ? unit : ""}`;
 
+  const normName = s => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
   function xyChart(host, spec) {
     const pts = spec.points || [];
     if (!pts.length) { host.innerHTML = empty("No players match these filters"); return; }
+    const ui = host._xy = host._xy || { size: true, find: "" };       // size by minutes stays on across plots
+    if (host._xySpec !== spec) ui.find = "";                          // a new plot starts with an empty search
+    host._xySpec = spec;
+    const maxMin = Math.max(1, ...pts.map(p => p[8] || 0));
+    const radius = p => (ui.size ? 2.2 + 4.8 * Math.sqrt(Math.max(0, p[8] || 0) / maxMin) : 3.6);
     // On a phone the chart is drawn on a narrower canvas so its text is not shrunk to a few pixels.
     const narrow = (host.clientWidth || 720) < 560;
     const W = narrow ? 400 : 720, H = narrow ? 560 : 520, L = narrow ? 48 : 60, R = 14, T = 14, B = narrow ? 60 : 56;
@@ -405,7 +412,7 @@ const FootIQCharts = (() => {
       : `${p[2]}\n${p[3]} · ${p[5]}\n${spec.xlabel}: ${fmtVal(p[0], spec.xunit)}\n${spec.ylabel}: ${fmtVal(p[1], spec.yunit)}\n${p[8]} min`).replace(/\\n/g, "\n");
     g += pts.map(p => {
       const out = p[0] < x0 || p[0] > x1 || p[1] < y0 || p[1] > y1, c = spec.colors[p[7]] || "#64748b";
-      return `<a href="${esc(url(p))}"><circle cx="${r1(sx(p[0]))}" cy="${r1(sy(p[1]))}" r="3.6" fill="${out ? "none" : c}" fill-opacity=".62" stroke="${c}" stroke-opacity="${out ? 0.9 : 0.25}" stroke-width="1.2" class="fc-xy-dot" data-tip="${esc(tip(p))}"/></a>`;
+      return `<a href="${esc(url(p))}"><circle cx="${r1(sx(p[0]))}" cy="${r1(sy(p[1]))}" r="${r1(radius(p))}" fill="${out ? "none" : c}" fill-opacity=".62" stroke="${c}" stroke-opacity="${out ? 0.9 : 0.25}" stroke-width="1.2" class="fc-xy-dot" data-n="${esc(normName(p[2]))}" data-tip="${esc(tip(p))}"/></a>`;
     }).join("");
 
     // Name the standouts: furthest from the medians in the "better" direction on both axes.
@@ -436,7 +443,39 @@ const FootIQCharts = (() => {
           <text transform="translate(14 ${(T + H - B) / 2}) rotate(-90)" class="fc-t" text-anchor="middle">${esc(dir(spec.yinvert, spec.ylabel))}</text>`;
     const groups = [...new Set(pts.map(p => p[7]))];
     const legend = `<div class="fc-legend">${groups.map(k => `<span class="fc-leg static"><i class="fc-dot" style="background:${spec.colors[k] || "#64748b"}"></i><span>${esc(k.charAt(0).toUpperCase() + k.slice(1))}s</span></span>`).join("")}</div>`;
-    host.innerHTML = head(spec) + `<svg viewBox="0 0 ${W} ${H}" class="ov-svg fc-svg${narrow ? " fc-xy-narrow" : ""}" role="img" aria-label="${esc(spec.xlabel)} against ${esc(spec.ylabel)}">${g}</svg>` + legend;
+    const tools = `<div class="fc-xy-tools">
+        <input class="fc-xy-find" type="search" placeholder="Find a player on the chart…" aria-label="Find a player on the chart" autocomplete="off" value="${esc(ui.find)}">
+        <label class="fc-xy-size"><input type="checkbox" ${ui.size ? "checked" : ""}> Dot size = minutes played</label>
+        <span class="fc-xy-count" aria-live="polite"></span></div>`;
+    // How to read it: the question, and (for a quadrant plot) exactly what goes into each index.
+    const parts = (label, list) => `<b>${esc(label.replace(" index", ""))}</b> = average percentile of ${list.map(p => esc(p[0])).join(", ")}`;
+    const notes = quad
+      ? `<div class="fc-xy-notes">${spec.question ? `<p>${esc(spec.question)}</p>` : ""}<p>${parts(spec.xlabel, spec.xparts)}.<br>${parts(spec.ylabel, spec.yparts)}.</p>
+         <p>Bigger dots played more minutes, so they are the safer reads. Each player is a player-season; someone with a league and a European row appears twice.</p></div>`
+      : "";
+    host.innerHTML = head(spec) + tools + `<svg viewBox="0 0 ${W} ${H}" class="ov-svg fc-svg${narrow ? " fc-xy-narrow" : ""}" role="img" aria-label="${esc(spec.xlabel)} against ${esc(spec.ylabel)}">${g}<g class="fc-xy-hits"></g></svg>` + legend + notes;
+
+    // Find-a-player: matching dots light up (and are named), everyone else fades.
+    const svg = host.querySelector("svg"), hits = host.querySelector(".fc-xy-hits"), count = host.querySelector(".fc-xy-count");
+    const dots = [...host.querySelectorAll(".fc-xy-dot")];
+    const apply = () => {
+      const q = normName(ui.find).trim();
+      hits.innerHTML = "";
+      if (q.length < 2) { dots.forEach(d => d.classList.remove("fc-xy-dim", "fc-xy-hit")); count.textContent = ""; return; }
+      const hit = [];
+      dots.forEach((d, i) => { const m = d.dataset.n.includes(q); d.classList.toggle("fc-xy-hit", m); d.classList.toggle("fc-xy-dim", !m); if (m) hit.push(i); });
+      count.textContent = hit.length ? `${hit.length} match${hit.length === 1 ? "" : "es"}` : "no match";
+      hit.slice(0, 8).forEach(i => {
+        const p = pts[i], cx = sx(p[0]), cy = sy(p[1]), right = cx > W - (narrow ? 120 : 140);
+        hits.insertAdjacentHTML("beforeend", `<text x="${r1(cx + (right ? -10 : 10))}" y="${r1(cy + 4)}" class="fc-t fc-t-strong fc-halo" text-anchor="${right ? "end" : "start"}">${esc(p[2])}</text>`);
+      });
+    };
+    host.querySelector(".fc-xy-find").addEventListener("input", e => { ui.find = e.target.value; apply(); });
+    host.querySelector(".fc-xy-size input").addEventListener("change", e => {
+      ui.size = e.target.checked;
+      dots.forEach((d, i) => d.setAttribute("r", r1(radius(pts[i]))));
+    });
+    apply();
   }
 
   // ═════════════════════════════════════════════════════════════════════════

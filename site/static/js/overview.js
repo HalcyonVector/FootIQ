@@ -352,6 +352,8 @@ const FootIQOverview = (() => {
     state.pass = null;
     const s = $("overview-section");
     if (s) { s.style.display = "none"; s.classList.remove("ov-loading"); }
+    const e = $("ov-error");
+    if (e) e.style.display = "none";
   }
 
   async function load(player, league, season) {
@@ -360,6 +362,7 @@ const FootIQOverview = (() => {
     const token = ++state.token;
     // Reserve the block's place right away (content hidden, a quiet "loading" label in its
     // spot) so nothing above the Advanced Metrics panel appears later and shoves it down.
+    $("ov-error").style.display = "none";
     section.style.display = "block";
     section.classList.add("ov-loading");
     section.dataset.loading = "Loading season overview…";
@@ -373,7 +376,14 @@ const FootIQOverview = (() => {
         body: JSON.stringify({ player_id: player.id, league, season }),
       });
       data = await res.json();
-    } catch { giveUp(); return; }
+    } catch {
+      if (token !== state.token) return;
+      giveUp();
+      const box = $("ov-error");                            // the request failed (not "no data"): say so, offer a retry
+      box.style.display = "block";
+      FootIQUI.error(box, "Could not load the season overview.", () => load(player, league, season));
+      return;
+    }
     if (token !== state.token) return;                      // stale response: a newer load owns the section
     if (!data || !data.available) { giveUp(); return; }    // no overview data built for this season
 
