@@ -2030,3 +2030,8 @@ footer {
 [data-theme="light"] .gradient-text{background:linear-gradient(100deg,#f472b6 0%,#db2777 100%);-webkit-background-clip:text;background-clip:text}
 .logo-text,.hub-mobile-logo{background:linear-gradient(90deg,#fff 0 62%,#ec4899 62%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
 [data-theme="light"] .logo-text{background:linear-gradient(90deg,#1a1620 0 62%,#db2777 62%);-webkit-background-clip:text;background-clip:text}
+
+/* Numbers in the stats strip: white, with a soft pink glow */
+.stat-num{background:none;-webkit-background-clip:border-box;background-clip:border-box;color:var(--text);-webkit-text-fill-color:var(--text);
+  text-shadow:0 0 18px rgba(236,72,153,.6),0 0 40px rgba(236,72,153,.25)}
+[data-theme="light"] .stat-num{text-shadow:0 0 14px rgba(219,39,119,.25)}
