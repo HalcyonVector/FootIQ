@@ -22,6 +22,19 @@ services:
     # repeated parquet reads showed a slow, converging RSS creep in local
     # testing (native-allocator fragmentation, not a real Python object leak
     # — confirmed via tracemalloc) that a fresh process resets for free.
+    # Only rebuild when something the API server runs has changed. The free workspace has 500 build
+    # minutes a month and every build re-downloads the dataset, while most pushes only touch the static
+    # front end (served by Vercel), the README, docs or tests.
+    buildFilter:
+      ignoredPaths:
+        - site/**
+        - static/**
+        - docs/**
+        - tests/**
+        - dev/**
+        - deploy/**
+        - .github/**
+        - README.md
     startCommand: "gunicorn app:app --bind 0.0.0.0:$PORT --timeout 120 --workers 1 --threads 2 --max-requests 300 --max-requests-jitter 50"
     envVars:
       - key: FLASK_DEBUG
