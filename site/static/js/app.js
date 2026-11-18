@@ -352,7 +352,6 @@ function renderProfileHeader(player) {
       </div>
       <div class="profile-actions">
         <span id="season-switch-slot"></span>
-        <a class="profile-compare-btn" id="profile-compare-btn" href="/compare?${new URLSearchParams({ p1_id: player.id, p1_league: player.league || primaryLeague, p1_season: player.season || primarySeason })}">Compare with another player →</a>
       </div>
     </div>
     <div class="score-placeholder-pulse" id="profile-score-slot"></div>
