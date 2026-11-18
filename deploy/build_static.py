@@ -25,7 +25,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 SITE = ROOT / "site"
-BACKEND = "https://footiq.onrender.com"
+BACKEND = "https://footiq-syqc.onrender.com"
 PAGES = {"index": "/", "player": "/player", "compare": "/compare", "league": "/league", "team": "/team",
          "scout": "/scout", "explore": "/explore", "coverage": "/coverage"}
 HEAD_INJECT = '<script>window.FOOTIQ_STATIC=true;</script><script src="/static/js/static-shim.js"></script>'

@@ -8,7 +8,7 @@
     },
     {
       "source": "/api/:path*",
-      "destination": "https://footiq.onrender.com/api/:path*"
+      "destination": "https://footiq-syqc.onrender.com/api/:path*"
     }
   ],
   "headers": [

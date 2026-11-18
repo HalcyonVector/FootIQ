@@ -10,11 +10,15 @@
 - **Start-up is trimmed to what a request needs.** The data gate opens once the player table
   and the search index are loaded (`ready` in `/api/health?detail=1`); the link-up table and
   the per-category dataset handles load afterwards. `requests` is imported lazily.
-- **Spins down after 15 minutes idle**, so the first visitor pays the whole boot.
-  `.github/workflows/keep-warm.yml` keeps it awake 10:30-20:30 UTC, i.e. 16:00-02:00 IST (about 310 of the 750
-  instance-hours a month, a pool shared with the other projects) with one looping job per
-  trigger (five triggers spread through the window, since GitHub often starts them late), because GitHub drops most runs of a `*/10` schedule. Outside that window the
-  first visit still pays the boot.
+- **Spins down after 15 minutes idle**, so the first visitor pays the whole boot. The service
+  (`https://footiq-syqc.onrender.com`) lives in a Render workspace of its own, whose 750 free
+  instance-hours a month cover running all the time (about 744 in a 31-day month), so it is
+  kept awake around the clock: an external monitor (UptimeRobot, every 5 minutes, on
+  `/api/health`) as the main pinger, and `.github/workflows/keep-warm.yml` as a backup (one
+  looping job per trigger, five triggers a day, because GitHub drops or delays most scheduled runs).
+- **Build minutes.** The free workspace has 500 build minutes a month and every build downloads the
+  dataset, so `render.yaml` has a build filter: pushes that only change `site/`, `static/`, docs,
+  tests or the README do not rebuild the server.
 
 ## Static front end on Vercel (what visitors hit)
 The Flask app on Render sleeps and takes 20+ seconds to wake, so `site/` holds a static copy of the

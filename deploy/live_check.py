@@ -1,6 +1,6 @@
 """One-command smoke test of the deployed site (standard library only).
 
-    py -3 deploy/live_check.py                      # https://footiq.onrender.com
+    py -3 deploy/live_check.py                      # https://footiq-syqc.onrender.com
     py -3 deploy/live_check.py http://localhost:5000
 
 Waits for the app to wake up and finish loading its data, then checks health and
@@ -14,7 +14,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-BASE = (sys.argv[1] if len(sys.argv) > 1 else "https://footiq.onrender.com").rstrip("/")
+BASE = (sys.argv[1] if len(sys.argv) > 1 else "https://footiq-syqc.onrender.com").rstrip("/")
 MEMORY_WARN_MB = 450          # Render free tier restarts the app at 512
 failures: list[str] = []
 
