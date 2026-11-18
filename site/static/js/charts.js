@@ -48,6 +48,9 @@ const FootIQCharts = (() => {
 
   // ── Small shared bits ─────────────────────────────────────────────────────
   const empty = msg => `<div class="fc-empty">${esc(msg)}</div>`;
+  // On a phone a chart box is ~250px wide; drawn on the desktop canvas its text would shrink to 5px.
+  // Narrow boxes get a smaller canvas and bigger text instead (a hidden box falls back to the window width).
+  const isNarrow = host => (host.clientWidth || (window.innerWidth < 640 ? 300 : 600)) < 420;
 
   function head(spec) {
     let h = "";
@@ -215,7 +218,8 @@ const FootIQCharts = (() => {
   // ═════════════════════════════════════════════════════════════════════════
   function histChart(host, spec) {
     if (!spec.counts || !spec.counts.length) { host.innerHTML = head(spec) + empty("No data"); return; }
-    const W = 520, H = 290, L = 42, R = 14, T = 24, B = 46;
+    const narrow = isNarrow(host);
+    const W = narrow ? 340 : 520, H = narrow ? 260 : 290, L = narrow ? 38 : 42, R = 14, T = narrow ? 30 : 24, B = narrow ? 52 : 46;
     const e = spec.edges, mk = spec.marker;
     let lo = e[0], hi = e[e.length - 1];
     if (mk) { lo = Math.min(lo, mk.value); hi = Math.max(hi, mk.value); }
@@ -226,7 +230,7 @@ const FootIQCharts = (() => {
     const unit = spec.unit || "";
     let g = "";
     yMaxT.forEach(v => { g += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" class="fc-grid"/><text x="${L - 7}" y="${y(v) + 4}" class="fc-t" text-anchor="end">${v}</text>`; });
-    ticks(lo, hi, 6).forEach(v => { g += `<text x="${x(v)}" y="${H - B + 17}" class="fc-t" text-anchor="middle">${fmtNum(v)}</text>`; });
+    ticks(lo, hi, narrow ? 4 : 6).forEach(v => { g += `<text x="${x(v)}" y="${H - B + (narrow ? 22 : 17)}" class="fc-t" text-anchor="middle">${fmtNum(v)}</text>`; });
     spec.counts.forEach((c, i) => {
       if (!c) return;
       const x0 = x(e[i]) + 1, x1 = x(e[i + 1]) - 1;
@@ -234,15 +238,15 @@ const FootIQCharts = (() => {
     });
     g += `<line x1="${L}" x2="${W - R}" y1="${H - B}" y2="${H - B}" class="fc-axisline"/>`;
     const lbl = (v, text, row, cls) => {
-      const right = x(v) > W - 150;
-      return `<text x="${r1(x(v) + (right ? -6 : 6))}" y="${T + 4 + row * 15}" class="fc-t ${cls}" text-anchor="${right ? "end" : "start"}">${esc(text)}</text>`;
+      const right = x(v) > W - (narrow ? 130 : 150);
+      return `<text x="${r1(x(v) + (right ? -6 : 6))}" y="${T + 4 + row * (narrow ? 19 : 15)}" class="fc-t ${cls}" text-anchor="${right ? "end" : "start"}">${esc(text)}</text>`;
     };
     if (spec.median !== undefined) g += `<line x1="${x(spec.median)}" x2="${x(spec.median)}" y1="${T - 6}" y2="${H - B}" class="fc-median"/>` + lbl(spec.median, `median ${fmtNum(spec.median)}${unit}`, 0, "fc-t-strong");
     if (mk) g += `<line x1="${x(mk.value)}" x2="${x(mk.value)}" y1="${T - 6}" y2="${H - B}" class="fc-marker"/>` + lbl(mk.value, mk.label, 1, "fc-t-accent");
     const axisName = unit === "s" ? "seconds" : unit === "m" ? "metres" : "";
     if (axisName) g += `<text x="${(L + W - R) / 2}" y="${H - 6}" class="fc-t" text-anchor="middle">${axisName}</text>`;
     g += `<text transform="translate(12 ${(T + H - B) / 2}) rotate(-90)" class="fc-t" text-anchor="middle">Count</text>`;
-    host.innerHTML = head(spec) + `<svg viewBox="0 0 ${W} ${H}" class="ov-svg fc-svg" role="img" aria-label="Distribution">${g}</svg>`;
+    host.innerHTML = head(spec) + `<svg viewBox="0 0 ${W} ${H}" class="ov-svg fc-svg${narrow ? " fc-narrow" : ""}" role="img" aria-label="Distribution">${g}</svg>`;
   }
 
   // ═════════════════════════════════════════════════════════════════════════
@@ -251,7 +255,8 @@ const FootIQCharts = (() => {
   function trendChart(host, spec) {
     const vals = spec.values || [], have = vals.filter(v => v !== null && v !== undefined);
     if (have.length < 2) { host.innerHTML = empty("Not enough season history yet"); return; }
-    const W = 520, H = 290, L = 42, R = 22, T = 26, B = 44, n = vals.length;
+    const narrow = isNarrow(host);
+    const W = narrow ? 340 : 520, H = narrow ? 260 : 290, L = narrow ? 38 : 42, R = 22, T = 30, B = narrow ? 48 : 44, n = vals.length;
     const x = i => L + (n === 1 ? 0.5 : i / (n - 1)) * (W - L - R);
     const y = v => T + (1 - v / 100) * (H - T - B);
     let g = "";
@@ -267,7 +272,7 @@ const FootIQCharts = (() => {
             <text x="${r1(x(i))}" y="${r1(y(v) - 13)}" class="fc-t fc-t-strong" text-anchor="middle">${Math.round(v)}</text>`;
     });
     g += `<text transform="translate(12 ${(T + H - B) / 2}) rotate(-90)" class="fc-t" text-anchor="middle">Percentile vs. cohort</text>`;
-    host.innerHTML = head(spec) + `<svg viewBox="0 0 ${W} ${H}" class="ov-svg fc-svg" role="img" aria-label="Season trend">${g}</svg>`;
+    host.innerHTML = head(spec) + `<svg viewBox="0 0 ${W} ${H}" class="ov-svg fc-svg${narrow ? " fc-narrow" : ""}" role="img" aria-label="Season trend">${g}</svg>`;
   }
 
   // ═════════════════════════════════════════════════════════════════════════
@@ -288,7 +293,8 @@ const FootIQCharts = (() => {
       <text x="${c}" y="${c - R - 12}" class="fc-t fc-t-lg" text-anchor="middle">Infield</text>
       <text x="${c - R - 12}" y="${c + 5}" class="fc-t fc-t-lg" text-anchor="end">Back</text>
       <text x="${c}" y="${c + R + 24}" class="fc-t fc-t-lg" text-anchor="middle">Outfield</text>`;
-    host.innerHTML = head(spec) + `<svg viewBox="-26 4 452 ${S - 4}" class="ov-svg fc-svg fc-round" role="img" aria-label="Carry angle rose">${g}</svg>`;
+    const narrow = isNarrow(host);
+    host.innerHTML = head(spec) + `<svg viewBox="${narrow ? `-84 -12 568 ${S + 24}` : `-26 4 452 ${S - 4}`}" class="ov-svg fc-svg fc-round${narrow ? " fc-narrow" : ""}" role="img" aria-label="Carry angle rose">${g}</svg>`;
   }
 
   // ═════════════════════════════════════════════════════════════════════════
@@ -297,6 +303,11 @@ const FootIQCharts = (() => {
   function bloomChart(host, spec) {
     const items = spec.items || [];
     if (!items.length) { host.innerHTML = empty("No data"); return; }
+    if (isNarrow(host)) {        // the ring labels cannot be read at phone size: the same numbers as bars
+      barsChart(host, { sub: spec.sub, stats: spec.stats, items: items.map(it => ({ label: it.label, value: it.value, color: it.color,
+        text: `${Math.round(it.value)}th` })) });
+      return;
+    }
     const W = 560, H = 470, cx = W / 2, cy = H / 2, r0 = 44, r1_ = 140, n = items.length, slice = (2 * Math.PI) / n;
     const P = (r, a) => [r1(cx + r * Math.sin(a)), r1(cy - r * Math.cos(a))];
     let g = [0.25, 0.5, 0.75, 1].map(f => `<circle cx="${cx}" cy="${cy}" r="${r1(r0 + (r1_ - r0) * f)}" class="fc-grid" fill="none"/>`).join("");
@@ -323,7 +334,8 @@ const FootIQCharts = (() => {
   // Scatter (cohort cloud with the target highlighted)
   // ═════════════════════════════════════════════════════════════════════════
   function scatterChart(host, spec) {
-    const W = 520, H = 470, L = 46, R = 14, T = 14, B = 50;
+    const narrow = isNarrow(host);
+    const W = narrow ? 360 : 520, H = narrow ? 400 : 470, L = 46, R = 14, T = 14, B = narrow ? 56 : 50;
     const x = v => L + (v / 100) * (W - L - R), y = v => T + (1 - v / 100) * (H - T - B);
     let g = "";
     [0, 25, 50, 75, 100].forEach(v => {
@@ -345,7 +357,7 @@ const FootIQCharts = (() => {
     }
     g += `<text x="${(L + W - R) / 2}" y="${H - 6}" class="fc-t" text-anchor="middle">${esc(spec.xlabel || "")}</text>
           <text transform="translate(12 ${(T + H - B) / 2}) rotate(-90)" class="fc-t" text-anchor="middle">${esc(spec.ylabel || "")}</text>`;
-    host.innerHTML = head(spec) + `<svg viewBox="0 0 ${W} ${H}" class="ov-svg fc-svg" role="img" aria-label="Cohort scatter">${g}</svg>`;
+    host.innerHTML = head(spec) + `<svg viewBox="0 0 ${W} ${H}" class="ov-svg fc-svg${narrow ? " fc-narrow" : ""}" role="img" aria-label="Cohort scatter">${g}</svg>`;
   }
 
   // ═════════════════════════════════════════════════════════════════════════

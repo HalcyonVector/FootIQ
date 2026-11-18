@@ -46,7 +46,7 @@ What the data showed, and the problems found while building it:
 - A season switcher for every competition and season a player appears in, and shareable URLs (`/player?player_id=&league=&season=`).
 - A position-weighted Composite Rating that combines every category with a power mean, so a player's strongest categories are rewarded rather than diluted by ones that were never their job.
 - Final Third scored two ways: Completeness (a geometric-mean floor across four pillars) and Impact (per-touch value from the two strongest pillars).
-- Sample warnings: a "Limited sample" badge under 450 minutes and a third of the team's minutes, an "Early season" chip while the competition is in progress, and a "noisy" flag on metrics that repeat only weakly from one season to the next (hover any metric for its season-to-season correlation).
+- Sample warnings: a "Missing matches" chip when more than 5% of a competition-season's matches have no event data at the source, a "Limited sample" badge under 450 minutes and a third of the team's minutes, an "Early season" chip while the competition is in progress, and a "noisy" flag on metrics that repeat only weakly from one season to the next (hover any metric for its season-to-season correlation).
 
 ### Season Overview
 
@@ -244,7 +244,7 @@ pip install pytest
 python -m pytest tests/
 ```
 
-145 tests cover the metric math and the data handling around it: progressive-action geometry, position-group classification, the Composite Rating's power mean, the xG model and shot data, league tables, chart specs, the player search ranking, the link-up lookup, the season-progress gates (including the European cups and that every category module that uses them imports them), the quadrant indexes, the Top 5 and percentile-scope filters, Scout's season window, the default season, partition-preserving writes and the dataset release logic. The scraper's schedule retries and the health check's treatment of unplayed fixtures are tested against simulated failures. Two tests are skipped on machines without the raw data.
+154 tests cover the metric math and the data handling around it: progressive-action geometry, position-group classification, the Composite Rating's power mean, the xG model and shot data, league tables, chart specs, the player search ranking, the link-up lookup, the season-progress gates (including the European cups and that every category module that uses them imports them), the quadrant indexes, the Top 5 and percentile-scope filters, Scout's season window, the default season, that every page renders, partition-preserving writes and the dataset release logic. The scraper's schedule retries and the health check's treatment of unplayed fixtures are tested against simulated failures. Two tests are skipped on machines without the raw data.
 
 ---
 

@@ -2061,3 +2061,9 @@ footer {
 
 /* Coverage: competition-seasons with many matches missing at the source */
 .cov-table td.cov-warn{color:#f59e0b;font-weight:700}
+
+/* Charts drawn on the narrow (phone) canvas: bigger text so it reads at about 10 to 11px on screen */
+.fc-narrow .fc-t{font-size:15px}
+.fc-narrow .fc-t-cap{font-size:13px}
+.fc-narrow .fc-t-dim{font-size:13px}
+.fc-narrow .fc-t-lg{font-size:21px}
