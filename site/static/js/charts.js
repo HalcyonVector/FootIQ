@@ -191,7 +191,7 @@ const FootIQCharts = (() => {
       ${(spec.guides || []).map(g => guideSVG(g, G)).join("")}
       ${drawn.map(L => layerSVG(L, G, uid)).join("")}
     </svg>`;
-    const legend = teamMode ? "" : `<div class="fc-legend">${layers.map(L =>
+    const legend = `<div class="fc-legend">${layers.map(L =>
       `<button type="button" class="fc-leg${L.count ? "" : " zero"}" data-layer="${esc(L.id)}" title="Click to show/hide">${swatch(L)}<span>${esc(L.label)}</span><b>${L.count}</b></button>`).join("")}</div>`;
     host.innerHTML = head(spec) + svg + legend;
     host.querySelectorAll(".fc-leg").forEach(b => b.addEventListener("click", () => {
@@ -471,7 +471,7 @@ const FootIQCharts = (() => {
     g += `<text x="${(L + W - R) / 2}" y="${H - 8}" class="fc-t" text-anchor="middle">${esc(dir(spec.xinvert, spec.xlabel))}</text>
           <text transform="translate(14 ${(T + H - B) / 2}) rotate(-90)" class="fc-t" text-anchor="middle">${esc(dir(spec.yinvert, spec.ylabel))}</text>`;
     const groups = [...new Set(pts.map(p => p[7]))];
-    const legend = `<div class="fc-legend">${groups.map(k => `<span class="fc-leg static"><i class="fc-dot" style="background:${spec.colors[k] || "#64748b"}"></i><span>${esc(k.charAt(0).toUpperCase() + k.slice(1))}s</span></span>`).join("")}</div>`;
+    const legend = teamMode ? "" : `<div class="fc-legend">${groups.map(k => `<span class="fc-leg static"><i class="fc-dot" style="background:${spec.colors[k] || "#64748b"}"></i><span>${esc(k.charAt(0).toUpperCase() + k.slice(1))}s</span></span>`).join("")}</div>`;
     const tools = `<div class="fc-xy-tools">
         <input class="fc-xy-find" type="search" placeholder="Find a ${teamMode ? "team" : "player"} on the chart…" aria-label="Find on the chart" autocomplete="off" value="${esc(ui.find)}">
         ${teamMode ? "" : `<label class="fc-xy-size"><input type="checkbox" ${ui.size ? "checked" : ""}> Dot size = minutes played</label>`}
