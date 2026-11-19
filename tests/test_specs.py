@@ -109,3 +109,14 @@ def test_metric_scatter_is_compact_and_nan_safe():
     spec = sp.metric_scatter(pts, "X", "Y", "%", "", x_invert=True)
     assert spec["type"] == "xy" and spec["xinvert"] and not spec["yinvert"]
     assert spec["points"][0][:3] == [1.235, None, "A"]       # NaN becomes null, not an invalid JSON token
+
+
+def test_strengths_list_each_measure_once():
+    from core.advanced.summary import insights
+    stat = lambda key, label, v, p: {"key": key, "label": label, "value": v, "unit": "s", "percentile": p}
+    cats = [{"label": "Passing", "rows": [{"stats": [stat("pass_median_release_s", "Median release time", 1.1, 96),
+                                                    stat("pass_through_balls_count_p90", "Through balls completed", 0.4, 93)]}]},
+            {"label": "Tempo", "rows": [{"stats": [stat("tempo_median_release_s", "Median release", 1.1, 96)]}]},
+            {"label": "Decision Making", "rows": [{"stats": [stat("dm_median_release_s", "Median release", 1.1, 96)]}]}]
+    labels = [s["label"] for s in insights(cats)["strengths"]]
+    assert labels == ["Median release time", "Through balls completed"]

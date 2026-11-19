@@ -123,6 +123,29 @@ def sample_info(minutes: float, team_matches: int, floor: int = LIMITED_FLOOR_MI
 _QUALITY = re.compile(r"accuracy|success|conversion|completion", re.I)
 
 
+# The same measurement shown in more than one tab (each tab is read on its own, so it repeats
+# there on purpose). For the strengths list they count once.
+_SAME_MEASURE = {
+    "pass_median_release_s": "median_release", "tempo_median_release_s": "median_release",
+    "dm_median_release_s": "median_release",
+}
+
+
+def _distinct(items: list[dict], n: int) -> list[dict]:
+    """The first n items that are not the same measure (by family, or by an identical value and
+    percentile, which is what a repeated column looks like)."""
+    seen, out = set(), []
+    for s in items:
+        ids = {_SAME_MEASURE.get(s.get("key"), s.get("key") or s["label"]), (s.get("value"), s["percentile"], s.get("unit"))}
+        if ids & seen:
+            continue
+        seen |= ids
+        out.append(s)
+        if len(out) == n:
+            break
+    return out
+
+
 def insights(categories: list[dict], n_strengths: int = 4, n_weak: int = 3) -> dict:
     """Strengths / areas-to-improve from the percentile stats the
     Advanced Metrics tabs already show (position-group cohort percentiles)."""
@@ -133,8 +156,8 @@ def insights(categories: list[dict], n_strengths: int = 4, n_weak: int = 3) -> d
                 if s.get("no_data") or s.get("percentile") is None:
                     continue
                 scored.append({"label": s["label"], "category": cat["label"], "percentile": s["percentile"],
-                               "value": s.get("value"), "unit": s.get("unit", "")})
-    strengths = sorted((s for s in scored if s["percentile"] >= 85), key=lambda s: -s["percentile"])[:n_strengths]
-    weak = sorted((s for s in scored if s["percentile"] <= 20 and _QUALITY.search(s["label"])),
-                  key=lambda s: s["percentile"])[:n_weak]
+                               "value": s.get("value"), "unit": s.get("unit", ""), "key": s.get("key")})
+    strengths = _distinct(sorted((s for s in scored if s["percentile"] >= 85), key=lambda s: -s["percentile"]), n_strengths)
+    weak = _distinct(sorted((s for s in scored if s["percentile"] <= 20 and _QUALITY.search(s["label"])),
+                            key=lambda s: s["percentile"]), n_weak)
     return {"strengths": strengths, "weaknesses": weak}
