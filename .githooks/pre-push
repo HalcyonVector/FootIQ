@@ -1,0 +1,34 @@
+#!/bin/sh
+# Before a push to main, draw every chart in a headless browser (deploy/chart_check.py).
+# A push to main is a deploy: Vercel publishes site/ and Render rebuilds the API.
+# Runs only when the pushed commits touch something a page draws with; takes about two minutes.
+# Turn on once per clone:  git config core.hooksPath .githooks
+
+[ "$FOOTIQ_CHARTS_CHECKED" = "1" ] && exit 0      # scraping/auto_update.py already ran it
+
+zero=0000000000000000000000000000000000000000
+run=0
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [ "$remote_ref" = "refs/heads/main" ] || continue
+  [ "$local_sha" = "$zero" ] && continue          # deleting a branch
+  if [ "$remote_sha" = "$zero" ]; then
+    run=1
+  elif git diff --name-only "$remote_sha" "$local_sha" | grep -qE '^(static/|templates/|site/|core/|app\.py)'; then
+    run=1
+  fi
+done
+[ "$run" = "1" ] || exit 0
+
+if command -v py >/dev/null 2>&1; then PY="py -3"; else PY=python3; fi
+echo "pre-push: drawing every chart in a headless browser (deploy/chart_check.py)..."
+$PY -X utf8 deploy/chart_check.py
+status=$?
+if [ "$status" = "2" ]; then
+  echo "pre-push: the chart check could not run on this machine; pushing without it."
+  exit 0
+fi
+if [ "$status" != "0" ]; then
+  echo "pre-push: some charts failed to draw (list above). Push stopped."
+  exit 1
+fi
+exit 0

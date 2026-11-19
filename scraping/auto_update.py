@@ -80,6 +80,25 @@ def deploy_static_front() -> None:
         log(f"!!! Vercel deploy failed: {e}")
 
 
+def chart_check_passes() -> bool:
+    """Runs deploy/chart_check.py (headless Chrome on its own copy of the app). Exit 2 means it could
+    not run at all (Playwright or Chrome missing): logged, but it does not hold the data back."""
+    try:
+        r = subprocess.run([sys.executable, "-X", "utf8", str(REPO_ROOT / "deploy" / "chart_check.py")], cwd=REPO_ROOT,
+                           capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=1200,
+                           creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0)
+    except Exception as e:
+        log(f"(chart check could not start: {e}; pushing without it)")
+        return True
+    lines = [ln for ln in (r.stdout or "").splitlines() if "[ok]" not in ln]
+    for ln in lines[-40:]:
+        log("  chart check: " + ln)
+    if r.returncode == 2:
+        log("(chart check skipped: it could not run on this machine)")
+        return True
+    return r.returncode == 0
+
+
 def start_taskbar_hider() -> None:
     """Windows: keep the scraper's off-screen Chrome windows out of the taskbar, so their buttons
     do not flash while someone is working. The helper exits by itself when this process does."""
@@ -214,6 +233,14 @@ def run(push: bool = True) -> None:
         import traceback
         log(traceback.format_exc())
 
+    # Draw every chart in a headless browser on the new data before anything goes live. A failure
+    # holds the push: the Release asset exists, but the live site keeps last week's pointer until
+    # someone looks at the log. The pre-push hook would run the same check, so it is told not to.
+    if not chart_check_passes():
+        log("!!! chart check failed, NOT pushing (the live site keeps last week's data)")
+        log("=== auto_update complete (chart check failed) ===")
+        return
+
     log("Data published, committing the version pointer and pushing...")
     git("add", "data/DATA_VERSION")
     if static_ok:
@@ -224,6 +251,7 @@ def run(push: bool = True) -> None:
         log(f"!!! commit failed: {commit.stderr.strip()}")
         log("=== auto_update complete (commit failed) ===")
         return
+    os.environ["FOOTIQ_CHARTS_CHECKED"] = "1"          # read by .githooks/pre-push
     push_result = git("push", "origin", "main")
     if push_result.returncode != 0:
         log(f"!!! push failed: {push_result.stderr.strip()}")

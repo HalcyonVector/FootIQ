@@ -107,7 +107,7 @@ Coverage is Premier League, La Liga, Serie A, Bundesliga, Ligue 1, Championship,
 | Backend | Flask, Flask-CORS, Flask-Compress, gunicorn |
 | Charts | Client-side SVG (`static/js/charts.js`) drawn from JSON specs built in `visuals/specs.py` |
 | Frontend | HTML, CSS and vanilla JS, no build step |
-| Testing | pytest |
+| Testing | pytest, Playwright (headless Chrome chart check) |
 
 ---
 
@@ -184,7 +184,7 @@ FootIQ/
 ├── visuals/specs.py             JSON chart specs for every tab, Combination Play and Compare
 ├── scraping/                    Scraper, parquet builders, data release, weekly update, health check
 ├── templates/, static/          Pages, stylesheet and vanilla JS
-├── deploy/                      Hosting notes, the static front end builder and the live check script
+├── deploy/                      Hosting notes, the static front end builder, the live check and the chart check
 ├── site/                        The built static front end (pages, JS, search index) served by the CDN
 ├── tests/                       Pytest suite
 └── data/
@@ -249,6 +249,17 @@ python -m pytest tests/
 ```
 
 161 tests cover the metric math and the data handling around it: progressive-action geometry, position-group classification, the Composite Rating's power mean, the xG model and shot data, league tables, chart specs, the player search ranking, the link-up lookup, the season-progress gates (including the European cups and that every category module that uses them imports them), the quadrant indexes, the Top 5 and percentile-scope filters, Scout's season window, the default season, the team style measures and their ranks, that every page renders, partition-preserving writes and the dataset release logic. The scraper's schedule retries and the health check's treatment of unplayed fixtures are tested against simulated failures. Two tests are skipped on machines without the raw data.
+
+### Chart check in a headless browser
+
+```bash
+pip install playwright
+py -3 -X utf8 deploy/chart_check.py        # or pass a running site's URL
+```
+
+The tests above cover the server, but every chart is drawn in the browser. This script starts its own copy of the app, opens it in headless Chrome and goes through a winger, a playmaker and a goalkeeper (the season overview and every metric tab), a comparison, the scatter view, all 71 player-type plots, the Teams tabs with all 14 team plots, and a team page. It fails if any chart shows "This chart could not be drawn", any request ends in an error card, or the page throws a JavaScript error. A full run takes about two minutes. Put back the renderer bug that once broke every pass map and it reports 23 failing tabs.
+
+It runs before every push to `main` that touches the pages, scripts or server (`.githooks/pre-push`; turn it on once per clone with `git config core.hooksPath .githooks`). The weekly update runs it on the new data and holds the push if a chart fails.
 
 ---
 
