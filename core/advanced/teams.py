@@ -24,33 +24,87 @@ import math
 PITCH_X, PITCH_Y = 105.0, 68.0
 FINAL_THIRD_X = 200 / 3            # x >= 66.7 on the 0-100 scale
 
-# key, label, unit, decimals, rank order ("high" = biggest value ranks 1st), what it means
+ATT, CRE, POS, DEF, DUEL, GK, ALL = ("Attacking", "Chance creation", "Possession and passing", "Defending and pressing",
+                                     "Duels and discipline", "Goalkeeping", "Overall")
+
+# key, label, unit, decimals, rank order ("high" = biggest value ranks 1st), group, what it means
 METRICS = [
-    ("possession", "Possession", "%", 1, "high", "Share of the passes in its matches. Passes stand in for time on the ball."),
-    ("pass_accuracy", "Pass accuracy", "%", 1, "high", "Completed passes as a share of all passes."),
-    ("ppda", "Pressing (passes allowed per defensive action)", "", 1, "low",
+    # attacking
+    ("goals", "Goals per match", "", 2, "high", ATT, "Goals scored per match."),
+    ("xg", "xG per match", "", 2, "high", ATT, "Expected goals per match, from our own model."),
+    ("npxg", "Non-penalty xG per match", "", 2, "high", ATT, "Expected goals per match without penalties."),
+    ("shots", "Shots per match", "", 1, "high", ATT, "Shots per match."),
+    ("sot", "Shots on target per match", "", 1, "high", ATT, "Shots on target per match."),
+    ("shot_accuracy", "Shots on target", "%", 1, "high", ATT, "Share of its shots that hit the target."),
+    ("conversion", "Shot conversion", "%", 1, "high", ATT, "Share of its shots that are goals."),
+    ("xg_per_shot", "xG per shot", "", 2, "high", ATT, "Average quality of its chances."),
+    ("big_chances", "Big chances per match", "", 2, "high", ATT, "Shots from clear-cut chances per match."),
+    ("shot_distance", "Average shot distance", "m", 1, "low", ATT, "How far from goal it shoots, on average. Lower means it works the ball closer."),
+    ("box_shots", "Shots from inside the box", "%", 1, "high", ATT, "Share of its shots taken inside the penalty area."),
+    ("setpiece_xg", "xG from set pieces", "%", 1, "high", ATT, "Share of its xG that comes from set pieces (corners, free kicks, throw-ins, penalties)."),
+    ("headed_share", "Headed shots", "%", 1, "high", ATT, "Share of its shots that are headers."),
+    # chance creation
+    ("key_passes", "Key passes per match", "", 1, "high", CRE, "Passes that lead to a shot, per match."),
+    ("xa", "xA per match", "", 2, "high", CRE, "Expected assists per match: the xG of the shots its passes set up."),
+    ("ft_entries", "Passes into the final third per match", "", 1, "high", CRE, "Completed passes that start before the attacking third and end inside it."),
+    ("box_passes", "Passes into the box per match", "", 1, "high", CRE, "Completed passes into the penalty area per match."),
+    ("takeons", "Take-ons per match", "", 1, "high", CRE, "Attempted dribbles past an opponent per match."),
+    ("takeon_success", "Take-on success", "%", 1, "high", CRE, "Share of its take-ons that beat the opponent."),
+    # possession and passing
+    ("possession", "Possession", "%", 1, "high", POS, "Share of the passes in its matches. Passes stand in for time on the ball."),
+    ("passes", "Passes per match", "", 0, "high", POS, "Passes attempted per match."),
+    ("pass_accuracy", "Pass accuracy", "%", 1, "high", POS, "Completed passes as a share of all passes."),
+    ("touches", "Touches per match", "", 0, "high", POS, "Touches of the ball per match."),
+    ("prog_passes", "Progressive passes per match", "", 1, "high", POS, "Passes that move the ball a good distance towards goal, per match."),
+    ("directness", "Directness", "%", 1, "high", POS, "Share of its passes that are progressive."),
+    ("pass_length", "Average pass length", "m", 1, "high", POS, "Average length of its passes."),
+    ("long_balls", "Long balls", "%", 1, "high", POS, "Share of its passes longer than 32 m."),
+    ("final_third", "Passes in the final third", "%", 1, "high", POS, "Share of its passes played in the attacking third."),
+    ("release", "Time on the ball before a pass", "s", 2, "low", POS, "Average seconds between receiving the ball and passing it. Lower means quicker circulation."),
+    # defending and pressing
+    ("ppda", "Pressing (passes allowed per defensive action)", "", 1, "low", DEF,
      "Opponent passes for each of the team's tackles, interceptions and fouls, over the whole pitch. Lower means more pressing."),
-    ("def_height", "Ball-winning height", "m", 1, "high",
+    ("def_height", "Ball-winning height", "m", 1, "high", DEF,
      "Average distance from its own goal of the tackles, interceptions and recoveries its players make. Higher means it wins the ball further up."),
-    ("directness", "Directness", "%", 1, "high", "Share of its passes that are progressive (move the ball a good distance towards goal)."),
-    ("pass_length", "Average pass length", "m", 1, "high", "Average length of its passes."),
-    ("final_third", "Passes in the final third", "%", 1, "high", "Share of its passes played in the attacking third."),
-    ("shots", "Shots per match", "", 1, "high", "Shots per match."),
-    ("xg", "xG per match", "", 2, "high", "Expected goals per match, from our own model."),
-    ("xga", "xG against per match", "", 2, "low", "Expected goals conceded per match. Lower is better."),
-    ("xg_per_shot", "xG per shot", "", 2, "high", "Average quality of its chances."),
-    ("aerial_win", "Aerial duels won", "%", 1, "high", "Share of its aerial duels won."),
-    ("takeons", "Take-ons per match", "", 1, "high", "Attempted dribbles past an opponent per match."),
+    ("high_regains", "Ball wins in the final third per match", "", 1, "high", DEF, "Tackles, interceptions and recoveries in the attacking third, per match."),
+    ("recoveries", "Recoveries per match", "", 1, "high", DEF, "Loose balls won back per match."),
+    ("tackles", "Tackles per match", "", 1, "high", DEF, "Tackles attempted per match."),
+    ("tackle_success", "Tackle success", "%", 1, "high", DEF, "Share of its tackles won."),
+    ("interceptions", "Interceptions per match", "", 1, "high", DEF, "Passes cut out per match."),
+    ("clearances", "Clearances per match", "", 1, "high", DEF, "Clearances per match (high for teams that defend their box a lot)."),
+    ("blocks", "Blocks per match", "", 1, "high", DEF, "Shots and passes blocked per match."),
+    ("opp_shots", "Shots conceded per match", "", 1, "low", DEF, "Opponent shots per match. Lower is better."),
+    ("xga", "xG against per match", "", 2, "low", DEF, "Expected goals conceded per match. Lower is better."),
+    ("ga", "Goals conceded per match", "", 2, "low", DEF, "Goals conceded per match. Lower is better."),
+    # duels and discipline
+    ("aerials", "Aerial duels per match", "", 1, "high", DUEL, "Aerial duels contested per match."),
+    ("aerial_win", "Aerial duels won", "%", 1, "high", DUEL, "Share of its aerial duels won."),
+    ("fouls", "Fouls per match", "", 1, "low", DUEL, "Fouls committed per match. Lower ranks first."),
+    ("yellows", "Yellow cards per match", "", 2, "low", DUEL, "Yellow cards per match. Lower ranks first."),
+    # goalkeeping
+    ("save_pct", "Save percentage", "%", 1, "high", GK, "Share of the opponents' shots on target its goalkeepers saved."),
+    ("saves", "Saves per match", "", 1, "high", GK, "Saves per match (high for teams that face a lot)."),
+    # overall
+    ("ppm", "Points per match", "", 2, "high", ALL, "League points per match (3 for a win, 1 for a draw)."),
+    ("gd", "Goal difference per match", "", 2, "high", ALL, "Goals scored minus conceded, per match."),
+    ("xgd", "xG difference per match", "", 2, "high", ALL, "xG minus xG against, per match: how much better than its opponents it plays."),
+    ("rating", "Average player rating", "", 2, "high", ALL, "WhoScored match ratings of its players, weighted by minutes."),
 ]
-META = [{"key": k, "label": l, "unit": u, "decimals": d, "order": o, "desc": desc} for k, l, u, d, o, desc in METRICS]
+META = [{"key": k, "label": l, "unit": u, "decimals": d, "order": o, "group": g, "desc": desc} for k, l, u, d, o, g, desc in METRICS]
+LONG_BALL_M = 32.0
 
 
 def _safe_div(a, b):
     return float(a) / float(b) if b else None
 
 
-def compute(league: str, season: str, matches=None, players=None, passes=None, defs=None) -> list[dict]:
-    """[{team, matches, values: {key: value}}] for one competition-season. The four tables can be
+def _pct(a, b):
+    v = _safe_div(a, b)
+    return None if v is None else 100 * v
+
+
+def compute(league: str, season: str, matches=None, players=None, passes=None, defs=None, shots=None) -> list[dict]:
+    """[{team, matches, values: {key: value}, attack}] for one competition-season. The tables can be
     passed in (tests do); otherwise they are read from the stored dataset."""
     import pandas as pd
     from core.advanced import store
@@ -59,14 +113,25 @@ def compute(league: str, season: str, matches=None, players=None, passes=None, d
         matches = store.get_season_matches(league, season)
     if matches is None or matches.empty:
         return []
-    num = ["passes", "passes_acc", "tackles", "interceptions", "fouls", "shots", "xg", "aerials", "aerials_won", "dribbles"]
+    num = ["passes", "passes_acc", "tackles", "tackles_won", "interceptions", "clearances", "fouls", "shots", "sot", "xg",
+           "npxg", "xa", "key_passes", "touches", "aerials", "aerials_won", "dribbles", "dribbles_won", "yellow", "saves"]
     m = matches.copy()
     for c in num:
-        m[c] = pd.to_numeric(m.get(c), errors="coerce").fillna(0)
-    tm = m.groupby(["match_key", "team"], sort=False).agg(opp=("opp", "first"), **{c: (c, "sum") for c in num}).reset_index()
-    opp = tm[["match_key", "team", "passes", "xg"]].rename(columns={"team": "opp", "passes": "opp_passes", "xg": "opp_xg"})
+        m[c] = pd.to_numeric(m[c], errors="coerce").fillna(0) if c in m else 0.0
+    m["minutes"] = pd.to_numeric(m["minutes"], errors="coerce").fillna(0) if "minutes" in m else 0.0
+    m["rating"] = pd.to_numeric(m["rating"], errors="coerce") if "rating" in m else float("nan")
+    m["rmin"] = (m["rating"] * m["minutes"]).fillna(0)
+    m["rated_min"] = m["minutes"].where(m["rating"].notna(), 0)
+    tm = m.groupby(["match_key", "team"], sort=False).agg(
+        opp=("opp", "first"), gf=("gf", "first"), ga=("ga", "first"), rmin=("rmin", "sum"), rated_min=("rated_min", "sum"),
+        **{c: (c, "sum") for c in num}).reset_index()
+    opp = tm[["match_key", "team", "passes", "xg", "shots", "sot"]].rename(
+        columns={"team": "opp", "passes": "opp_passes", "xg": "opp_xg", "shots": "opp_shots", "sot": "opp_sot"})
     tm = tm.merge(opp, on=["match_key", "opp"], how="left")
     tm["poss"] = tm["passes"] / (tm["passes"] + tm["opp_passes"])
+    tm["gf"] = pd.to_numeric(tm["gf"], errors="coerce")
+    tm["ga"] = pd.to_numeric(tm["ga"], errors="coerce")
+    tm["pts"] = (tm["gf"] > tm["ga"]) * 3 + (tm["gf"] == tm["ga"]) * 1
 
     # event coordinates, joined to the player's team for this season
     if players is None:
@@ -75,46 +140,90 @@ def compute(league: str, season: str, matches=None, players=None, passes=None, d
     team_of = dict(zip(players["whoscored_player_id"].astype("int64"), players["team_name"]))
     if passes is None:
         passes = store.get_chart_partition("passing", league, season,
-                                           ["whoscored_player_id", "x", "y", "end_x", "end_y", "progressive", "completed", "into_box"])
+                                           ["whoscored_player_id", "x", "y", "end_x", "end_y", "progressive", "completed",
+                                            "into_box", "release_s"])
     if defs is None:
         defs = store.get_chart_partition("defending", league, season, ["whoscored_player_id", "x", "action"])
-    pass_by_team, def_by_team, attack_by_team = {}, {}, {}
+    if shots is None:
+        shots = _season_shots(league, season)
+    pass_by_team, def_by_team, attack_by_team, shot_by_team = {}, {}, {}, {}
     if passes is not None and len(passes):
         p = passes.copy()
         p["team"] = p["whoscored_player_id"].astype("int64").map(team_of)
         p = p.dropna(subset=["team"])
         p["len_m"] = ((((p["end_x"] - p["x"]) * PITCH_X / 100) ** 2 + ((p["end_y"] - p["y"]) * PITCH_Y / 100) ** 2) ** 0.5)
-        g = p.groupby("team")
-        pass_by_team = {t: {"directness": 100 * float(x["progressive"].astype(float).mean()),
-                            "pass_length": float(x["len_m"].mean()),
-                            "final_third": 100 * float((x["x"] >= FINAL_THIRD_X).mean())} for t, x in g}
-        attack_by_team = {t: _attack_channels(x) for t, x in g}
+        for t, x in p.groupby("team"):
+            prog = x["progressive"].astype(float)
+            pass_by_team[t] = {"directness": 100 * float(prog.mean()), "pass_length": float(x["len_m"].mean()),
+                               "final_third": 100 * float((x["x"] >= FINAL_THIRD_X).mean()),
+                               "long_balls": 100 * float((x["len_m"] >= LONG_BALL_M).mean()),
+                               "release": float(x["release_s"].mean()) if "release_s" in x and x["release_s"].notna().any() else None,
+                               "_prog": float(prog.sum())}
+            attack_by_team[t] = _attack_channels(x)
     if defs is not None and len(defs):
-        d = defs[defs["action"].isin(["tackle", "interception", "recovery"])].copy()
+        d = defs.copy()
         d["team"] = d["whoscored_player_id"].astype("int64").map(team_of)
         d = d.dropna(subset=["team"])
-        def_by_team = {t: float(x["x"].mean()) * PITCH_X / 100 for t, x in d.groupby("team")}
+        wins = d[d["action"].isin(["tackle", "interception", "recovery"])]
+        for t, x in wins.groupby("team"):
+            def_by_team.setdefault(t, {})["def_height"] = float(x["x"].mean()) * PITCH_X / 100
+            def_by_team[t]["_high"] = int((x["x"] >= FINAL_THIRD_X).sum())
+        for t, x in d.groupby("team"):
+            def_by_team.setdefault(t, {})["_recoveries"] = int((x["action"] == "recovery").sum())
+            def_by_team[t]["_blocks"] = int((x["action"] == "block").sum())
+    if shots is not None and len(shots):
+        s = shots.copy()
+        s["team"] = s["whoscored_player_id"].astype("int64").map(team_of)
+        s = s.dropna(subset=["team"])
+        s["dist"] = ((((100 - s["x"]) * PITCH_X / 100) ** 2 + ((50 - s["y"]) * PITCH_Y / 100) ** 2) ** 0.5)
+        for t, x in s.groupby("team"):
+            xg = float(x["xg"].sum())
+            sp = x["situation"].astype(str).str.lower().ne("open_play") if "situation" in x else None
+            shot_by_team[t] = {
+                "shot_distance": float(x["dist"].mean()),
+                "box_shots": 100 * float(((x["x"] >= 83) & (x["y"] >= 21.1) & (x["y"] <= 78.9)).mean()),
+                "setpiece_xg": 100 * float(x.loc[sp, "xg"].sum()) / xg if (sp is not None and xg) else None,
+                "headed_share": 100 * float(x["body"].astype(str).str.lower().eq("head").mean()) if "body" in x else None,
+                "_big": int(x["big_chance"].fillna(False).astype(bool).sum()) if "big_chance" in x else None,
+            }
 
     out = []
     for team, g in tm.groupby("team", sort=False):
         n = len(g)
+        per = lambda v: None if v is None else float(v) / n
         def_actions = g["tackles"].sum() + g["interceptions"].sum() + g["fouls"].sum()
+        pb, db, sb = pass_by_team.get(team, {}), def_by_team.get(team, {}), shot_by_team.get(team, {})
+        att = attack_by_team.get(team) or {}
         vals = {
+            "goals": per(g["gf"].sum()), "xg": per(g["xg"].sum()), "npxg": per(g["npxg"].sum()),
+            "shots": per(g["shots"].sum()), "sot": per(g["sot"].sum()),
+            "shot_accuracy": _pct(g["sot"].sum(), g["shots"].sum()), "conversion": _pct(g["gf"].sum(), g["shots"].sum()),
+            "xg_per_shot": _safe_div(g["xg"].sum(), g["shots"].sum()), "big_chances": per(sb.get("_big")),
+            "shot_distance": sb.get("shot_distance"), "box_shots": sb.get("box_shots"),
+            "setpiece_xg": sb.get("setpiece_xg"), "headed_share": sb.get("headed_share"),
+            "key_passes": per(g["key_passes"].sum()), "xa": per(g["xa"].sum()),
+            "ft_entries": per(att.get("_entries")), "box_passes": per(att.get("_box")),
+            "takeons": per(g["dribbles"].sum()), "takeon_success": _pct(g["dribbles_won"].sum(), g["dribbles"].sum()),
             "possession": 100 * float(g["poss"].mean()) if g["poss"].notna().any() else None,
-            "pass_accuracy": 100 * _safe_div(g["passes_acc"].sum(), g["passes"].sum()) if g["passes"].sum() else None,
-            "ppda": _safe_div(g["opp_passes"].sum(), def_actions),
-            "def_height": def_by_team.get(team),
-            "shots": float(g["shots"].sum()) / n,
-            "xg": float(g["xg"].sum()) / n,
-            "xga": float(g["opp_xg"].fillna(0).sum()) / n,
-            "xg_per_shot": _safe_div(g["xg"].sum(), g["shots"].sum()),
-            "aerial_win": 100 * _safe_div(g["aerials_won"].sum(), g["aerials"].sum()) if g["aerials"].sum() else None,
-            "takeons": float(g["dribbles"].sum()) / n,
-            **pass_by_team.get(team, {}),
+            "passes": per(g["passes"].sum()), "pass_accuracy": _pct(g["passes_acc"].sum(), g["passes"].sum()),
+            "touches": per(g["touches"].sum()), "prog_passes": per(pb.get("_prog")),
+            "directness": pb.get("directness"), "pass_length": pb.get("pass_length"), "long_balls": pb.get("long_balls"),
+            "final_third": pb.get("final_third"), "release": pb.get("release"),
+            "ppda": _safe_div(g["opp_passes"].sum(), def_actions), "def_height": db.get("def_height"),
+            "high_regains": per(db.get("_high")), "recoveries": per(db.get("_recoveries")),
+            "tackles": per(g["tackles"].sum()), "tackle_success": _pct(g["tackles_won"].sum(), g["tackles"].sum()),
+            "interceptions": per(g["interceptions"].sum()), "clearances": per(g["clearances"].sum()),
+            "blocks": per(db.get("_blocks")), "opp_shots": per(g["opp_shots"].fillna(0).sum()),
+            "xga": per(g["opp_xg"].fillna(0).sum()), "ga": per(g["ga"].sum()),
+            "aerials": per(g["aerials"].sum()), "aerial_win": _pct(g["aerials_won"].sum(), g["aerials"].sum()),
+            "fouls": per(g["fouls"].sum()), "yellows": per(g["yellow"].sum()),
+            "save_pct": _pct(g["saves"].sum(), g["opp_sot"].fillna(0).sum()), "saves": per(g["saves"].sum()),
+            "ppm": per(g["pts"].sum()), "gd": per(g["gf"].sum() - g["ga"].sum()),
+            "xgd": per(g["xg"].sum() - g["opp_xg"].fillna(0).sum()),
+            "rating": _safe_div(g["rmin"].sum(), g["rated_min"].sum()),
         }
         clean = {k: (None if v is None or (isinstance(v, float) and math.isnan(v)) else round(float(v), 3)) for k, v in vals.items()}
         row = {"team": team, "matches": int(n), "values": clean}
-        att = attack_by_team.get(team)
         if att:
             att = dict(att)
             entries, box = att.pop("_entries"), att.pop("_box")
@@ -122,6 +231,18 @@ def compute(league: str, season: str, matches=None, players=None, passes=None, d
         out.append(row)
     out.sort(key=lambda r: r["team"])
     return out
+
+
+def _season_shots(league: str, season: str):
+    """Every shot of one competition-season (shooter, location, xG, situation, body part, big chance)."""
+    import pandas as pd
+    import pyarrow.dataset as ds
+    from core.advanced import config, store
+    dset = store._overview_dataset("shots", config.SHOTS_DIR)
+    if dset is None:
+        return pd.DataFrame()
+    cols = [c for c in ("whoscored_player_id", "x", "y", "xg", "situation", "body", "big_chance") if c in dset.schema.names]
+    return dset.to_table(columns=cols, filter=(ds.field("league") == league) & (ds.field("season") == season)).to_pandas()
 
 
 def _attack_channels(p) -> dict:
@@ -142,7 +263,8 @@ def _attack_channels(p) -> dict:
 
 def with_ranks(rows: list[dict]) -> list[dict]:
     """Adds {key: rank} per team (1 = highest, or lowest for "low" metrics); ties share a rank."""
-    for key, _l, _u, _d, order, _desc in METRICS:
+    for meta in META:
+        key, order = meta["key"], meta["order"]
         place = {}
         for r in rows:
             v = r["values"].get(key)

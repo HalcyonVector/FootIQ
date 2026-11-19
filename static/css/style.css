@@ -2090,7 +2090,9 @@ footer {
 @media (max-width:640px){.lg-style-row{grid-template-columns:24px minmax(90px,120px) 1fr 62px;gap:8px;font-size:12.5px}}
 
 /* Team page: style profile tiles */
-.tm-style{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px}
+.tm-style{display:grid;gap:18px}
+.tm-style-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px}
+.tm-style-group-title{font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--c0);margin:0 0 8px}
 .tm-style-tile{border:1px solid var(--border);border-radius:12px;padding:12px 14px;background:rgba(255,255,255,.02);position:relative}
 .tm-style-label{font-size:11.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);min-height:30px}
 .tm-style-val{font-size:22px;font-weight:800;margin:4px 0 6px;font-variant-numeric:tabular-nums}
@@ -2116,3 +2118,13 @@ footer {
 .tm-ha-table td,.tm-ha-table th{padding:8px 10px;text-align:center}
 .tm-ha-table td:first-child{text-align:left;color:var(--dim)}
 .tm-ha-best{color:var(--c0);font-weight:800}
+
+/* Teams page measure and plot pickers: the site's dropdown, wider, taller menu with group headings */
+.lg-style-pick .custom-select{min-width:340px;max-width:100%}
+.lg-style-pick .custom-select-menu{max-height:420px}
+@media (max-width:640px){.lg-style-pick .custom-select{min-width:0;width:100%}}
+
+/* Open dropdown menus: nearly opaque, so the page behind does not show through the list */
+.custom-select-menu{background:rgba(12,16,28,.97)}
+[data-theme="light"] .custom-select-menu{background:rgba(255,255,255,.98)}
+.custom-select-item{font-size:13.5px}

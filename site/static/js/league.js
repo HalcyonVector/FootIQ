@@ -44,7 +44,36 @@
     { id: "accuracy_takeons", title: "Pass accuracy vs take-ons", x: "pass_accuracy", y: "takeons",
       q: "Who keeps it tidy, and who takes players on?",
       c: { tr: "Tidy and daring", tl: "Dribbling sides", br: "Tidy passers", bl: "Neither" } },
+    { id: "regains_xg", title: "Winning the ball high vs creating chances", x: "high_regains", y: "xg",
+      q: "Does winning the ball in the final third turn into chances?",
+      c: { tr: "Press into chances", tl: "Create without pressing", br: "Press, little end product", bl: "Neither" } },
+    { id: "tackles_interceptions", title: "Tackling vs intercepting", x: "tackles", y: "interceptions",
+      q: "Does a team win the ball by going in, or by reading the pass?",
+      c: { tr: "Active ball-winners", tl: "Read the game", br: "Tackle-heavy", bl: "Passive" } },
+    { id: "setpiece_aerial", title: "Set-piece threat vs aerial duels won", x: "setpiece_xg", y: "aerial_win",
+      q: "Who gets its chances from set pieces, and does it win in the air?",
+      c: { tr: "Set-piece specialists", tl: "Strong in the air, open-play chances", br: "Set pieces without the height", bl: "Open play, on the ground" } },
+    { id: "box_volume", title: "Box entries vs shots from the box", x: "box_passes", y: "box_shots",
+      q: "Who gets the ball into the box, and who shoots from there?",
+      c: { tr: "Live in the box", tl: "Few entries, shoot close", br: "Enter often, shoot from range", bl: "Outside shooters" } },
+    { id: "release_prog", title: "Speed of passing vs progression", x: "release", y: "prog_passes",
+      q: "Who moves it quickly, and who moves it forward?",
+      c: { tr: "Quick and forward", tl: "Forward, takes its time", br: "Quick, sideways", bl: "Slow and safe" } },
+    { id: "xgd_ppm", title: "Performance vs results", x: "xgd", y: "ppm",
+      q: "Are the results in line with how well a team plays? Top left: more points than its xG difference suggests; bottom right: fewer.",
+      c: { tr: "Good and winning", tl: "Winning above its level", br: "Unlucky", bl: "Struggling" } },
   ];
+
+  // Options grouped by theme (the dropdown shows a heading per group).
+  const groupedOptions = (items, val, label, group) => {
+    const groups = [...new Set(items.map(group))];
+    return groups.map(g => `<optgroup label="${esc(g)}">${items.filter(i => group(i) === g)
+      .map(i => `<option value="${esc(val(i))}">${esc(label(i))}</option>`).join("")}</optgroup>`).join("");
+  };
+  const PLOT_GROUP = p => ({ poss_press: "Style", height_press: "Style", poss_direct: "Style", release_prog: "Style",
+    length_aerial: "Style", accuracy_takeons: "Style", tackles_interceptions: "Defending", regains_xg: "Attack and pressing",
+    xg_xga: "Output", volume_quality: "Output", territory_threat: "Output", box_volume: "Output", setpiece_aerial: "Output",
+    xgd_ppm: "Results" })[p.id] || "Other";
 
   function drawTeamPlot(league, season) {
     if (!styleData) return;
@@ -75,11 +104,12 @@
       return;
     }
     const sel = $("lg-metric");
-    if (!sel.options.length) sel.innerHTML = styleData.metrics.map(m => `<option value="${m.key}">${esc(m.label)}</option>`).join("");
+    if (!sel.options.length) sel.innerHTML = groupedOptions(styleData.metrics, m => m.key, m => m.label, m => m.group || "Other");
     sel.onchange = () => drawStyles(league, season);
     const mp = $("lg-map");
-    if (mp && !mp.options.length) mp.innerHTML = TEAM_PLOTS.map(p => `<option value="${p.id}">${esc(p.title)}</option>`).join("");
+    if (mp && !mp.options.length) mp.innerHTML = groupedOptions(TEAM_PLOTS, p => p.id, p => p.title, PLOT_GROUP);
     if (mp) mp.onchange = () => drawTeamPlot(league, season);
+    if (typeof upgradeSelects === "function") upgradeSelects();     // the site's own dropdown, with group headings
     drawStyles(league, season);
     if ($("lg-map-panel") && $("lg-map-panel").style.display === "block") drawTeamPlot(league, season);
   }
@@ -232,7 +262,8 @@
     if (!me) return;
     const n = d.teams.length;
     $("tm-style-sub").textContent = `ranked among the ${n} teams in this competition`;
-    $("tm-style").innerHTML = d.metrics.filter(m => me.values[m.key] !== null && me.values[m.key] !== undefined).map(m => {
+    const shown = d.metrics.filter(m => me.values[m.key] !== null && me.values[m.key] !== undefined);
+    const tile = m => {
       const rank = me.ranks[m.key], share = n > 1 ? (n - rank) / (n - 1) : 1;
       return `<div class="tm-style-tile" title="${esc(m.desc)}">
         <div class="tm-style-label">${esc(m.label)}</div>
@@ -241,7 +272,10 @@
         <div class="tm-style-rank">${rankWord(m, rank, n)}</div>
         <a class="tm-style-more" href="/league?${new URLSearchParams({ league, season, tab: "style" })}">compare →</a>
       </div>`;
-    }).join("");
+    };
+    const groups = [...new Set(shown.map(m => m.group || "Other"))];
+    $("tm-style").innerHTML = groups.map(g => `<div class="tm-style-group"><div class="tm-style-group-title">${esc(g)}</div>
+      <div class="tm-style-grid">${shown.filter(m => (m.group || "Other") === g).map(tile).join("")}</div></div>`).join("");
     $("tm-style-card").style.display = "block";
     renderAttack(me, d.teams);
   }
