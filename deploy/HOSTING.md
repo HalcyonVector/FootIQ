@@ -31,9 +31,12 @@ as a page opens, so Render is already waking while the visitor reads and types.
 Update it whenever templates, `static/`, the data or the featured players change:
 
     py -3 deploy/build_static.py          # rebuilds site/ (keeps the .vercel link)
-    cd site && vercel deploy --prod --yes
+    git add site && git commit && git push   # Vercel publishes it
 
-The Vercel project is `footiq` (production alias https://footiq-app.vercel.app). Preview URLs of a
+The Vercel project is `footiq` (production alias https://footiq-app.vercel.app). It is linked to this
+GitHub repo with **Root Directory = `site`**, so every push to `main` publishes `site/` (no build step;
+the files are already built and committed). Without that setting Vercel would publish the repo root,
+which has no index page, and every URL would return 404 (this happened once on 2026-11-19). Preview URLs of a
 deployment are protected by Vercel login; the production alias is public. Commit `site/` too, since
 it is the source of what is deployed.
 

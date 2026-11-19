@@ -230,7 +230,9 @@ def run(push: bool = True) -> None:
     else:
         log("Pushed successfully")
         if static_ok:
-            deploy_static_front()
+            # The Vercel project is linked to the repo with Root Directory = site, so the push itself
+            # publishes the static front end; deploy_static_front() stays for a machine without that link.
+            log("Static front end publishes from the push (Vercel builds site/ on every push to main)")
 
     log("=== auto_update complete ===")
 
