@@ -57,3 +57,17 @@ def test_ranks_follow_each_measures_direction():
 def test_metric_list_is_consistent():
     keys = [m["key"] for m in teams.META]
     assert len(keys) == len(set(keys)) and all(m["order"] in ("high", "low") for m in teams.META)
+
+
+def test_attack_channels_split_entries_by_end_side():
+    p = pd.DataFrame({"x": [50, 50, 50, 50, 80], "end_x": [70, 70, 70, 90, 95], "end_y": [80, 50, 20, 85, 50],
+                      "completed": [True, True, True, True, True], "into_box": [False, False, False, False, True]})
+    a = teams._attack_channels(p)
+    # four passes cross into the final third: two end on the left (y > 66.7), one centre, one right
+    assert (a["left"], a["centre"], a["right"]) == (50.0, 25.0, 25.0)
+    assert a["_entries"] == 4 and a["_box"] == 1
+
+
+def test_attack_channels_ignore_incomplete_passes():
+    p = pd.DataFrame({"x": [50, 50], "end_x": [70, 70], "end_y": [80, 20], "completed": [True, False], "into_box": [False, False]})
+    assert teams._attack_channels(p)["left"] == 100.0

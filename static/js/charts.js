@@ -191,7 +191,7 @@ const FootIQCharts = (() => {
       ${(spec.guides || []).map(g => guideSVG(g, G)).join("")}
       ${drawn.map(L => layerSVG(L, G, uid)).join("")}
     </svg>`;
-    const legend = `<div class="fc-legend">${layers.map(L =>
+    const legend = teamMode ? "" : `<div class="fc-legend">${layers.map(L =>
       `<button type="button" class="fc-leg${L.count ? "" : " zero"}" data-layer="${esc(L.id)}" title="Click to show/hide">${swatch(L)}<span>${esc(L.label)}</span><b>${L.count}</b></button>`).join("")}</div>`;
     host.innerHTML = head(spec) + svg + legend;
     host.querySelectorAll(".fc-leg").forEach(b => b.addEventListener("click", () => {
@@ -381,7 +381,8 @@ const FootIQCharts = (() => {
     if (host._xySpec !== spec) ui.find = "";                          // a new plot starts with an empty search
     host._xySpec = spec;
     const maxMin = Math.max(1, ...pts.map(p => p[8] || 0));
-    const radius = p => (ui.size ? 2.2 + 4.8 * Math.sqrt(Math.max(0, p[8] || 0) / maxMin) : 3.6);
+    const teamMode = !!spec.team;                       // teams: ~20 dots, every one named, links to team pages
+    const radius = p => (teamMode ? 6.5 : ui.size ? 2.2 + 4.8 * Math.sqrt(Math.max(0, p[8] || 0) / maxMin) : 3.6);
     // On a phone the chart is drawn on a narrower canvas so its text is not shrunk to a few pixels.
     const narrow = (host.clientWidth || 720) < 560;
     const W = narrow ? 400 : 720, H = narrow ? 560 : 520, L = narrow ? 48 : 60, R = 14, T = 14, B = narrow ? 60 : 56;
@@ -407,19 +408,23 @@ const FootIQCharts = (() => {
     g += `<line x1="${r1(sx(mx))}" x2="${r1(sx(mx))}" y1="${T}" y2="${H - B}" style="stroke:var(--dim);stroke-dasharray:5 4"/>
           <line x1="${L}" x2="${W - R}" y1="${r1(sy(my))}" y2="${r1(sy(my))}" style="stroke:var(--dim);stroke-dasharray:5 4"/>`;
 
-    if (quad) {
+    const corners = quad || spec.corners || null;        // corner names: index plots and team plots
+    if (corners) {
       const q = (txt, x, y, anchor) => `<text x="${r1(x)}" y="${r1(y)}" class="fc-quad" text-anchor="${anchor}">${esc(txt)}</text>`;
-      g += q(quad.tl, L + 8, T + 16, "start") + q(quad.tr, W - R - 8, T + 16, "end")
-         + q(quad.bl, L + 8, H - B - 9, "start") + q(quad.br, W - R - 8, H - B - 9, "end");
+      g += q(corners.tl, L + 8, T + 16, "start") + q(corners.tr, W - R - 8, T + 16, "end")
+         + q(corners.bl, L + 8, H - B - 9, "start") + q(corners.br, W - R - 8, H - B - 9, "end");
     }
-    const url = p => `/player?${new URLSearchParams({ player_id: p[4], league: p[5], season: p[6] })}`;
+    const url = p => teamMode ? `/team?${new URLSearchParams({ league: p[5], season: p[6], team: p[2] })}`
+                              : `/player?${new URLSearchParams({ player_id: p[4], league: p[5], season: p[6] })}`;
     const partLines = p => {
       if (!quad || !p[9]) return "";
       const nx = spec.xparts.length, line = (part, v) => `\n  ${part[0]}: ${fmtVal(v, part[1])}`;
       return `\n${spec.xlabel.replace(" index", "")}:` + spec.xparts.map((part, i) => line(part, p[9][i])).join("")
            + `\n${spec.ylabel.replace(" index", "")}:` + spec.yparts.map((part, i) => line(part, p[9][nx + i])).join("");
     };
-    const tip = p => (quad
+    const tip = p => (teamMode
+      ? `${p[2]}\n${spec.xlabel}: ${fmtVal(p[0], spec.xunit)}\n${spec.ylabel}: ${fmtVal(p[1], spec.yunit)}\n${p[8]} matches`
+      : quad
       ? `${p[2]}\n${p[3]} · ${p[5]}\n${spec.xlabel}: ${Math.round(p[0])}   ${spec.ylabel}: ${Math.round(p[1])}${partLines(p)}\n${p[8]} min`
       : `${p[2]}\n${p[3]} · ${p[5]}\n${spec.xlabel}: ${fmtVal(p[0], spec.xunit)}\n${spec.ylabel}: ${fmtVal(p[1], spec.yunit)}\n${p[8]} min`).replace(/\\n/g, "\n");
     g += pts.map(p => {
@@ -437,7 +442,19 @@ const FootIQCharts = (() => {
     const dist = p => Math.hypot(p[0] - mx, p[1] - my);
     const perCorner = narrow ? 1 : 2, used = {};
     const order = quad ? [...pts].sort((a, b) => dist(b) - dist(a)) : [...pts].sort((a, b) => score(b) - score(a));
-    order.slice(0, quad ? 120 : 40).forEach(p => {
+    if (teamMode) {
+      // every team gets its name: above the dot, or below it when that spot is taken
+      const taken = [];
+      [...pts].sort((a, b) => sy(a[1]) - sy(b[1])).forEach(p => {
+        const cx = sx(p[0]), cy = sy(p[1]), right = cx > W - (narrow ? 120 : 150);
+        const w = Math.min(160, 6.2 * String(p[2]).length);
+        const spots = [cy - 10, cy + 20, cy - 24, cy + 34];
+        const y = spots.find(yy => yy > T + 8 && yy < H - B - 4 && !taken.some(t => Math.abs(t.y - yy) < 14 &&
+          Math.abs(t.x - cx) < (t.w + w) / 2 + 6)) ?? spots[0];
+        taken.push({ x: cx, y, w });
+        g += `<text x="${r1(cx + (right ? -6 : 6))}" y="${r1(y)}" class="fc-t fc-t-strong fc-halo" text-anchor="${right ? "end" : "start"}">${esc(p[2])}</text>`;
+      });
+    } else order.slice(0, quad ? 120 : 40).forEach(p => {
       if (quad) { if ((used[corner(p)] || 0) >= perCorner) return; }
       else if (placed.length >= (narrow ? 5 : 8)) return;
       const cx = sx(p[0]), cy = sy(p[1]);
@@ -456,15 +473,15 @@ const FootIQCharts = (() => {
     const groups = [...new Set(pts.map(p => p[7]))];
     const legend = `<div class="fc-legend">${groups.map(k => `<span class="fc-leg static"><i class="fc-dot" style="background:${spec.colors[k] || "#64748b"}"></i><span>${esc(k.charAt(0).toUpperCase() + k.slice(1))}s</span></span>`).join("")}</div>`;
     const tools = `<div class="fc-xy-tools">
-        <input class="fc-xy-find" type="search" placeholder="Find a player on the chart…" aria-label="Find a player on the chart" autocomplete="off" value="${esc(ui.find)}">
-        <label class="fc-xy-size"><input type="checkbox" ${ui.size ? "checked" : ""}> Dot size = minutes played</label>
+        <input class="fc-xy-find" type="search" placeholder="Find a ${teamMode ? "team" : "player"} on the chart…" aria-label="Find on the chart" autocomplete="off" value="${esc(ui.find)}">
+        ${teamMode ? "" : `<label class="fc-xy-size"><input type="checkbox" ${ui.size ? "checked" : ""}> Dot size = minutes played</label>`}
         <span class="fc-xy-count" aria-live="polite"></span></div>`;
     // How to read it: the question, and (for a quadrant plot) exactly what goes into each index.
     const parts = (label, list) => `<b>${esc(label.replace(" index", ""))}</b> = average percentile of ${list.map(p => esc(p[0])).join(", ")}`;
     const notes = quad
       ? `<div class="fc-xy-notes">${spec.question ? `<p>${esc(spec.question)}</p>` : ""}<p>${parts(spec.xlabel, spec.xparts)}.<br>${parts(spec.ylabel, spec.yparts)}.</p>
          <p>Bigger dots played more minutes, so they are the safer reads. Each player is a player-season; someone with a league and a European row appears twice.</p></div>`
-      : "";
+      : spec.note ? `<div class="fc-xy-notes"><p>${esc(spec.note)}</p></div>` : "";
     host.innerHTML = head(spec) + tools + `<svg viewBox="0 0 ${W} ${H}" class="ov-svg fc-svg${narrow ? " fc-xy-narrow" : ""}" role="img" aria-label="${esc(spec.xlabel)} against ${esc(spec.ylabel)}">${g}<g class="fc-xy-hits"></g></svg>` + legend + notes;
 
     // Find-a-player: matching dots light up (and are named), everyone else fades.
@@ -483,7 +500,7 @@ const FootIQCharts = (() => {
       });
     };
     host.querySelector(".fc-xy-find").addEventListener("input", e => { ui.find = e.target.value; apply(); });
-    host.querySelector(".fc-xy-size input").addEventListener("change", e => {
+    host.querySelector(".fc-xy-size input")?.addEventListener("change", e => {
       ui.size = e.target.checked;
       dots.forEach((d, i) => d.setAttribute("r", r1(radius(pts[i]))));
     });

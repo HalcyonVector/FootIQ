@@ -763,6 +763,32 @@ def api_team_styles():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/api/team-network")
+@cached_json
+def api_team_network():
+    """A team's pass network: its most-used players at their average touch position, joined by passes."""
+    league, season, team = request.args.get("league", ""), request.args.get("season", ""), request.args.get("team", "")
+    try:
+        from core.advanced import teams
+        return jsonify(teams.pass_network(league, season, team))
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/team-shots")
+@cached_json
+def api_team_shots():
+    """Every shot a team took in one competition-season."""
+    league, season, team = request.args.get("league", ""), request.args.get("season", ""), request.args.get("team", "")
+    try:
+        from core.advanced import teams
+        return jsonify({"shots": teams.team_shots(league, season, team)})
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/api/team")
 @cached_json
 def api_team():

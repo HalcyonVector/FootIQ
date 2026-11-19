@@ -42,10 +42,19 @@
         <span class="section-label" id="lg-title">Table</span>
       </div>
       <div class="lg-tabs" role="tablist">
-        <button type="button" class="lg-tab active" data-tab="table" role="tab">Table</button>
-        <button type="button" class="lg-tab" data-tab="style" role="tab">How they play</button>
+        <button type="button" class="lg-tab active" data-tab="style" role="tab">How they play</button>
+        <button type="button" class="lg-tab" data-tab="map" role="tab">Style map</button>
+        <button type="button" class="lg-tab" data-tab="table" role="tab">Table</button>
       </div>
-      <div id="lg-style-panel" style="display:none">
+      <div id="lg-map-panel" style="display:none">
+        <div class="lg-style-pick">
+          <label for="lg-map">Plot</label>
+          <select id="lg-map" class="lg-metric-select"></select>
+        </div>
+        <div class="lg-note" id="lg-map-desc"></div>
+        <div id="lg-map-chart"></div>
+      </div>
+      <div id="lg-style-panel">
         <div class="lg-style-pick">
           <label for="lg-metric">Rank teams by</label>
           <select id="lg-metric" class="lg-metric-select"></select>
@@ -54,7 +63,7 @@
         <div id="lg-style"></div>
         <div class="lg-note" style="margin-top:12px">From the match events, not tracking data: possession is a share of the passes, and pressing counts passes allowed per defensive action over the whole pitch.</div>
       </div>
-      <div id="lg-table-panel">
+      <div id="lg-table-panel" style="display:none">
       <div class="lg-note" id="lg-note"></div>
       <div class="ov-table-wrap" id="lg-table"></div>
       <div class="ov-legend">
@@ -74,5 +83,6 @@
     window.IN_PROGRESS = {{ in_progress | tojson }};
     document.getElementById("nav-league").classList.add("active");
   </script>
+  <script src="/static/js/charts.js"></script>
   <script src="/static/js/league.js"></script>
 {% endblock %}

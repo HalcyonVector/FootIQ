@@ -16,6 +16,51 @@
   const fmtStyle = (m, v) => v === null || v === undefined ? "–" : `${Number(v).toFixed(m.decimals)}${m.unit === "%" ? "%" : m.unit === "m" ? " m" : ""}`;
   const rankWord = (m, rank, n) => `${ordinal(rank)} of ${n}${rank === 1 ? (m.order === "low" ? " (lowest)" : " (highest)") : ""}`;
 
+
+  // Team quadrant plots: every team in the competition on two style measures, median lines splitting
+  // the four corners. y "low" measures (pressing, xG against) are flipped so up always means more of the good thing.
+  const TEAM_PLOTS = [
+    { id: "poss_press", title: "Possession vs pressing", x: "possession", y: "ppda",
+      q: "Who keeps the ball, who hunts it down, and who does both?",
+      c: { tr: "Control and press", tl: "Press and counter", br: "Patient possession", bl: "Sit deep" } },
+    { id: "xg_xga", title: "Chances created vs chances conceded", x: "xg", y: "xga",
+      q: "Who creates the most and gives away the least?",
+      c: { tr: "Dominant", tl: "Solid but blunt", br: "Open and dangerous", bl: "Struggling" } },
+    { id: "height_press", title: "Ball-winning height vs pressing", x: "def_height", y: "ppda",
+      q: "Who presses high, and who waits in a low block?",
+      c: { tr: "High press", tl: "Aggressive mid-block", br: "High line, passive", bl: "Deep block" } },
+    { id: "poss_direct", title: "Possession vs directness", x: "possession", y: "directness",
+      q: "Who has the ball and goes forward with it fast, and who keeps it patiently?",
+      c: { tr: "Dominant and direct", tl: "Direct, little ball", br: "Patient build-up", bl: "Low tempo, little ball" } },
+    { id: "volume_quality", title: "Shot volume vs shot quality", x: "shots", y: "xg_per_shot",
+      q: "Who shoots a lot, and who waits for good chances?",
+      c: { tr: "Many good chances", tl: "Few, high quality", br: "Shoot from anywhere", bl: "Little threat" } },
+    { id: "territory_threat", title: "Territory vs threat", x: "final_third", y: "xg",
+      q: "Who plays in the opponent's third, and who turns it into chances?",
+      c: { tr: "Camp in and create", tl: "Efficient counter", br: "Territory without threat", bl: "Pinned back" } },
+    { id: "length_aerial", title: "Pass length vs aerial duels won", x: "pass_length", y: "aerial_win",
+      q: "Who plays long and wins the ball in the air?",
+      c: { tr: "Long ball, won in the air", tl: "Short but strong in the air", br: "Long, loses the duels", bl: "Short, weak in the air" } },
+    { id: "accuracy_takeons", title: "Pass accuracy vs take-ons", x: "pass_accuracy", y: "takeons",
+      q: "Who keeps it tidy, and who takes players on?",
+      c: { tr: "Tidy and daring", tl: "Dribbling sides", br: "Tidy passers", bl: "Neither" } },
+  ];
+
+  function drawTeamPlot(league, season) {
+    if (!styleData) return;
+    const plot = TEAM_PLOTS.find(p => p.id === $("lg-map").value) || TEAM_PLOTS[0];
+    const mx = styleData.metrics.find(m => m.key === plot.x), my = styleData.metrics.find(m => m.key === plot.y);
+    $("lg-map-desc").textContent = plot.q;
+    const pts = styleData.teams.filter(t => t.values[plot.x] != null && t.values[plot.y] != null)
+      .map(t => [t.values[plot.x], t.values[plot.y], t.team, "", 0, league, season, "team", t.matches]);
+    FootIQCharts.render($("lg-map-chart"), {
+      type: "xy", team: true, sub: `${pts.length} teams. Dashed lines are the medians. Click a team for its page.`,
+      xlabel: mx.label, ylabel: my.label, xunit: mx.unit, yunit: my.unit, xinvert: mx.order === "low", yinvert: my.order === "low",
+      colors: { team: "#ec4899" }, corners: plot.c, points: pts,
+      note: `${mx.label}: ${mx.desc} ${my.label}: ${my.desc}`,
+    });
+  }
+
   // How every team in the competition plays, ranked on one chosen measure at a time.
   let styleData = null;
   async function loadStyles(league, season) {
@@ -30,11 +75,13 @@
       return;
     }
     const sel = $("lg-metric");
-    if (!sel.options.length) {
-      sel.innerHTML = styleData.metrics.map(m => `<option value="${m.key}">${esc(m.label)}</option>`).join("");
-      sel.onchange = () => drawStyles(league, season);
-    }
+    if (!sel.options.length) sel.innerHTML = styleData.metrics.map(m => `<option value="${m.key}">${esc(m.label)}</option>`).join("");
+    sel.onchange = () => drawStyles(league, season);
+    const mp = $("lg-map");
+    if (mp && !mp.options.length) mp.innerHTML = TEAM_PLOTS.map(p => `<option value="${p.id}">${esc(p.title)}</option>`).join("");
+    if (mp) mp.onchange = () => drawTeamPlot(league, season);
     drawStyles(league, season);
+    if ($("lg-map-panel") && $("lg-map-panel").style.display === "block") drawTeamPlot(league, season);
   }
 
   function drawStyles(league, season) {
@@ -58,9 +105,12 @@
   function showTab(tab) {
     document.querySelectorAll(".lg-tab").forEach(b => b.classList.toggle("active", b.dataset.tab === tab));
     $("lg-style-panel").style.display = tab === "style" ? "block" : "none";
-    $("lg-table-panel").style.display = tab === "style" ? "none" : "block";
+    $("lg-map-panel").style.display = tab === "map" ? "block" : "none";
+    $("lg-table-panel").style.display = tab === "table" ? "block" : "none";
     try { const u = new URL(location.href); u.searchParams.set("tab", tab); history.replaceState(null, "", u); } catch { /* non-fatal */ }
-    if (tab === "style" && !styleData) loadStyles($("lg-league").value, $("lg-season").value);
+    const league = $("lg-league").value, season = $("lg-season").value;
+    if ((tab === "style" || tab === "map") && !styleData) loadStyles(league, season);
+    else if (tab === "map") drawTeamPlot(league, season);
   }
 
   // ── League table ──────────────────────────────────────────────────────────
@@ -72,7 +122,8 @@
     } catch { /* non-fatal */ }
     const section = $("lg-section");
     styleData = null;
-    if ($("lg-style-panel") && $("lg-style-panel").style.display === "block") loadStyles(league, season);
+    if (($("lg-style-panel") && $("lg-style-panel").style.display === "block") ||
+        ($("lg-map-panel") && $("lg-map-panel").style.display === "block")) loadStyles(league, season);
     let data;
     try { data = await (await fetch(`/api/league-table?${new URLSearchParams({ league, season })}`)).json(); }
     catch { return; }
@@ -109,7 +160,7 @@
     document.querySelectorAll(".lg-tab").forEach(b => b.addEventListener("click", () => showTab(b.dataset.tab)));
     if (typeof upgradeSelects === "function") upgradeSelects();
     loadTable();
-    if (q.get("tab") === "style") showTab("style");
+    showTab(["style", "map", "table"].includes(q.get("tab")) ? q.get("tab") : "style");   // opens on How they play
   }
 
   // ── Team page ─────────────────────────────────────────────────────────────
@@ -192,6 +243,102 @@
       </div>`;
     }).join("");
     $("tm-style-card").style.display = "block";
+    renderAttack(me, d.teams);
+  }
+
+  // ── Full pitch (attacking left to right; Opta y=100 is the attacking team's left, drawn at the top) ──
+  const PW = 1050, PH = 680;
+  const px = x => (x / 100) * PW, py = y => ((100 - y) / 100) * PH;
+  function pitchSVG(inner, extraClass = "") {
+    const box = (x0, w, h) => `<rect x="${x0}" y="${(PH - h) / 2}" width="${w}" height="${h}" class="tm-pl"/>`;
+    return `<svg viewBox="-12 -12 ${PW + 24} ${PH + 24}" class="ov-svg tm-pitch ${extraClass}">
+      <rect x="0" y="0" width="${PW}" height="${PH}" class="tm-pitch-bg"/>
+      <rect x="0" y="0" width="${PW}" height="${PH}" class="tm-pl"/><line x1="${PW / 2}" x2="${PW / 2}" y1="0" y2="${PH}" class="tm-pl"/>
+      <circle cx="${PW / 2}" cy="${PH / 2}" r="91.5" class="tm-pl"/>
+      ${box(0, 165, 403)}${box(PW - 165, 165, 403)}${box(0, 55, 183)}${box(PW - 55, 55, 183)}
+      ${inner}</svg>`;
+  }
+
+  function renderAttack(me, all) {
+    const a = me.attack;
+    if (!a) return;
+    const avg = k => { const v = all.map(t => t.attack && t.attack[k]).filter(x => x != null); return v.length ? v.reduce((s, x) => s + x, 0) / v.length : null; };
+    const lane = (y0, y1, share, label, key) => {
+      const op = 0.12 + 0.6 * (share / 100);
+      const diff = avg(key) == null ? "" : ` (league ${avg(key).toFixed(0)}%)`;
+      return `<rect x="${px(66.7)}" y="${py(y1)}" width="${px(100) - px(66.7)}" height="${py(y0) - py(y1)}" fill="#ec4899" fill-opacity="${op.toFixed(2)}"/>
+        <text x="${px(83.3)}" y="${(py(y0) + py(y1)) / 2 + 4}" class="tm-lane-t" text-anchor="middle">${share.toFixed(0)}%</text>
+        <text x="${px(83.3)}" y="${(py(y0) + py(y1)) / 2 + 40}" class="tm-lane-s" text-anchor="middle">${esc(label + diff)}</text>`;
+    };
+    const arrow = `<line x1="${px(20)}" x2="${px(55)}" y1="${PH / 2}" y2="${PH / 2}" class="tm-arrow" marker-end="url(#tm-arr)"/>
+      <defs><marker id="tm-arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker></defs>`;
+    $("tm-attack").innerHTML = pitchSVG(lane(66.7, 100, a.left, "left", "left") + lane(33.3, 66.7, a.centre, "centre", "centre") +
+      lane(0, 33.3, a.right, "right", "right") + `<line x1="${px(66.7)}" x2="${px(66.7)}" y1="0" y2="${PH}" class="tm-pl tm-pl-strong"/>` + arrow);
+    $("tm-attack-note").textContent = `${a.entries_per_match} completed passes into the final third and ${a.box_per_match} into the box per match. Left and right are from the team's point of view, attacking to the right.`;
+    $("tm-attack-card").style.display = "block";
+  }
+
+  function renderHomeAway(results) {
+    if (!results || !results.length) return;
+    const split = home => {
+      const r = results.filter(m => !!m.home === home), n = r.length;
+      if (!n) return null;
+      const pts = r.reduce((s, m) => s + (m.result === "W" ? 3 : m.result === "D" ? 1 : 0), 0);
+      const xg = r.reduce((s, m) => s + (m.xgf || 0), 0), xga = r.reduce((s, m) => s + (m.xga || 0), 0);
+      const w = r.filter(m => m.result === "W").length, d = r.filter(m => m.result === "D").length;
+      return { n, ppg: pts / n, rec: `${w}-${d}-${n - w - d}`, gf: r.reduce((s, m) => s + m.gf, 0), ga: r.reduce((s, m) => s + m.ga, 0),
+               xg: xg / n, xga: xga / n };
+    };
+    const h = split(true), a = split(false);
+    if (!h || !a) return;
+    const row = (label, fh, fa, better) => {
+      const hv = fh(h), av = fa(a);
+      return `<tr><td>${label}</td><td class="${better(h, a) > 0 ? "tm-ha-best" : ""}">${hv}</td><td class="${better(h, a) < 0 ? "tm-ha-best" : ""}">${av}</td></tr>`;
+    };
+    $("tm-ha").innerHTML = `<table class="ov-table tm-ha-table"><thead><tr><th></th><th>Home</th><th>Away</th></tr></thead><tbody>
+      ${row("Matches", s => s.n, s => s.n, () => 0)}
+      ${row("Record (W-D-L)", s => s.rec, s => s.rec, () => 0)}
+      ${row("Points per match", s => s.ppg.toFixed(2), s => s.ppg.toFixed(2), (x, y) => x.ppg - y.ppg)}
+      ${row("Goals", s => `${s.gf}:${s.ga}`, s => `${s.gf}:${s.ga}`, (x, y) => (x.gf - x.ga) / x.n - (y.gf - y.ga) / y.n)}
+      ${row("xG per match", s => s.xg.toFixed(2), s => s.xg.toFixed(2), (x, y) => x.xg - y.xg)}
+      ${row("xG against per match", s => s.xga.toFixed(2), s => s.xga.toFixed(2), (x, y) => y.xga - x.xga)}
+      </tbody></table>`;
+    $("tm-ha-card").style.display = "block";
+  }
+
+  async function renderNetwork(league, season, team) {
+    let d;
+    try { d = await (await fetch(`/api/team-network?${new URLSearchParams({ league, season, team })}`)).json(); } catch { return; }
+    if (!d || !d.nodes || d.nodes.length < 3) return;
+    const maxN = Math.max(1, ...d.edges.map(e => e.n)), maxP = Math.max(1, ...d.nodes.map(n => n.passes || 0));
+    const byId = Object.fromEntries(d.nodes.map(n => [n.id, n]));
+    const last = name => { const parts = String(name).split(" "); return parts.length > 1 ? parts.slice(1).join(" ") : name; };
+    const edges = d.edges.filter(e => e.n >= maxN * 0.18).slice(0, 30).map(e => {
+      const a = byId[e.a], b = byId[e.b], f = e.n / maxN;
+      return `<line x1="${px(a.x).toFixed(1)}" y1="${py(a.y).toFixed(1)}" x2="${px(b.x).toFixed(1)}" y2="${py(b.y).toFixed(1)}"
+        stroke="#ec4899" stroke-opacity="${(0.2 + 0.65 * f).toFixed(2)}" stroke-width="${(1.5 + 11 * f).toFixed(1)}" stroke-linecap="round">
+        <title>${esc(`${a.name} and ${b.name}: ${e.n} passes`)}</title></line>`;
+    }).join("");
+    const nodes = d.nodes.map(n => {
+      const r = 14 + 16 * Math.sqrt((n.passes || 0) / maxP);
+      return `<g><circle cx="${px(n.x).toFixed(1)}" cy="${py(n.y).toFixed(1)}" r="${r.toFixed(1)}" class="tm-node">
+          <title>${esc(`${n.name} (${n.position || ""}), ${n.minutes} minutes, ${n.passes} passes with these teammates`)}</title></circle>
+        <text x="${px(n.x).toFixed(1)}" y="${(py(n.y) + r + 24).toFixed(1)}" class="tm-node-t" text-anchor="middle">${esc(last(n.name))}</text></g>`;
+    }).join("");
+    $("tm-net").innerHTML = pitchSVG(edges + nodes);
+    $("tm-net-card").style.display = "block";
+  }
+
+  async function renderTeamShots(league, season, team) {
+    let d;
+    try { d = await (await fetch(`/api/team-shots?${new URLSearchParams({ league, season, team })}`)).json(); } catch { return; }
+    const shots = (d && d.shots) || [];
+    if (!shots.length || typeof FootIQOverview === "undefined") return;
+    $("tm-shots").innerHTML = FootIQOverview.draw.shotMap(shots, "all", 0.75);
+    const n = shots.length, xg = shots.reduce((s, x) => s + (x.xg || 0), 0), g = shots.filter(x => x.outcome === "goal").length;
+    const box = shots.filter(x => x.x >= 83 && x.y >= 21 && x.y <= 79).length;
+    $("tm-shot-sum").innerHTML = `<b>${n}</b> shots · <b>${g}</b> goals · <b>${xg.toFixed(1)}</b> xG · <b>${(xg / n).toFixed(2)}</b> xG/shot · <b>${Math.round(100 * box / n)}%</b> from inside the box`;
+    $("tm-shots-card").style.display = "block";
   }
 
   async function initTeam() {
@@ -220,6 +367,9 @@
     ].join("");
     renderForm(data.results);
     renderTeamStyle(league, season, team);
+    renderHomeAway(data.results);
+    renderNetwork(league, season, team);
+    renderTeamShots(league, season, team);
     renderSquad(data.squad, league, season);
     renderResults(data.results, league, season);
     $("tm-body").style.display = "block";
