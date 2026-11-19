@@ -109,6 +109,13 @@ def settle(page: Page, extra_ms: int = 400) -> None:
 
 
 def record(name: str, page: Page, scope: str | None = None, need_drawn: int = 1) -> None:
+    # Some tabs load in two steps (Link-Up fetches the teammates, then the detail), and a slow host
+    # leaves a quiet gap between them: give the charts up to 25 s to appear before judging.
+    try:
+        page.wait_for_function(f"""(scope) => {{ const c = ({COUNT_JS})(scope);
+            return !c || c.broken || c.errors.length || c.drawn >= {need_drawn}; }}""", arg=scope, timeout=25_000)
+    except Exception:
+        pass
     c = page.evaluate(COUNT_JS, scope)
     if c is None:
         failures.append(f"{name}: {scope} is missing from the page")
