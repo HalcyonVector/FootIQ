@@ -90,7 +90,7 @@ from functools import wraps as _wraps
 
 _RESP_CACHE: "_OrderedDict[tuple, tuple[bytes, bytes]]" = _OrderedDict()
 _RESP_CACHE_BYTES = 0
-_RESP_CACHE_MAX_BYTES = 24 * 1024 * 1024
+_RESP_CACHE_MAX_BYTES = 12 * 1024 * 1024   # the instance sits around 440 MB of 512 after a busy spell
 
 
 def cached_json(view):
