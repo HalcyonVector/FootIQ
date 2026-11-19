@@ -60,6 +60,9 @@ def main() -> None:
     for row in out["coverage"]:
         nulls, n = missing.get((row["league"], row["season"]), (0, 0))
         row["missing"], row["scheduled"] = nulls, n
+    # How each team plays, per competition-season (core/advanced/teams.py)
+    from core.advanced import teams
+    out["teams"] = teams.build_all([(r["league"], r["season"]) for r in out["coverage"]])
     with open(extras.EXTRAS_JSON, "w", encoding="utf-8") as fh:
         json.dump(out, fh, separators=(",", ":"))
     f = out["hub"]["facts"]

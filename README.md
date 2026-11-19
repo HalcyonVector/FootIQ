@@ -65,9 +65,11 @@ What the data showed, and the problems found while building it:
 
 - A statistical-twin search across every competition, or just the top five leagues, filterable by maximum age. Candidates come from the two most recent seasons by default (or one season, or every season back to 2022), so the list shows players as they are now; each player appears once, in their best-matching season inside that window. The same engine lists six similar players from recent seasons on each player page.
 
-### League Tables and Team Pages
+### Teams
 
-- Points, goal difference, last-five form and xG for and against for every team, built from the per-match rows. Team pages add a goal-difference trend, a sortable squad table and every result with its xG.
+- The league table: points, goal difference, last-five form and xG for and against for every team, built from the per-match rows.
+- How each team plays, ranked within its competition: possession (share of the passes), pass accuracy, pressing (opponent passes allowed per defensive action, over the whole pitch), how far from its own goal it wins the ball, directness (share of passes that are progressive), average pass length, share of passes in the final third, shots, xG and xG against per match, xG per shot, aerial duels won and take-ons. Match-level measures add up each side's players per match; positional ones use the event coordinates of each team's players. Precomputed with the data for every competition-season.
+- Team pages add the full style profile with league ranks, a goal-difference trend, a sortable squad table and every result with its xG.
 
 ### Data Coverage
 
@@ -232,6 +234,7 @@ FootIQ/
 | `/api/explore-scatter`, `/api/explore-quadrant` | POST | Two metrics, or a curated pair of indexes, for the whole cohort |
 | `/api/coverage`, `/api/hub` | GET | The coverage table and the home page's facts |
 | `/api/league-table`, `/api/team` | GET | Standings, results and squad |
+| `/api/team-styles` | GET | How every team in a competition-season plays, with league ranks |
 | `/api/health` | GET | Warm-up state and memory use |
 
 ---
@@ -243,7 +246,7 @@ pip install pytest
 python -m pytest tests/
 ```
 
-154 tests cover the metric math and the data handling around it: progressive-action geometry, position-group classification, the Composite Rating's power mean, the xG model and shot data, league tables, chart specs, the player search ranking, the link-up lookup, the season-progress gates (including the European cups and that every category module that uses them imports them), the quadrant indexes, the Top 5 and percentile-scope filters, Scout's season window, the default season, that every page renders, partition-preserving writes and the dataset release logic. The scraper's schedule retries and the health check's treatment of unplayed fixtures are tested against simulated failures. Two tests are skipped on machines without the raw data.
+158 tests cover the metric math and the data handling around it: progressive-action geometry, position-group classification, the Composite Rating's power mean, the xG model and shot data, league tables, chart specs, the player search ranking, the link-up lookup, the season-progress gates (including the European cups and that every category module that uses them imports them), the quadrant indexes, the Top 5 and percentile-scope filters, Scout's season window, the default season, the team style measures and their ranks, that every page renders, partition-preserving writes and the dataset release logic. The scraper's schedule retries and the health check's treatment of unplayed fixtures are tested against simulated failures. Two tests are skipped on machines without the raw data.
 
 ---
 

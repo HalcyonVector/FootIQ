@@ -421,10 +421,12 @@ def quadrant_points(df: pd.DataFrame, preset_id: str, season: str, league: str |
     subset = subset.sort_values("total_minutes", ascending=False).head(limit).copy()
     subset["_x"] = _index(subset, preset["x"])
     subset["_y"] = _index(subset, preset["y"])
-    points = []
-    for _, r in subset.iterrows():
-        points.append({"x": float(r["_x"]), "y": float(r["_y"]), "name": r["player_name"], "team": r["team_name"],
-                       "league": r["league"], "season": season, "group": r["_pos_group"],
-                       "id": int(r["whoscored_player_id"]), "minutes": _clean_minutes(r["total_minutes"]),
-                       "raw": [float(r[c]) for c in cols]})
+    # Column arrays zipped row by row: iterrows() built a pandas Series per player and was most of the time.
+    raw = subset[cols].to_numpy(dtype=float).tolist()
+    points = [{"x": float(x), "y": float(y), "name": name, "team": team, "league": lg, "season": season, "group": grp,
+               "id": int(pid), "minutes": _clean_minutes(mins), "raw": r}
+              for x, y, name, team, lg, grp, pid, mins, r in zip(
+                  subset["_x"].to_numpy(), subset["_y"].to_numpy(), subset["player_name"].to_numpy(),
+                  subset["team_name"].to_numpy(), subset["league"].to_numpy(), subset["_pos_group"].to_numpy(),
+                  subset["whoscored_player_id"].to_numpy(), subset["total_minutes"].to_numpy(), raw)]
     return {"preset": preset, "points": points}

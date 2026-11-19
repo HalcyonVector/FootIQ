@@ -50,9 +50,12 @@ def scatter_points(df: pd.DataFrame, x_col: str, y_col: str, season: str, league
         return []
     subset = subset[subset[x_col].notna() & subset[y_col].notna()]
     subset = subset.sort_values("total_minutes", ascending=False).head(limit)
-    return [{"x": float(r[x_col]), "y": float(r[y_col]), "name": r["player_name"], "team": r["team_name"],
-             "league": r["league"], "season": season, "group": r["_pos_group"], "id": int(r["whoscored_player_id"]),
-             "minutes": _clean_minutes(r["total_minutes"])} for _, r in subset.iterrows()]
+    return [{"x": float(x), "y": float(y), "name": name, "team": team, "league": lg, "season": season, "group": grp,
+             "id": int(pid), "minutes": _clean_minutes(mins)}
+            for x, y, name, team, lg, grp, pid, mins in zip(
+                subset[x_col].to_numpy(), subset[y_col].to_numpy(), subset["player_name"].to_numpy(),
+                subset["team_name"].to_numpy(), subset["league"].to_numpy(), subset["_pos_group"].to_numpy(),
+                subset["whoscored_player_id"].to_numpy(), subset["total_minutes"].to_numpy())]
 
 
 def rank_players(

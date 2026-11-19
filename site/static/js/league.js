@@ -13,12 +13,66 @@
   const formDots = form => `<span class="lg-form">${form.map(r => `<i style="background:${RES_COL[r]}" title="${r}"></i>`).join("")}</span>`;
   const ordinal = n => { const s = ["th", "st", "nd", "rd"], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); };
   const signed = n => (n > 0 ? "+" : "") + n;
+  const fmtStyle = (m, v) => v === null || v === undefined ? "–" : `${Number(v).toFixed(m.decimals)}${m.unit === "%" ? "%" : m.unit === "m" ? " m" : ""}`;
+  const rankWord = (m, rank, n) => `${ordinal(rank)} of ${n}${rank === 1 ? (m.order === "low" ? " (lowest)" : " (highest)") : ""}`;
+
+  // How every team in the competition plays, ranked on one chosen measure at a time.
+  let styleData = null;
+  async function loadStyles(league, season) {
+    styleData = null;
+    $("lg-style").innerHTML = '<div class="ov-empty">Loading…</div>';
+    try {
+      const d = await (await fetch(`/api/team-styles?${new URLSearchParams({ league, season })}`)).json();
+      if (d.error || !d.teams) throw new Error(d.error || "no data");
+      styleData = d;
+    } catch {
+      if (typeof FootIQUI !== "undefined") FootIQUI.error($("lg-style"), "Could not load the team styles.", () => loadStyles(league, season));
+      return;
+    }
+    const sel = $("lg-metric");
+    if (!sel.options.length) {
+      sel.innerHTML = styleData.metrics.map(m => `<option value="${m.key}">${esc(m.label)}</option>`).join("");
+      sel.onchange = () => drawStyles(league, season);
+    }
+    drawStyles(league, season);
+  }
+
+  function drawStyles(league, season) {
+    if (!styleData) return;
+    const m = styleData.metrics.find(x => x.key === $("lg-metric").value) || styleData.metrics[0];
+    $("lg-metric-desc").textContent = m.desc;
+    const rows = styleData.teams.filter(t => t.values[m.key] !== null && t.values[m.key] !== undefined)
+      .sort((a, b) => a.ranks[m.key] - b.ranks[m.key]);
+    if (!rows.length) { $("lg-style").innerHTML = '<div class="ov-empty">No data for this measure.</div>'; return; }
+    const vals = rows.map(r => r.values[m.key]), lo = Math.min(...vals), hi = Math.max(...vals);
+    const width = v => hi === lo ? 100 : 8 + 92 * (m.order === "low" ? (hi - v) / (hi - lo) : (v - lo) / (hi - lo));
+    $("lg-style").innerHTML = `<div class="lg-style-list">${rows.map(r => `
+      <div class="lg-style-row">
+        <span class="lg-style-rank">${r.ranks[m.key]}</span>
+        <a class="lg-style-team" href="${teamUrl(league, season, r.team)}">${esc(r.team)}</a>
+        <span class="lg-style-bar"><i style="width:${width(r.values[m.key]).toFixed(1)}%"></i></span>
+        <span class="lg-style-val">${fmtStyle(m, r.values[m.key])}</span>
+      </div>`).join("")}</div>`;
+  }
+
+  function showTab(tab) {
+    document.querySelectorAll(".lg-tab").forEach(b => b.classList.toggle("active", b.dataset.tab === tab));
+    $("lg-style-panel").style.display = tab === "style" ? "block" : "none";
+    $("lg-table-panel").style.display = tab === "style" ? "none" : "block";
+    try { const u = new URL(location.href); u.searchParams.set("tab", tab); history.replaceState(null, "", u); } catch { /* non-fatal */ }
+    if (tab === "style" && !styleData) loadStyles($("lg-league").value, $("lg-season").value);
+  }
 
   // ── League table ──────────────────────────────────────────────────────────
   async function loadTable() {
     const league = $("lg-league").value, season = $("lg-season").value;
-    try { history.replaceState(null, "", `/league?${new URLSearchParams({ league, season })}`); } catch { /* non-fatal */ }
+    try {
+      const tab = new URLSearchParams(location.search).get("tab");
+      history.replaceState(null, "", `/league?${new URLSearchParams({ league, season, ...(tab ? { tab } : {}) })}`);
+    } catch { /* non-fatal */ }
     const section = $("lg-section");
+    styleData = null;
+    if ($("lg-style-panel") && $("lg-style-panel").style.display === "block") loadStyles(league, season);
     let data;
     try { data = await (await fetch(`/api/league-table?${new URLSearchParams({ league, season })}`)).json(); }
     catch { return; }
@@ -52,8 +106,10 @@
     if (q.get("season") && [...se.options].some(o => o.value === q.get("season"))) se.value = q.get("season");
     lg.addEventListener("change", loadTable);
     se.addEventListener("change", loadTable);
+    document.querySelectorAll(".lg-tab").forEach(b => b.addEventListener("click", () => showTab(b.dataset.tab)));
     if (typeof upgradeSelects === "function") upgradeSelects();
     loadTable();
+    if (q.get("tab") === "style") showTab("style");
   }
 
   // ── Team page ─────────────────────────────────────────────────────────────
@@ -118,6 +174,26 @@
       <tbody>${rows}</tbody></table>`;
   }
 
+  async function renderTeamStyle(league, season, team) {
+    let d;
+    try { d = await (await fetch(`/api/team-styles?${new URLSearchParams({ league, season })}`)).json(); } catch { return; }
+    const me = d && d.teams && d.teams.find(t => t.team === team);
+    if (!me) return;
+    const n = d.teams.length;
+    $("tm-style-sub").textContent = `ranked among the ${n} teams in this competition`;
+    $("tm-style").innerHTML = d.metrics.filter(m => me.values[m.key] !== null && me.values[m.key] !== undefined).map(m => {
+      const rank = me.ranks[m.key], share = n > 1 ? (n - rank) / (n - 1) : 1;
+      return `<div class="tm-style-tile" title="${esc(m.desc)}">
+        <div class="tm-style-label">${esc(m.label)}</div>
+        <div class="tm-style-val">${fmtStyle(m, me.values[m.key])}</div>
+        <div class="tm-style-bar"><i style="width:${(8 + 92 * share).toFixed(1)}%"></i></div>
+        <div class="tm-style-rank">${rankWord(m, rank, n)}</div>
+        <a class="tm-style-more" href="/league?${new URLSearchParams({ league, season, tab: "style" })}">compare →</a>
+      </div>`;
+    }).join("");
+    $("tm-style-card").style.display = "block";
+  }
+
   async function initTeam() {
     const league = q.get("league") || "Premier League", season = q.get("season") || window.DEFAULT_SEASON || window.SEASONS[0], team = q.get("team") || "";
     const fail = msg => { $("tm-error-msg").textContent = msg; $("tm-error").style.display = "block"; };
@@ -143,6 +219,7 @@
       tile("Form", formDots(r.form), "last 5"),
     ].join("");
     renderForm(data.results);
+    renderTeamStyle(league, season, team);
     renderSquad(data.squad, league, season);
     renderResults(data.results, league, season);
     $("tm-body").style.display = "block";

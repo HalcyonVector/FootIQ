@@ -123,52 +123,41 @@ def find_similar(df: pd.DataFrame, target_pid: int, target_league: str, target_s
         sim = (a * b).sum(axis=1) / norm
     not_target = pid_by_idx.to_numpy().astype("int64") != target_pid_int   # excludes EVERY season of the target's own
     eligible = (valid.sum(axis=1) >= MIN_COMMON_METRICS) & (norm > 0) & not_target
-    scored = [(float(sim[i]), pct.index[i]) for i in np.flatnonzero(eligible)]
+    # Everything below works on row positions in `pct` with plain numpy arrays: the per-candidate
+    # pandas lookups it replaced (~20k .loc calls per search) were most of the search's time.
+    labels = pct.index
+    pids = pid_by_idx.reindex(labels).to_numpy().astype("int64")
+    season_arr = cohort["season"].reindex(labels).to_numpy()
+    league_arr = cohort["league"].reindex(labels).to_numpy()
+    order = np.flatnonzero(eligible)
+    order = order[np.argsort(-sim[order], kind="stable")]          # most similar first
 
-    scored.sort(key=lambda t: t[0], reverse=True)
+    def best_per_player(positions, season_ok=None):
+        """First (= most similar) row of each player, optionally only rows whose season is allowed."""
+        seen, keep = set(), []
+        for i in positions:
+            if season_ok is not None and season_arr[i] not in season_ok:
+                continue
+            pid = pids[i]
+            if pid in seen:
+                continue
+            seen.add(pid)
+            keep.append(i)
+        return keep
 
-    # One result per real player: since `scored` is already sorted by
-    # similarity descending, the first occurrence of a player_id we see IS
-    # their best-matching season — later occurrences are strictly worse and
-    # just dropped.
-    seen_pids: set = set()
-    deduped = []
-    for similarity, idx in scored:
-        pid = int(pid_by_idx.loc[idx])
-        if pid in seen_pids:
-            continue
-        seen_pids.add(pid)
-        deduped.append((similarity, idx))
+    deduped = best_per_player(order)
+    pool = best_per_player(order, set(seasons)) if seasons else deduped
 
-    season_of = cohort["season"]
-
-    def _passes(idx, use_age=True, use_league=True, use_season=True) -> bool:
-        if use_season and seasons and season_of.loc[idx] not in seasons:
-            return False
-        r = cohort.loc[idx] if (use_age and max_age is not None) or (use_league and leagues) else None
-        if use_age and max_age is not None:
-            age = _clean_age(r.get("age"))
+    def _passes(i) -> bool:
+        if max_age is not None:
+            age = _clean_age(cohort.at[labels[i], "age"])
             if age is None or age > max_age:  # unknown age treated as "doesn't qualify", not benefit-of-the-doubt
                 return False
-        if use_league and leagues and r["league"] not in leagues:
+        if leagues and league_arr[i] not in leagues:
             return False
         return True
 
-    # One result per player inside the season window (their best season in it), so the
-    # dedupe has to look only at seasons that are allowed.
-    if seasons:
-        in_window, seen = [], set()
-        for similarity, idx in scored:
-            pid = int(pid_by_idx.loc[idx])
-            if pid in seen or season_of.loc[idx] not in seasons:
-                continue
-            seen.add(pid)
-            in_window.append((similarity, idx))
-        pool = in_window
-    else:
-        pool = deduped
-
-    filtered = [(s, idx) for s, idx in pool if _passes(idx)] if (max_age is not None or leagues) else pool
+    filtered = [i for i in pool if _passes(i)] if (max_age is not None or leagues) else pool
     widened = False
     if not filtered and (max_age is not None or leagues) and pool:
         filtered = pool                       # loosen age and league, keep the season window
@@ -178,8 +167,9 @@ def find_similar(df: pd.DataFrame, target_pid: int, target_league: str, target_s
         widened = True
 
     out = []
-    for similarity, idx in filtered[:limit]:
-        r = cohort.loc[idx]
+    for i in filtered[:limit]:
+        similarity = float(sim[i])
+        r = cohort.loc[labels[i]]
         out.append({
             "player_id": int(r["whoscored_player_id"]), "name": r["player_name"], "team": r["team_name"],
             "league": r["league"], "season": r["season"], "position": _clean_position(r["position"]),

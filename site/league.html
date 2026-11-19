@@ -46,7 +46,7 @@
     <div class="nav-links">
       <a href="/player" id="nav-player">Player Stats</a>
       <a href="/compare" id="nav-compare">Compare</a>
-      <a href="/league" id="nav-league">Tables</a>
+      <a href="/league" id="nav-league">Teams</a>
       <a href="/scout" id="nav-scout">Scout</a>
       <a href="/explore" id="nav-explore">Explore</a>
     </div>
@@ -58,7 +58,7 @@
       <div class="nav-page-menu" id="nav-page-menu">
         <a href="/player" class="nav-page-item" data-label="Player Stats">Player Stats</a>
         <a href="/compare" class="nav-page-item" data-label="Compare">Compare</a>
-        <a href="/league" class="nav-page-item" data-label="Tables">Tables</a>
+        <a href="/league" class="nav-page-item" data-label="Teams">Teams</a>
         <a href="/scout" class="nav-page-item" data-label="Scout">Scout</a>
         <a href="/explore" class="nav-page-item" data-label="Explore">Explore</a>
       </div>
@@ -77,14 +77,15 @@
     <section class="hero" style="padding-bottom:12px">
       <div class="hero-eyebrow">
         <span class="eyebrow-dot"></span>
-        <span>Standings &amp; Team Form</span>
+        <span>Standings &amp; Team Style</span>
         <span class="eyebrow-dot"></span>
       </div>
       <h1 class="hero-title" style="font-size:44px">
-        League <span class="gradient-text">tables</span>
+        <span class="gradient-text">Teams</span>
       </h1>
       <p class="hero-desc">
-        Points, goal difference, recent form and expected goals for every team. Click a team to see its results and squad.
+        The table, and how each team plays: possession, pressing, how high it wins the ball, how direct it is and what it creates.
+        Click a team for its results, squad and full style profile.
       </p>
 
       <div class="search-card glass-card" style="max-width:640px;margin:24px auto 0">
@@ -151,12 +152,27 @@
       <div class="pct-title-row">
         <span class="section-label" id="lg-title">Table</span>
       </div>
+      <div class="lg-tabs" role="tablist">
+        <button type="button" class="lg-tab active" data-tab="table" role="tab">Table</button>
+        <button type="button" class="lg-tab" data-tab="style" role="tab">How they play</button>
+      </div>
+      <div id="lg-style-panel" style="display:none">
+        <div class="lg-style-pick">
+          <label for="lg-metric">Rank teams by</label>
+          <select id="lg-metric" class="lg-metric-select"></select>
+        </div>
+        <div class="lg-note" id="lg-metric-desc"></div>
+        <div id="lg-style"></div>
+        <div class="lg-note" style="margin-top:12px">From the match events, not tracking data: possession is a share of the passes, and pressing counts passes allowed per defensive action over the whole pitch.</div>
+      </div>
+      <div id="lg-table-panel">
       <div class="lg-note" id="lg-note"></div>
       <div class="ov-table-wrap" id="lg-table"></div>
       <div class="ov-legend">
         <span><i class="ov-sw" style="background:#22c55e"></i>Win</span><span><i class="ov-sw" style="background:#94a3b8"></i>Draw</span>
         <span><i class="ov-sw" style="background:#ef4444"></i>Loss</span>
         <span class="ov-legend-note">xG and xGA are expected goals for and against, from our own model. Form is the last five results, oldest first.</span>
+      </div>
       </div>
     </section>
 
@@ -202,7 +218,7 @@
     const navPageCurrent = document.getElementById('nav-page-current');
     const navPageMenu = document.getElementById('nav-page-menu');
     if (navPageSelect && navPageBtn && navPageMenu) {
-      const PAGE_LABELS = { '/player': 'Player Stats', '/compare': 'Compare', '/scout': 'Scout', '/explore': 'Explore' };
+      const PAGE_LABELS = { '/player': 'Player Stats', '/compare': 'Compare', '/league': 'Teams', '/team': 'Teams', '/scout': 'Scout', '/explore': 'Explore' };
       const currentLabel = PAGE_LABELS[window.location.pathname] || 'Menu';
       navPageCurrent.textContent = currentLabel;
       navPageMenu.querySelectorAll('.nav-page-item').forEach(item => {

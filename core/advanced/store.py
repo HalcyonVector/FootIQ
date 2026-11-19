@@ -197,6 +197,16 @@ def get_chart_events(category: str, player_id: int, league: str, season: str) ->
     return table.to_pylist()
 
 
+def get_chart_partition(category: str, league: str, season: str, columns: list[str]):
+    """Every player's events of one category in one competition-season, as a DataFrame (team-level
+    summaries need the whole partition; one partition is a few hundred thousand short rows at most)."""
+    import pandas as pd
+    dataset = _chart_dataset(category)
+    if dataset is None:
+        return pd.DataFrame(columns=columns)
+    return dataset.to_table(columns=columns, filter=(_f("league") == league) & (_f("season") == season)).to_pandas()
+
+
 # ── Player Overview datasets (scraping/build_overview_data.py) ──────────────
 # Same per-request partition-slice pattern as get_chart_events(): one cached
 # Dataset object per table, every filter pushed into the Arrow scan.
@@ -222,7 +232,36 @@ def get_player_matches(player_id: int, league: str | None = None, season: str | 
         flt = flt & (_f("league") == league)
     if season is not None:
         flt = flt & (_f("season") == season)
+    if league is None and season is None:
+        # Career view: name the player's own partitions instead of scanning every league-season
+        # (about 50) for one id. Arrow prunes partitions from the expression, so this reads only
+        # the few files the player is in (measured: ~500 ms -> ~20 ms locally, 10x that on the host).
+        parts = player_partitions(int(player_id))
+        if not parts:
+            return []
+        part_flt = None
+        for lg, sn in parts:
+            e = (_f("league") == lg) & (_f("season") == sn)
+            part_flt = e if part_flt is None else (part_flt | e)
+        flt = flt & part_flt
     return ds.to_table(filter=flt).to_pylist()
+
+
+_PID_PARTS: dict | None = None
+
+
+def player_partitions(player_id: int) -> list[tuple[str, str]]:
+    """(league, season) pairs a player has a row in, from an index over the player-season table
+    built once (37k rows) instead of a mask over the whole table on every call."""
+    global _PID_PARTS
+    if _PID_PARTS is None:
+        df = get_advanced_df()
+        idx: dict = {}
+        if not df.empty:
+            for pid, lg, sn in zip(df["whoscored_player_id"].to_numpy(), df["league"].to_numpy(), df["season"].to_numpy()):
+                idx.setdefault(int(pid), []).append((lg, sn))
+        _PID_PARTS = idx
+    return _PID_PARTS.get(int(player_id), [])
 
 
 def get_team_match_counts(league: str, season: str) -> dict[str, int]:
@@ -286,8 +325,9 @@ def get_player_heat(player_id: int, league: str, season: str) -> dict | None:
 
 def reload():
     """Force a re-read from disk (e.g. after rebuilding the parquet)."""
-    global _DF, _LINKUP_PAIRS, _CHART_DATASETS, _LINKUP_RECEPTIONS_DATASET, _OVERVIEW_DATASETS
+    global _DF, _LINKUP_PAIRS, _CHART_DATASETS, _LINKUP_RECEPTIONS_DATASET, _OVERVIEW_DATASETS, _PID_PARTS
     _DF = None
+    _PID_PARTS = None
     _LINKUP_PAIRS = None
     _CHART_DATASETS = {}
     _LINKUP_RECEPTIONS_DATASET = None

@@ -231,6 +231,12 @@ def season_status(seasons: list[str]) -> tuple[str, list[str]]:
     return seasons[0], []
 
 
+def teams_file() -> dict | None:
+    """{"league|season": team style rows} from the built file, if it has them (core/advanced/teams.py)."""
+    f = _file()
+    return f.get("teams") if f else None
+
+
 def coverage() -> list[dict]:
     f = _file()
     if f:

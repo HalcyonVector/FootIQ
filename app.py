@@ -79,6 +79,53 @@ def _gzip_static(resp):
     return resp
 
 
+# ── Response cache for the data endpoints ──────────────────────────────────────
+# The data only changes with a deploy (a new process), so an answer computed once is right until
+# then. The server is kept awake now, so repeat visits (the same popular players, the same Explore
+# plots, the same league table) are common, and on the throttled free CPU a cached reply skips
+# 0.3 to 3 seconds of pandas work plus the gzip pass. Bounded by bytes so it cannot crowd the
+# 512 MB instance: least recently used entries go first.
+from collections import OrderedDict as _OrderedDict
+from functools import wraps as _wraps
+
+_RESP_CACHE: "_OrderedDict[tuple, tuple[bytes, bytes]]" = _OrderedDict()
+_RESP_CACHE_BYTES = 0
+_RESP_CACHE_MAX_BYTES = 24 * 1024 * 1024
+
+
+def cached_json(view):
+    """Cache a JSON endpoint's 200 responses by path, query string and request body. Stores the raw
+    body and a gzipped copy, so a hit costs neither the computation nor the compression."""
+    @_wraps(view)
+    def wrapper(*args, **kwargs):
+        global _RESP_CACHE_BYTES
+        from flask import Response
+        key = (request.path, request.query_string, request.get_data())
+        hit = _RESP_CACHE.get(key)
+        if hit is None:
+            resp = app.make_response(view(*args, **kwargs))
+            if resp.status_code != 200 or resp.mimetype != "application/json":
+                return resp
+            import gzip
+            raw = resp.get_data()
+            hit = (raw, gzip.compress(raw, compresslevel=6))
+            _RESP_CACHE[key] = hit
+            _RESP_CACHE_BYTES += len(raw) + len(hit[1])
+            while _RESP_CACHE_BYTES > _RESP_CACHE_MAX_BYTES and _RESP_CACHE:
+                _, (r, g) = _RESP_CACHE.popitem(last=False)
+                _RESP_CACHE_BYTES -= len(r) + len(g)
+        else:
+            _RESP_CACHE.move_to_end(key)
+        raw, gz = hit
+        if "gzip" in request.headers.get("Accept-Encoding", ""):
+            out = Response(gz, mimetype="application/json")
+            out.headers["Content-Encoding"] = "gzip"
+            out.headers["Vary"] = "Accept-Encoding"
+            return out
+        return Response(raw, mimetype="application/json")
+    return wrapper
+
+
 # In-memory chart cache: key = whatever the caller builds it as.
 # Stores chart specs (small JSON, drawn client-side by static/js/charts.js).
 _chart_cache: dict = {}
@@ -361,6 +408,7 @@ def api_leagues():
 
 
 @app.route("/api/player")
+@cached_json
 def api_player():
     """One player for a given league/season (same shape the search results
     use) plus every season they appear in. Backs shareable /player?id=...
@@ -526,6 +574,7 @@ def _scoped_df(df, league, scope):
 
 
 @app.route("/api/advanced-stats", methods=["POST"])
+@cached_json
 def api_advanced_stats():
     try:
         body      = request.get_json(force=True)
@@ -581,6 +630,7 @@ def api_advanced_stats():
 
 
 @app.route("/api/player-overview", methods=["POST"])
+@cached_json
 def api_player_overview():
     """Season stat line, form, career table, shot map (with xG) and
     heatmaps for one player-season -- the "paid-site" overview. Reads only
@@ -628,6 +678,7 @@ def _overview_visuals(player_id: int, league: str, season: str) -> dict:
 
 
 @app.route("/api/pass-map", methods=["POST"])
+@cached_json
 def api_pass_map():
     """Passes (with progressive / into-box flags) and the chances this player
     created, for the profile's pass map. Coordinates are compact arrays; the
@@ -667,6 +718,7 @@ _CUP_COMPETITIONS = {lg["id"] for lg in LEAGUES if lg["country"] in ("Europe", "
 
 
 @app.route("/api/league-table")
+@cached_json
 def api_league_table():
     league = request.args.get("league", "Premier League")
     season = request.args.get("season", "")
@@ -681,7 +733,22 @@ def api_league_table():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/api/team-styles")
+@cached_json
+def api_team_styles():
+    """How every team in one competition-season plays (core/advanced/teams.py), ranked within it."""
+    league = request.args.get("league", "Premier League")
+    season = request.args.get("season", "2025-26")
+    try:
+        from core.advanced import teams
+        return jsonify({"league": league, "season": season, "metrics": teams.META, "teams": teams.team_styles(league, season)})
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/api/team")
+@cached_json
 def api_team():
     league = request.args.get("league", "Premier League")
     season = request.args.get("season", "")
@@ -706,6 +773,7 @@ def api_team():
 
 
 @app.route("/api/linkup-teammates", methods=["POST"])
+@cached_json
 def api_linkup_teammates():
     try:
         body      = request.get_json(force=True)
@@ -729,6 +797,7 @@ def api_linkup_teammates():
 
 
 @app.route("/api/linkup-detail", methods=["POST"])
+@cached_json
 def api_linkup_detail():
     try:
         body        = request.get_json(force=True)
@@ -976,6 +1045,7 @@ def api_category_chart():
 # ─────────────────────────────────────────────────────────────────────────────
 
 @app.route("/api/compare-stats", methods=["POST"])
+@cached_json
 def api_compare_stats():
     try:
         body = request.get_json(force=True)
@@ -1044,6 +1114,7 @@ def api_compare_stats():
 # ─────────────────────────────────────────────────────────────────────────────
 
 @app.route("/api/scout-similar", methods=["POST"])
+@cached_json
 def api_scout_similar():
     try:
         body      = request.get_json(force=True)
@@ -1104,6 +1175,7 @@ def api_scout_similar():
 # ─────────────────────────────────────────────────────────────────────────────
 
 @app.route("/api/explore", methods=["POST"])
+@cached_json
 def api_explore():
     try:
         body = request.get_json(force=True)
@@ -1132,6 +1204,7 @@ def api_explore():
 
 
 @app.route("/api/explore-scatter", methods=["POST"])
+@cached_json
 def api_explore_scatter():
     """Two metrics against each other for every player in the filtered cohort."""
     try:
@@ -1163,6 +1236,7 @@ def api_explore_scatter():
 
 
 @app.route("/api/explore-quadrant", methods=["POST"])
+@cached_json
 def api_explore_quadrant():
     """One of the curated quadrant plots (core/advanced/quadrants.py)."""
     try:

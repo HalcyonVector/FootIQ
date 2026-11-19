@@ -1,7 +1,7 @@
 {
-  "asset": "footiq-data-0c6b58d8942b.zip",
-  "sha256": "0c6b58d8942b04a6f7f874dceb224cc5ecca767815439abefcbe240148950ba8",
-  "bytes": 273202120,
-  "built": "2026-11-17",
-  "url": "https://github.com/HalcyonVector/FootIQ/releases/download/data/footiq-data-0c6b58d8942b.zip"
+  "asset": "footiq-data-09ef3f93f399.zip",
+  "sha256": "09ef3f93f399752a0ab9c0a9f194658d2943c423ebf7b1570706fec4c1598ae7",
+  "bytes": 273524248,
+  "built": "2026-11-19",
+  "url": "https://github.com/HalcyonVector/FootIQ/releases/download/data/footiq-data-09ef3f93f399.zip"
 }
