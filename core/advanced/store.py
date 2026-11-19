@@ -92,6 +92,13 @@ def get_advanced_df() -> pd.DataFrame:
         if os.path.exists(config.PLAYER_SEASON_PARQUET):
             _DF = _read_parquet_lean(config.PLAYER_SEASON_PARQUET)
             if not _DF.empty:
+                # The ~170 metric columns as float32 instead of float64: half the memory for the
+                # biggest table the server holds (about 26 MB saved), and still exact to 6-7 digits,
+                # far beyond the one or two decimals anything shows. (JSON output turns numpy
+                # scalars into plain numbers, see app.py.)
+                floats = _DF.select_dtypes("float64").columns
+                if len(floats):
+                    _DF[floats] = _DF[floats].astype("float32")
                 from core.media import _normalize_str
                 from core.position import pos_group
                 # Precomputed once here instead of re-normalizing every

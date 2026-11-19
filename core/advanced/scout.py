@@ -64,15 +64,22 @@ def _percentile_matrix(cohort: pd.DataFrame, cols: list[str]) -> pd.DataFrame:
     return pd.DataFrame(out, index=cohort.index)
 
 
+# The cached cohort keeps only the columns a result card needs: the full-width copy (all ~180
+# metric columns, for each of the four position groups) added up to most of a second copy of the
+# player table in memory. The percentiles are float32, plenty for a 0-100 rank.
+_COHORT_COLS = ["whoscored_player_id", "player_name", "team_name", "league", "season", "position", "total_minutes", "age"]
+
+
 def _get_percentiles(df: pd.DataFrame, position_group: str) -> tuple:
     cached = _PCT_CACHE.get(position_group)
     if cached is not None and cached[2] == len(df):
         return cached[0], cached[1]
     cohort = _cross_cohort(df, position_group)
     cols = _metric_columns_for(position_group)
-    pct = _percentile_matrix(cohort, cols)
-    _PCT_CACHE[position_group] = (cohort, pct, len(df))
-    return cohort, pct
+    pct = _percentile_matrix(cohort, cols).astype("float32")
+    slim = cohort[[c for c in _COHORT_COLS if c in cohort.columns]].copy()
+    _PCT_CACHE[position_group] = (slim, pct, len(df))
+    return slim, pct
 
 
 def find_similar(df: pd.DataFrame, target_pid: int, target_league: str, target_season: str,

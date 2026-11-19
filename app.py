@@ -42,6 +42,22 @@ def get_player_stats(*args, **kwargs):
 
 app = Flask(__name__)
 CORS(app)
+
+
+# numpy numbers (the player table's metric columns are float32) go out as plain JSON numbers.
+from flask.json.provider import DefaultJSONProvider as _DefaultJSONProvider
+
+
+class _NumpyJSONProvider(_DefaultJSONProvider):
+    @staticmethod
+    def default(o):
+        if hasattr(o, "item") and type(o).__module__ == "numpy":
+            v = o.item()
+            return None if isinstance(v, float) and v != v else v
+        return _DefaultJSONProvider.default(o)
+
+
+app.json = _NumpyJSONProvider(app)
 # gzip/brotli for HTML, JSON, CSS and JS: the page shell is ~250 KB of text and
 # the stats/overview JSON 15-40 KB each, all of which shrink 4-8x. Matters most
 # on a slow free-tier link and a throttled CPU.
@@ -567,7 +583,7 @@ def _scoped_df(df, league, scope):
         return df
     sub = _SCOPED.get(key)
     if sub is None:
-        if len(_SCOPED) >= 5:
+        if len(_SCOPED) >= 3:              # each is a slice of the player table; three keeps memory in check
             _SCOPED.pop(next(iter(_SCOPED)))
         sub = _SCOPED[key] = df[df["league"].isin(TOP5_LEAGUES)] if scope == "top5" else df[df["league"] == league]
     return sub
