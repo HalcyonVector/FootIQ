@@ -146,9 +146,11 @@ def _distinct(items: list[dict], n: int) -> list[dict]:
     return out
 
 
-def insights(categories: list[dict], n_strengths: int = 4, n_weak: int = 3) -> dict:
+def insights(categories: list[dict], n_strengths: int = 4, n_weak: int = 3, sample: dict | None = None) -> dict:
     """Strengths / areas-to-improve from the percentile stats the
-    Advanced Metrics tabs already show (position-group cohort percentiles)."""
+    Advanced Metrics tabs already show (position-group cohort percentiles).
+    With a thin sample (sample_info's "limited") the lists are marked early: a few
+    hundred minutes push per-90 rates and percentages to the ends of the scale."""
     scored = []
     for cat in categories:
         for row in cat.get("rows", []):
@@ -160,4 +162,9 @@ def insights(categories: list[dict], n_strengths: int = 4, n_weak: int = 3) -> d
     strengths = _distinct(sorted((s for s in scored if s["percentile"] >= 85), key=lambda s: -s["percentile"]), n_strengths)
     weak = _distinct(sorted((s for s in scored if s["percentile"] <= 20 and _QUALITY.search(s["label"])),
                             key=lambda s: s["percentile"]), n_weak)
-    return {"strengths": strengths, "weaknesses": weak}
+    out = {"strengths": strengths, "weaknesses": weak, "early": False}
+    if sample and sample.get("limited"):
+        out["early"] = True
+        out["early_note"] = (f"Only {sample['minutes']} minutes, so these rest on a small sample "
+                             f"and can change a lot with a few more games.")
+    return out

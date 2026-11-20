@@ -423,6 +423,21 @@ def api_leagues():
     return jsonify(LEAGUES)
 
 
+def _sample_for(player: dict) -> dict:
+    """Is this player-season a thin sample (the "Limited sample" chip, and the strengths list's
+    "early signs" label)? Judged against the minutes the player's team played in the competition."""
+    from core.advanced import store
+    from core.advanced.summary import sample_info
+    from core.advanced.lookup import get_season_progress
+    from core.advanced.config import minutes_floor_for
+    progress = get_season_progress(player["league"], player["season"])
+    floor = minutes_floor_for(progress)
+    played_for = {r["team"] for r in store.get_player_matches(player["id"], player["league"], player["season"])}
+    counts = store.get_team_match_counts(player["league"], player["season"])
+    team_matches = max((counts.get(t, 0) for t in played_for), default=0)
+    return sample_info(player["minutes"], team_matches, floor=floor, progress=progress)
+
+
 @app.route("/api/player")
 @cached_json
 def api_player():
@@ -446,16 +461,7 @@ def api_player():
     if not player:
         return jsonify({"player": None, "seasons": []}), 404
 
-    from core.advanced import store
-    from core.advanced.summary import sample_info
-    from core.advanced.lookup import get_season_progress
-    from core.advanced.config import minutes_floor_for
-    progress = get_season_progress(player["league"], player["season"])
-    floor = minutes_floor_for(progress)
-    played_for = {r["team"] for r in store.get_player_matches(player["id"], player["league"], player["season"])}
-    counts = store.get_team_match_counts(player["league"], player["season"])
-    team_matches = max((counts.get(t, 0) for t in played_for), default=0)
-    sample = sample_info(player["minutes"], team_matches, floor=floor, progress=progress)
+    sample = _sample_for(player)
     # Matches the source has no events for in this competition-season: a player's totals there are
     # likely a little low, so the profile says so when it is more than a few percent.
     from core.advanced import extras
@@ -634,7 +640,7 @@ def api_advanced_stats():
                         st["reliability"] = {"tier": info["tier"], "r": info["r"]}
         from visuals import specs as _sp
         return jsonify({"player": raw, "categories": categories, "composite": composite, "scope": scope,
-                        "insights": insights(categories),
+                        "insights": insights(categories, sample=_sample_for(raw)),
                         "profile": _sp.profile_radar(
                             categories, raw.get("name") or "",
                             f"{league} players in the same position group" if scope == "league"

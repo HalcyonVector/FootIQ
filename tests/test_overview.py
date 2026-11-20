@@ -176,3 +176,11 @@ def test_shot_rows_carry_the_assisting_pass_coordinates():
     assert (goal["ax"], goal["ay"], goal["aex"], goal["aey"]) == (80.0, 60.0, 92.0, 50.0)
     assert header["assist_pid"] is None
     assert header["ax"] is None and header["aex"] is None          # unassisted shot: no pass to draw
+
+
+def test_thin_sample_marks_the_lists_early():
+    cats = [{"label": "Cat", "rows": [{"stats": [{"label": "Progressive passes", "percentile": 95, "value": 5, "unit": ""}]}]}]
+    assert insights(cats)["early"] is False
+    out = insights(cats, sample=sample_info(256, 38))
+    assert out["early"] is True and "256 minutes" in out["early_note"]
+    assert insights(cats, sample=sample_info(2000, 38))["early"] is False

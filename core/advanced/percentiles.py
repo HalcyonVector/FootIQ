@@ -66,21 +66,27 @@ def build_cohort(df: pd.DataFrame, position: str, season: str) -> pd.DataFrame:
 def _percentile_rank(value: float, series: pd.Series, invert: bool = False) -> int:
     """invert=True for "lower raw value is better" metrics (release times,
     fouls conceded, dangerous losses...) so a fast/clean player still lands
-    at the high end of the 0-100 scale instead of the low end."""
+    at the high end of the 0-100 scale instead of the low end.
+
+    Ties count half: the share of the cohort below the value plus half the
+    share equal to it. Counting only the share strictly below gave every tied
+    player the bottom of the tie, and after inverting the top of the scale, so
+    a player with zero fouls in the box scored 100 even when half the cohort
+    also had zero."""
     valid = series.dropna()
     if len(valid) < 5 or value is None:
         return 0
-    pct = int(round((valid < value).mean() * 100))
-    return 100 - pct if invert else pct
+    pct = (int((valid < value).sum()) + 0.5 * int((valid == value).sum())) / len(valid) * 100
+    return int(round(100 - pct if invert else pct))
 
 
 def _percentile_rank_series(series: pd.Series, invert: bool = False) -> pd.Series:
     """Vectorized equivalent of calling _percentile_rank(x, series) for every
-    x already IN series (self-ranking a cohort against itself) — same "percent
-    of non-null cohort values strictly below x" semantics, computed once for
+    x already IN series (self-ranking a cohort against itself) — same "share
+    below plus half the share tied" semantics, computed once for
     the whole series with pandas' rank() instead of one O(n) scan per element.
-    rank(method='min') gives each value's count of strictly-smaller values
-    (rank - 1, 1-indexed) directly, and ignores NaNs from the ranking base by
+    rank(method='average') is 1-indexed, so rank - 0.5 is the count below
+    plus half the count tied (the value itself included), and it ignores NaNs from the ranking base by
     default (na_option='keep') the same way _percentile_rank's own dropna()
     does. Used by build_final_third_scatter, where the naive per-player loop
     measured at 6300+ individual scans over an ~800-player cross-league
@@ -88,10 +94,10 @@ def _percentile_rank_series(series: pd.Series, invert: bool = False) -> pd.Serie
     valid_n = series.notna().sum()
     if valid_n < 5:
         return pd.Series(0, index=series.index)
-    pct = ((series.rank(method="min") - 1) / valid_n * 100).round()
+    pct = (series.rank(method="average") - 0.5) / valid_n * 100   # same arithmetic as _percentile_rank
     if invert:
         pct = 100 - pct
-    return pct.fillna(0).astype(int)
+    return pct.round().fillna(0).astype(int)
 
 
 def _completeness_impact(floor_pct: dict, per_touch_pct: dict, have_data: bool) -> tuple:
