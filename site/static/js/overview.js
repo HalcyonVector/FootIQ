@@ -82,7 +82,9 @@ const FootIQOverview = (() => {
   // ── Form chart ────────────────────────────────────────────────────────────
   function renderForm(form) {
     const el = $("ov-form");
-    const W = 760, H = 190, padL = 28, padB = 30, padT = 14;
+    // On a phone the box is ~270px: a 760-wide canvas would shrink the labels to 4px, so draw half as wide
+    const narrow = (el.clientWidth || window.innerWidth) < 480;
+    const W = narrow ? 380 : 760, H = narrow ? 210 : 190, padL = narrow ? 30 : 28, padB = 30, padT = narrow ? 20 : 14;
     const n = form.length;
     if (!n) { el.innerHTML = '<div class="ov-empty">No matches.</div>'; return; }
     const slot = (W - padL) / n;
@@ -122,7 +124,7 @@ const FootIQOverview = (() => {
       g += `<line x1="${padL}" x2="${W}" y1="${yOf(avg)}" y2="${yOf(avg)}" class="ov-avg"/>
             <text x="${W}" y="${yOf(avg) - 4}" class="ov-avg-lbl" text-anchor="end">avg ${avg.toFixed(2)}</text>`;
     }
-    el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" class="ov-svg" role="img" aria-label="Match rating by game">${g}</svg>
+    el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" class="ov-svg${narrow ? " ov-narrow" : ""}" role="img" aria-label="Match rating by game">${g}</svg>
       <div class="ov-legend">
         <span><i class="ov-sw" style="background:#22d3ee"></i>8+</span><span><i class="ov-sw" style="background:#22c55e"></i>7–8</span>
         <span><i class="ov-sw" style="background:#f59e0b"></i>6–7</span><span><i class="ov-sw" style="background:#ef4444"></i>&lt;6</span>

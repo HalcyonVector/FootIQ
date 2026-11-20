@@ -2128,3 +2128,7 @@ footer {
 .custom-select-menu{background:rgba(12,16,28,.97)}
 [data-theme="light"] .custom-select-menu{background:rgba(255,255,255,.98)}
 .custom-select-item{font-size:13.5px}
+
+/* Phone: the form charts draw on a half-width canvas (ov-narrow) with bigger labels; pass network names grow too */
+.ov-narrow .ov-axis,.ov-narrow .ov-avg-lbl{font-size:15px}
+@media (max-width:640px){.tm-node-t{font-size:34px;stroke-width:7px}}

@@ -66,7 +66,7 @@ Wakes the Render app, waits for it to load its data, then checks health and memo
     py -3 -X utf8 deploy/chart_check.py                          # own copy of the app on port 5099
     py -3 -X utf8 deploy/chart_check.py https://footiq-app.vercel.app
 
-Draws every chart in headless Chrome (Playwright, using the installed Chrome) and exits 1 if any chart fails to draw, a request ends in an error card or a page throws. Exit 2 means it could not run (no Playwright or Chrome), which never blocks anything.
+Draws every chart in headless Chrome (Playwright, using the installed Chrome) and exits 1 if any chart fails to draw, a request ends in an error card or a page throws. A second pass at phone size also fails on sideways scrolling or chart text under 8px. `--phone-only` or `--desktop-only` runs one pass. Exit 2 means it could not run (no Playwright or Chrome), which never blocks anything.
 
 - `.githooks/pre-push` runs it when a push to `main` touches `static/`, `templates/`, `site/`, `core/` or `app.py`. Enable it once per clone: `git config core.hooksPath .githooks`.
 - `scraping/auto_update.py` runs it after rebuilding `site/` and before committing; on failure it does not push, so the live site keeps last week's pointer. It sets `FOOTIQ_CHARTS_CHECKED=1` so the hook does not run it twice.

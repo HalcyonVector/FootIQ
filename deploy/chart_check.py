@@ -3,6 +3,7 @@
     py -3 -X utf8 deploy/chart_check.py                     # starts its own copy of the app on port 5099
     py -3 -X utf8 deploy/chart_check.py http://localhost:5000
     py -3 -X utf8 deploy/chart_check.py https://footiq-app.vercel.app
+    py -3 -X utf8 deploy/chart_check.py --phone-only           # or --desktop-only
 
 The Python tests only cover the server. A chart is drawn by static/js/charts.js in the browser, and a
 mistake there (one renderer referring to a variable that only exists in another) turned every pass map
@@ -12,6 +13,10 @@ clicks through every tab, every team plot and every player-type plot, and counts
   - charts that show "This chart could not be drawn" (a renderer threw),
   - error cards ("Could not load this.") where a request failed,
   - uncaught JavaScript errors and console errors.
+
+It then does the same at phone size (390px wide, touch, tabs through the phone's dropdown) for a
+winger and a goalkeeper and a sample of the plots, and also fails if a page scrolls sideways or a
+chart's text renders smaller than 8px (a desktop-sized canvas squeezed into a phone-sized box).
 
 Any of those fails the run (exit 1). Charts that say "No data" are fine: some players have no events of
 a kind. Uses the installed Google Chrome through Playwright, so no browser download is needed.
@@ -60,8 +65,36 @@ COUNT_JS = """(scope) => {
     errors: [...root.querySelectorAll('.state-error')].filter(vis).map(e => e.textContent.trim().slice(0, 80)),
   };
 }"""
+# Phone pass only: the page must not scroll sideways, and chart text must stay readable. A chart drawn on
+# a desktop-sized canvas and squeezed into a ~270px box shrinks its 10px labels to 4px.
+MIN_TEXT_PX = 8
+LAYOUT_JS = """([scope, minPx]) => {
+  const root = scope ? document.querySelector(scope) : document;
+  const W = window.innerWidth, vis = el => !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length);
+  const name = el => el.id ? '#' + el.id : el.tagName.toLowerCase() + (el.classList.length ? '.' + [...el.classList].join('.') : '');
+  const wide = [];
+  if (document.documentElement.scrollWidth > W + 1) {
+    document.querySelectorAll('body *').forEach(el => {
+      if (!vis(el) || el.getBoundingClientRect().right <= W + 1) return;
+      for (let p = el.parentElement; p; p = p.parentElement)
+        if (/(auto|scroll|hidden)/.test(getComputedStyle(p).overflowX)) return;     // inside its own scroller
+      if (el.parentElement && el.parentElement.getBoundingClientRect().right > W + 1) return;  // report the outermost
+      wide.push(name(el));
+    });
+  }
+  const tiny = [];
+  (root ? root.querySelectorAll('svg') : []).forEach(svg => {
+    if (!vis(svg)) return;
+    const h = [...svg.querySelectorAll('text')].filter(t => t.textContent.trim())
+      .map(t => t.getBoundingClientRect().height).filter(x => x > 0).sort((a, b) => a - b);
+    if (h.length && h[Math.floor(h.length / 2)] < minPx)
+      tiny.push(`${svg.getAttribute('aria-label') || name(svg.closest('[id]') || svg)} (${h[Math.floor(h.length / 2)].toFixed(1)}px)`);
+  });
+  return { scrollW: document.documentElement.scrollWidth, W, wide: [...new Set(wide)].slice(0, 5), tiny };
+}"""
 
 failures: list[str] = []
+PHONE = {"on": False}            # set during the phone pass; adds the layout checks to every record()
 
 
 def port_open(port: int) -> bool:
@@ -109,6 +142,8 @@ def settle(page: Page, extra_ms: int = 400) -> None:
 
 
 def record(name: str, page: Page, scope: str | None = None, need_drawn: int = 1) -> None:
+    if PHONE["on"]:
+        name = "phone / " + name
     # Some tabs load in two steps (Link-Up fetches the teammates, then the detail), and a slow host
     # leaves a quiet gap between them: give the charts up to 25 s to appear before judging.
     try:
@@ -128,6 +163,12 @@ def record(name: str, page: Page, scope: str | None = None, need_drawn: int = 1)
         problems.append("error card: " + "; ".join(c["errors"]))
     if c["drawn"] < need_drawn:
         problems.append(f"{c['drawn']} chart(s) drawn, expected at least {need_drawn}")
+    if PHONE["on"]:
+        lay = page.evaluate(LAYOUT_JS, [scope, MIN_TEXT_PX])
+        if lay["scrollW"] > lay["W"] + 1:
+            problems.append(f"page scrolls sideways ({lay['scrollW']}px wide on a {lay['W']}px screen): " + ", ".join(lay["wide"]))
+        if lay["tiny"]:
+            problems.append(f"chart text under {MIN_TEXT_PX}px: " + "; ".join(lay["tiny"]))
     status = "FAIL" if problems else "ok"
     detail = ", ".join(problems) if problems else f"{c['drawn']} drawn" + (f", {c['nodata']} with no data" if c["nodata"] else "")
     print(f"  [{status}] {name}: {detail}")
@@ -152,7 +193,7 @@ def options(page: Page, sel_id: str) -> list[str]:
 
 
 def check_players(page: Page, base: str) -> None:
-    for p in PLAYERS:
+    for p in ([PLAYERS[0], PLAYERS[2]] if PHONE["on"] else PLAYERS):
         open_page(page, base, "/player", p)
         who = page.evaluate("() => (document.querySelector('.profile-name') || {}).textContent || ''").strip()
         label = f"player {who or p['player_id']}"
@@ -162,8 +203,11 @@ def check_players(page: Page, base: str) -> None:
             failures.append(f"{label}: no metric tabs appeared")
             print(f"  [FAIL] {label}: no metric tabs appeared")
         for key, title in tabs:
-            page.evaluate("k => document.querySelector(`.adv-tab-btn[data-cat='${k}']`).click()", key)
-            settle(page)
+            if PHONE["on"]:                   # phones get a dropdown instead of the tab row
+                set_select(page, "adv-tab-select", key)
+            else:
+                page.evaluate("k => document.querySelector(`.adv-tab-btn[data-cat='${k}']`).click()", key)
+                settle(page)
             record(f"{label} / {title}", page, f"#adv-panel-{key}")
 
 
@@ -172,7 +216,7 @@ def check_compare(page: Page, base: str) -> None:
     tabs = page.evaluate("() => [...document.querySelectorAll('.adv-tab-btn, .cmp-tab-btn, [data-cat]')]"
                          ".filter(b => b.tagName === 'BUTTON').map(b => b.dataset.cat)")
     record("compare / first view", page)
-    for key in dict.fromkeys(k for k in tabs if k):
+    for key in list(dict.fromkeys(k for k in tabs if k))[:3 if PHONE["on"] else None]:
         page.evaluate("k => document.querySelector(`button[data-cat='${k}']`).click()", key)
         settle(page)
         record(f"compare / {key}", page)
@@ -190,7 +234,7 @@ def check_explore(page: Page, base: str) -> None:
     set_select(page, "explore-view", "quadrant")
     record("explore / quadrant", page)
     sel = "explore-quad"
-    presets = options(page, sel)
+    presets = options(page, sel)[:8 if PHONE["on"] else None]      # the phone pass samples the shared renderer
     bad_before = len(failures)
     for v in presets:
         set_select(page, sel, v)
@@ -208,7 +252,7 @@ def check_teams(page: Page, base: str) -> None:
     record("teams / how they play, other measures", page, "#lg-style-panel")
     page.click(".lg-tab[data-tab='map']")
     settle(page)
-    plots = options(page, "lg-map")
+    plots = options(page, "lg-map")[:4 if PHONE["on"] else None]
     bad_before = len(failures)
     for v in plots:
         set_select(page, "lg-map", v)
@@ -224,8 +268,23 @@ def check_teams(page: Page, base: str) -> None:
     record(f"team page {TEAM['team']}", page, None, need_drawn=3)
 
 
+def check_other_pages(page: Page, base: str) -> None:
+    """Pages without charts: they still must load without errors (and, on a phone, fit the screen)."""
+    for path in ("/", "/scout", "/coverage"):
+        open_page(page, base, path)
+        record(f"page {path}", page, None, need_drawn=0)
+
+
+PASSES = {
+    "desktop": {"viewport": {"width": 1440, "height": 900}},
+    "phone": {"viewport": {"width": 390, "height": 844}, "is_mobile": True, "has_touch": True, "device_scale_factor": 2},
+}
+
+
 def main() -> int:
-    base = sys.argv[1].rstrip("/") if len(sys.argv) > 1 else None
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    base = args[0].rstrip("/") if args else None
+    passes = [p for p in PASSES if f"--{p}-only" in sys.argv] or list(PASSES)
     server = None
     if base is None:
         base = f"http://127.0.0.1:{OWN_PORT}"
@@ -245,17 +304,21 @@ def main() -> int:
                 except Exception as e:
                     print(f"No browser to run the check in (install Google Chrome): {str(e).splitlines()[0]}")
                     return 2
-            page = browser.new_page(viewport={"width": 1440, "height": 900})
-            page.on("pageerror", lambda e: js_errors.append(f"{page.url}: {e}"))
-            page.on("console", lambda m: m.type == "error" and js_errors.append(f"{page.url}: {m.text[:300]}"))
-            for name, step in [("players", check_players), ("compare", check_compare), ("explore", check_explore),
-                               ("teams", check_teams)]:
-                print(f"- {name}")
-                try:
-                    step(page, base)
-                except Exception as e:                            # a missing element or a timeout is a failure too
-                    failures.append(f"{name}: {type(e).__name__}: {str(e).splitlines()[0][:200]}")
-                    print(f"  [FAIL] {name}: {type(e).__name__}: {str(e).splitlines()[0][:200]}")
+            for pass_name in passes:
+                PHONE["on"] = pass_name == "phone"
+                ctx = browser.new_context(**PASSES[pass_name])
+                page = ctx.new_page()
+                page.on("pageerror", lambda e, pg=page: js_errors.append(f"{pg.url}: {e}"))
+                page.on("console", lambda m, pg=page: m.type == "error" and js_errors.append(f"{pg.url}: {m.text[:300]}"))
+                for name, step in [("players", check_players), ("compare", check_compare), ("explore", check_explore),
+                                   ("teams", check_teams), ("other pages", check_other_pages)]:
+                    print(f"- {pass_name}: {name}")
+                    try:
+                        step(page, base)
+                    except Exception as e:                        # a missing element or a timeout is a failure too
+                        failures.append(f"{pass_name} {name}: {type(e).__name__}: {str(e).splitlines()[0][:200]}")
+                        print(f"  [FAIL] {name}: {type(e).__name__}: {str(e).splitlines()[0][:200]}")
+                ctx.close()
             browser.close()
         for e in dict.fromkeys(js_errors):
             failures.append("JavaScript error: " + e)

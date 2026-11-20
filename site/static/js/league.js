@@ -199,7 +199,9 @@
   }
 
   function renderForm(results) {
-    const W = 760, H = 150, padB = 24, mid = (H - padB) / 2, slot = W / results.length;
+    const narrow = ($("tm-form").clientWidth || window.innerWidth) < 480;     // phone: half-width canvas, readable text
+    const W = narrow ? 380 : 760, H = narrow ? 170 : 150, padB = 24, mid = (H - padB) / 2, slot = W / results.length;
+    const letters = slot >= 16;                  // H/A under each bar only when there is room (the tooltip has it too)
     const bw = Math.min(slot * 0.68, 22);
     const maxGd = Math.max(3, ...results.map(r => Math.abs(r.gf - r.ga)));
     let g = `<line x1="0" x2="${W}" y1="${mid}" y2="${mid}" class="ov-grid"/>`;
@@ -209,9 +211,9 @@
       const y = gd >= 0 ? mid - h : mid;
       const tip = `${r.date} · ${r.home ? "H" : "A"} vs ${r.opp} ${r.gf}–${r.ga}${r.xga === null ? "" : ` · xG ${r.xgf.toFixed(1)}–${r.xga.toFixed(1)}`}`;
       g += `<rect x="${cx - bw / 2}" y="${y}" width="${bw}" height="${h}" rx="3" fill="${RES_COL[r.result]}" class="ov-bar"><title>${esc(tip)}</title></rect>`;
-      g += `<text x="${cx}" y="${H - 8}" text-anchor="middle" class="ov-axis">${r.home ? "H" : "A"}</text>`;
+      if (letters) g += `<text x="${cx}" y="${H - 8}" text-anchor="middle" class="ov-axis">${r.home ? "H" : "A"}</text>`;
     });
-    $("tm-form").innerHTML = `<svg viewBox="0 0 ${W} ${H}" class="ov-svg" role="img" aria-label="Goal difference by match">${g}</svg>`;
+    $("tm-form").innerHTML = `<svg viewBox="0 0 ${W} ${H}" class="ov-svg${narrow ? " ov-narrow" : ""}" role="img" aria-label="Goal difference by match">${g}</svg>`;
   }
 
   function renderSquad(squad, league, season) {
