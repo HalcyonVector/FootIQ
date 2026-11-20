@@ -99,7 +99,8 @@ def rank_players(
 
     out = []
     for rank, (_, row) in enumerate(subset.head(limit).iterrows(), start=1):
-        group = pos_group(row.get("position"))
+        # the stored group, not one re-derived from `position`, which is missing for some players
+        group = row.get("_pos_group") or pos_group(row.get("position"))
         if group not in cohorts:
             cohort_mask = (df["season"] == season) & (df["_pos_group"] == group) & (df["total_minutes"] >= config.minutes_floor(df))
             cohorts[group] = df.loc[cohort_mask, metric_col]
@@ -117,5 +118,7 @@ def rank_players(
             "minutes": _clean_minutes(row.get("total_minutes")),
             "value": round(float(row[metric_col]), 2),
             "percentile": pct,
+            "position_group": {"attacker": "attackers", "midfielder": "midfielders", "defender": "defenders",
+                               "goalkeeper": "goalkeepers"}.get(group, "same-position players"),
         })
     return out

@@ -18,6 +18,26 @@ P90_KEYS = {
 }
 
 
+SET_PIECE_WINDOW_S = 6.0   # a header this soon after a corner, free kick or throw-in belongs to that set piece
+
+
+def _from_set_piece(events: list[dict], i: int) -> bool:
+    """Was the aerial at index i contested from a set-piece delivery? The set-piece tags (corner,
+    free kick, throw-in...) sit on the DELIVERY, not on the header, so reading the aerial event's own
+    tags found no set-piece duels at all and the "Win rate, set piece" column was empty for every
+    player. Look back past the other players' records of the same duel to the event before it."""
+    from core.advanced import timing
+    t = timing.event_seconds(events[i])
+    for j in range(i - 1, max(-1, i - 6), -1):
+        prev = events[j]
+        if t - timing.event_seconds(prev) > SET_PIECE_WINDOW_S:
+            return False
+        if prev["type"] == "Aerial":          # the other jumper's record of this same duel
+            continue
+        return not q.is_open_play(q.qmap(prev.get("qualifiers") or []))
+    return False
+
+
 def compute_aerial(events: list[dict]) -> dict:
     acc = PlayerAcc()
 
@@ -29,7 +49,7 @@ def compute_aerial(events: list[dict]) -> dict:
             continue
 
         qm = q.qmap(e["qualifiers"])
-        is_set_piece = not q.is_open_play(qm)
+        is_set_piece = not q.is_open_play(qm) or _from_set_piece(events, i)
         won = e["outcome_type"] == "Successful"
         x = e.get("x")
 

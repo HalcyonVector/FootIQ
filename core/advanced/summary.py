@@ -33,7 +33,7 @@ def season_line(rows: list[dict]) -> dict:
         "xa": _f(sum(r["xa"] for r in rows), 1),
     }
     for k in _SUM_KEYS:
-        out[k] = int(sum(r.get(k) or 0 for r in rows))
+        out[k] = int(sum(v for r in rows if (v := r.get(k)) is not None and v == v))   # skips None and NaN
     out["npg"] = out["goals"] - out["pens_scored"]
     rated = [(r["rating"], r["minutes"]) for r in rows if r.get("rating") is not None]
     out["avg_rating"] = _f(sum(v for v, _ in rated) / len(rated), 2) if rated else None

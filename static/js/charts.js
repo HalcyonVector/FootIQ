@@ -13,6 +13,8 @@
 const FootIQCharts = (() => {
   const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const r1 = v => Math.round(v * 10) / 10;
+  // 1st, 2nd, 3rd, 11th, 21st... (a bare "th" gave "91th", "92th", "93th")
+  const ord = v => { const n = Math.round(v), s = ["th", "st", "nd", "rd"], m = n % 100; return n + (s[(m - 20) % 10] || s[m] || s[0]); };
   const r2 = v => Math.round(v * 100) / 100;
   let seq = 0;
 
@@ -268,7 +270,7 @@ const FootIQCharts = (() => {
     vals.forEach((v, i) => {
       g += `<text x="${x(i)}" y="${H - B + 18}" class="fc-t" text-anchor="middle">${esc(spec.seasons[i])}</text>`;
       if (v === null || v === undefined) return;
-      g += `<circle cx="${r1(x(i))}" cy="${r1(y(v))}" r="7.5" fill="${pctColor(v)}" stroke="var(--bg)" stroke-width="2" data-tip="${esc(`${spec.seasons[i]}\n${Math.round(v)}th percentile`)}"/>
+      g += `<circle cx="${r1(x(i))}" cy="${r1(y(v))}" r="7.5" fill="${pctColor(v)}" stroke="var(--bg)" stroke-width="2" data-tip="${esc(`${spec.seasons[i]}\n${ord(v)} percentile`)}"/>
             <text x="${r1(x(i))}" y="${r1(y(v) - 13)}" class="fc-t fc-t-strong" text-anchor="middle">${Math.round(v)}</text>`;
     });
     g += `<text transform="translate(12 ${(T + H - B) / 2}) rotate(-90)" class="fc-t" text-anchor="middle">Percentile vs. cohort</text>`;
@@ -305,7 +307,7 @@ const FootIQCharts = (() => {
     if (!items.length) { host.innerHTML = empty("No data"); return; }
     if (isNarrow(host)) {        // the ring labels cannot be read at phone size: the same numbers as bars
       barsChart(host, { sub: spec.sub, stats: spec.stats, items: items.map(it => ({ label: it.label, value: it.value, color: it.color,
-        text: `${Math.round(it.value)}th` })) });
+        text: ord(it.value) })) });
       return;
     }
     const W = 560, H = 470, cx = W / 2, cy = H / 2, r0 = 44, r1_ = 140, n = items.length, slice = (2 * Math.PI) / n;
@@ -314,7 +316,7 @@ const FootIQCharts = (() => {
     items.forEach((it, i) => {
       const mid = i * slice, a0 = mid - slice * 0.39, a1 = mid + slice * 0.39, ro = r0 + (it.value / 100) * (r1_ - r0);
       const o0 = P(ro, a0), o1 = P(ro, a1), i0 = P(r0, a0), i1 = P(r0, a1);
-      g += `<path d="M${o0[0]} ${o0[1]}A${r1(ro)} ${r1(ro)} 0 0 1 ${o1[0]} ${o1[1]}L${i1[0]} ${i1[1]}A${r0} ${r0} 0 0 0 ${i0[0]} ${i0[1]}Z" fill="${it.color}" fill-opacity=".92" stroke="var(--bg)" stroke-width="2" data-tip="${esc(`${it.label}\n${Math.round(it.value)}th percentile`)}"/>`;
+      g += `<path d="M${o0[0]} ${o0[1]}A${r1(ro)} ${r1(ro)} 0 0 1 ${o1[0]} ${o1[1]}L${i1[0]} ${i1[1]}A${r0} ${r0} 0 0 0 ${i0[0]} ${i0[1]}Z" fill="${it.color}" fill-opacity=".92" stroke="var(--bg)" stroke-width="2" data-tip="${esc(`${it.label}\n${ord(it.value)} percentile`)}"/>`;
       if (it.value >= 12) {   // too-short bars would put their number on top of the centre score
         const vp = P(Math.max(ro - 13, r0 + 12), mid);
         g += `<text x="${vp[0]}" y="${vp[1] + 4}" class="fc-bloom-v" text-anchor="middle">${Math.round(it.value)}</text>`;
@@ -525,7 +527,7 @@ const FootIQCharts = (() => {
     spec.series.forEach(s => {
       const pts = s.values.map((v, i) => P((R * v) / 100, i));
       g += `<polygon points="${pts.map(p => p.join(",")).join(" ")}" fill="${s.color}" fill-opacity=".16" stroke="${s.color}" stroke-width="2.4" stroke-linejoin="round"/>`;
-      pts.forEach((p, i) => { g += `<circle cx="${p[0]}" cy="${p[1]}" r="4.2" fill="${s.color}" stroke="var(--bg)" stroke-width="1.5" data-tip="${esc(`${s.name}\n${ax[i]}: ${Math.round(s.values[i])}th pct`)}"/>`; });
+      pts.forEach((p, i) => { g += `<circle cx="${p[0]}" cy="${p[1]}" r="4.2" fill="${s.color}" stroke="var(--bg)" stroke-width="1.5" data-tip="${esc(`${s.name}\n${ax[i]}: ${ord(s.values[i])} pct`)}"/>`; });
     });
     host.innerHTML = head(spec) + `<svg viewBox="0 0 ${W} ${H}" class="ov-svg fc-svg fc-round" role="img" aria-label="Radar comparison">${g}</svg>` + (spec.series.length > 1 ? seriesLegend(spec.series) : "");
   }
@@ -538,7 +540,7 @@ const FootIQCharts = (() => {
       const gx = L + ci * gw, start = gx + gw / 2 - (bw * np) / 2;
       spec.series.forEach((s, si) => {
         const v = s.values[ci] || 0, bx = start + si * bw;
-        g += `<rect x="${r1(bx + 1)}" y="${r1(y(v))}" width="${r1(Math.max(1, bw - 2))}" height="${r1(H - B - y(v))}" rx="3" fill="${s.color}" class="fc-hbar" data-tip="${esc(`${s.name}\n${c}: ${Math.round(v)}th pct`)}"/>`;
+        g += `<rect x="${r1(bx + 1)}" y="${r1(y(v))}" width="${r1(Math.max(1, bw - 2))}" height="${r1(H - B - y(v))}" rx="3" fill="${s.color}" class="fc-hbar" data-tip="${esc(`${s.name}\n${c}: ${ord(v)} pct`)}"/>`;
       });
       g += `<text transform="translate(${r1(gx + gw / 2 + 4)} ${H - B + 14}) rotate(-32)" class="fc-t" style="font-size:12px" text-anchor="end">${esc(c)}</text>`;
     });

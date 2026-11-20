@@ -87,16 +87,27 @@ def finalize_final_third(totals: dict) -> dict:
     return out
 
 
+def _num(v) -> float:
+    """A missing value (None or NaN) as 0. `row.get(k) or 0` is not enough: NaN is truthy, so it
+    passed straight through, and a player with no passes (NaN pass accuracy) got a NaN Link-Up
+    score, which is not valid JSON, so the browser could not read the whole stats answer."""
+    try:
+        v = float(v)
+    except (TypeError, ValueError):
+        return 0.0
+    return 0.0 if v != v or v in (float("inf"), float("-inf")) else v
+
+
 def pillar_floor_scores(row: dict) -> dict:
     """Raw (un-normalized) floor score per pillar from a player-season's
     already-per-90'd ft_* columns. Simple volume+quality blends — the exact
     weights are a judgment call, not a literal spec; percentile-ranking
     against the cohort (in percentiles.py) is what actually makes these
     comparable, not the absolute numbers."""
-    g_ = lambda k: row.get(k) or 0
+    g_ = lambda k: _num(row.get(k))
     return {
         "shooting": g_("ft_goals_p90") * 4 + g_("ft_sot_p90") * 2 + g_("ft_shots_p90"),
-        "linkup": g_("ft_passes_p90") * (g_("pass_accuracy_pct") / 100 if row.get("pass_accuracy_pct") else 0.5)
+        "linkup": g_("ft_passes_p90") * (g_("pass_accuracy_pct") / 100 if g_("pass_accuracy_pct") else 0.5)
                   + g_("ft_key_passes_p90") * 3 + g_("ft_assists_p90") * 5,
         "carrying": g_("ft_carries_p90") + g_("ft_prog_carries_p90") * 2 + g_("ft_carries_into_box_p90") * 3,
         "ballwinning": g_("ft_def_actions_high_p90") * 2,
@@ -104,7 +115,7 @@ def pillar_floor_scores(row: dict) -> dict:
 
 
 def pillar_per_touch_scores(row: dict) -> dict:
-    touches = row.get("ft_touches_p90") or 0
+    touches = _num(row.get("ft_touches_p90"))
     if touches <= 0:
         return {k: 0 for k in ("shooting", "linkup", "carrying", "ballwinning")}
     floor = pillar_floor_scores(row)

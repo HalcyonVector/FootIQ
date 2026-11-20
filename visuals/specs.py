@@ -39,6 +39,13 @@ BLUE, GREEN, RED, AMBER, PURPLE, PINK, SLATE, GREY = (
 _PCT_STOPS = [(0, (239, 68, 68)), (25, (249, 115, 22)), (50, (234, 179, 8)), (75, (34, 197, 94)), (100, (59, 130, 246))]
 
 
+
+def ordinal(n) -> str:
+    """1st, 2nd, 3rd, 11th, 21st... (a bare "th" gave "91th", "92th", "93th")."""
+    n = int(round(n))
+    suffix = "th" if 10 <= n % 100 <= 20 else {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
+    return f"{n}{suffix}"
+
 def percentile_color(pct: float) -> str:
     pct = max(0, min(100, pct))
     for (t0, c0), (t1, c1) in zip(_PCT_STOPS, _PCT_STOPS[1:]):
@@ -86,7 +93,7 @@ def stat_bars(stats: list, labels, sub: str = None, with_pct: bool = False) -> d
             items.append((label, 0, "#374151", "-"))
             continue
         pct = s["percentile"]
-        text = f"{s['value']}{s.get('unit', '')}" + (f" ({pct}th pct)" if with_pct else "")
+        text = f"{s['value']}{s.get('unit', '')}" + (f" ({ordinal(pct)} pct)" if with_pct else "")
         items.append((label, pct, percentile_color(pct), text))
     return bars(items, sub)
 
@@ -569,7 +576,7 @@ def decision_bloom(stats: list) -> dict:
 
 def decision_bars(stats: list) -> dict:
     ordered = sorted(stats, key=lambda s: s["percentile"], reverse=True)
-    return bars([(s["label"], s["percentile"], percentile_color(s["percentile"]), f"{s['percentile']}th pct") for s in ordered])
+    return bars([(s["label"], s["percentile"], percentile_color(s["percentile"]), ordinal(s['percentile']) + " pct") for s in ordered])
 
 
 TARGET_C = "#8b5cf6"
@@ -586,8 +593,8 @@ def final_third_scatter(player_name: str, points: list) -> dict:
 
 
 def pillar_bars(floor_pct: dict, per_touch_pct: dict) -> dict:
-    items = [(f"{PILLARS[p][0]} (floor)", floor_pct[p], PILLARS[p][1], f"{floor_pct[p]}th pct") for p in PILLARS]
-    items += [(f"{PILLARS[p][0]} (per touch)", per_touch_pct[p], PILLARS[p][1], f"{per_touch_pct[p]}th pct") for p in PILLARS]
+    items = [(f"{PILLARS[p][0]} (floor)", floor_pct[p], PILLARS[p][1], ordinal(floor_pct[p]) + " pct") for p in PILLARS]
+    items += [(f"{PILLARS[p][0]} (per touch)", per_touch_pct[p], PILLARS[p][1], ordinal(per_touch_pct[p]) + " pct") for p in PILLARS]
     return bars(items)
 
 

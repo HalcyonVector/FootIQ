@@ -228,6 +228,9 @@ async function runExplore() {
   }
 }
 
+// 1st, 2nd, 3rd, 11th, 21st... (a bare "th" gave "91th", "92th", "93th")
+function _ordinal(n) { const s = ["th", "st", "nd", "rd"], m = n % 100; return n + (s[(m - 20) % 10] || s[m] || s[0]); }
+
 function renderResults(results) {
   const listEl = document.getElementById("explore-list");
   if (!results.length) {
@@ -251,7 +254,7 @@ function renderResults(results) {
         </div>
         <div class="scout-match-score">
           <div class="scout-match-score-val" style="color:${color}">${valStr}</div>
-          <div class="scout-match-score-lbl">${r.percentile}th pct</div>
+          <div class="scout-match-score-lbl" title="Percentile against ${r.position_group || "same-position players"} this season, so the order of the list (by the value) and the percentiles can differ">${_ordinal(r.percentile)} pct vs position</div>
         </div>
         <a class="scout-match-cta" href="${profileUrl}">View Profile &rarr;</a>
       </div>

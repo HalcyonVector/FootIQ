@@ -71,7 +71,7 @@
   }
 
   async function search(params) {
-    const name = params.get("name") || "";
+    const name = (params.get("name") || "").trim();   // the server strips spaces too
     if (name.length < 2) return [];
     const league = params.get("league") || "Premier League";
     const season = params.get("season") || "2024-25";

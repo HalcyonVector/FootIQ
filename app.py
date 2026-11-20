@@ -56,6 +56,30 @@ class _NumpyJSONProvider(_DefaultJSONProvider):
             return None if isinstance(v, float) and v != v else v
         return _DefaultJSONProvider.default(o)
 
+    def dumps(self, obj, **kwargs):
+        # json.dumps writes a float NaN or infinity as a bare NaN / Infinity, which is not JSON: the
+        # browser's JSON.parse rejects the whole answer and the page shows an error card (a 1-minute
+        # player's NaN Link-Up score did this to the stats panel). The substring test is one fast
+        # scan of the usual answer; only when it finds one is the data cleaned (NaN and infinities
+        # to None) and written again, so text inside strings is never touched.
+        out = super().dumps(obj, **kwargs)
+        if "NaN" in out or "Infinity" in out:
+            out = super().dumps(_finite(obj), **kwargs)
+        return out
+
+
+def _finite(o):
+    """A copy of a JSON-ready structure with NaN and infinite floats (numpy ones too) as None."""
+    if isinstance(o, dict):
+        return {k: _finite(v) for k, v in o.items()}
+    if isinstance(o, (list, tuple)):
+        return [_finite(v) for v in o]
+    if hasattr(o, "item") and type(o).__module__ == "numpy":
+        o = o.item()
+    if isinstance(o, float) and (o != o or o in (float("inf"), float("-inf"))):
+        return None
+    return o
+
 
 app.json = _NumpyJSONProvider(app)
 # gzip/brotli for HTML, JSON, CSS and JS: the page shell is ~250 KB of text and
@@ -144,6 +168,47 @@ def cached_json(view):
 
 # In-memory chart cache: key = whatever the caller builds it as.
 # Stores chart specs (small JSON, drawn client-side by static/js/charts.js).
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Request input: a request the client got wrong is answered 400 with a short reason, so a 500 in
+# the logs always means a fault on the server. (Missing fields and text where a number belongs
+# used to surface as 500s carrying raw Python error text.)
+# ─────────────────────────────────────────────────────────────────────────────
+class BadInput(ValueError):
+    pass
+
+
+def _body() -> dict:
+    body = request.get_json(force=True, silent=True)
+    if not isinstance(body, dict):
+        raise BadInput("expected a JSON object")
+    return body
+
+
+def _need(d: dict, key: str):
+    if not isinstance(d, dict) or d.get(key) in (None, ""):
+        raise BadInput(f"missing {key}")
+    return d[key]
+
+
+def _int(v, name: str) -> int:
+    try:
+        return int(v)
+    except (TypeError, ValueError):
+        raise BadInput(f"{name} must be a whole number") from None
+
+
+def _opt_int(v, name: str):
+    """None, "" or "none" mean no value; anything else must be a whole number."""
+    return None if v in (None, "", "none") else _int(v, name)
+
+
+def _fail(e: Exception):
+    if isinstance(e, BadInput):
+        return jsonify({"error": str(e)}), 400
+    traceback.print_exc()
+    return jsonify({"error": "Something went wrong on the server."}), 500
+
 _chart_cache: dict = {}
 _CACHE_MAX = 200   # evict oldest when this is exceeded
 
@@ -496,8 +561,7 @@ def api_search():
                 results = search_players_global(name, season)
         return jsonify(results[:15])
     except Exception as e:
-        traceback.print_exc()
-        return jsonify({"error": str(e)}), 500
+        return _fail(e)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -525,8 +589,7 @@ def api_hub():
     try:
         return jsonify(_hub_facts())
     except Exception as e:
-        traceback.print_exc()
-        return jsonify({"error": str(e)}), 500
+        return _fail(e)
 
 
 @app.route("/api/hub-player")
@@ -535,13 +598,12 @@ def api_hub_player():
     and the Final Third score -- the same figures the Player page shows."""
     try:
         from core.advanced import extras
-        i = int(request.args.get("i", 0))
+        i = _int(request.args.get("i", 0), "i")
         if not (0 <= i < len(extras.hub_facts()["featured"])):
             return jsonify({"error": "no such player"}), 404
         return jsonify(extras.hub_player(i))
     except Exception as e:
-        traceback.print_exc()
-        return jsonify({"error": str(e)}), 500
+        return _fail(e)
 
 
 @app.route("/api/coverage")
@@ -552,8 +614,7 @@ def api_coverage():
         from core.advanced import extras
         return jsonify({"rows": extras.coverage(), "excluded": EXCLUDED_COMPETITIONS})
     except Exception as e:
-        traceback.print_exc()
-        return jsonify({"error": str(e)}), 500
+        return _fail(e)
 
 
 # Scraped but left out of the app, with the reason (shown on the coverage page).
@@ -599,8 +660,8 @@ def _scoped_df(df, league, scope):
 @cached_json
 def api_advanced_stats():
     try:
-        body      = request.get_json(force=True)
-        player_id = body["player_id"]
+        body      = _body()
+        player_id = _int(_need(body, "player_id"), "player_id")
         league    = body.get("league", "Premier League")
         season    = body.get("season", "2024-25")
         scope     = _parse_scope(body, league)
@@ -647,8 +708,7 @@ def api_advanced_stats():
                             else "Top 5 league players in the same position group" if scope == "top5"
                             else "players in the same position group, every league")})
     except Exception as e:
-        traceback.print_exc()
-        return jsonify({"error": str(e)}), 500
+        return _fail(e)
 
 
 @app.route("/api/player-overview", methods=["POST"])
@@ -658,8 +718,8 @@ def api_player_overview():
     heatmaps for one player-season -- the "paid-site" overview. Reads only
     this player's slice of the partitioned Overview tables."""
     try:
-        body      = request.get_json(force=True)
-        player_id = int(body["player_id"])
+        body      = _body()
+        player_id = _int(_need(body, "player_id"), "player_id")
         league    = body.get("league", "Premier League")
         season    = body.get("season", "2024-25")
 
@@ -684,8 +744,7 @@ def api_player_overview():
             **_overview_visuals(player_id, league, season),
         })
     except Exception as e:
-        traceback.print_exc()
-        return jsonify({"error": str(e)}), 500
+        return _fail(e)
 
 
 def _overview_visuals(player_id: int, league: str, season: str) -> dict:
@@ -706,8 +765,8 @@ def api_pass_map():
     created, for the profile's pass map. Coordinates are compact arrays; the
     client filters by mode."""
     try:
-        body      = request.get_json(force=True)
-        player_id = int(body["player_id"])
+        body      = _body()
+        player_id = _int(_need(body, "player_id"), "player_id")
         league    = body.get("league", "Premier League")
         season    = body.get("season", "2024-25")
 
@@ -727,8 +786,7 @@ def api_pass_map():
         chances = [c for c in chances if c.get("ax") is not None and c.get("aex") is not None]
         return jsonify({"available": True, "passes": passes, "chances": chances})
     except Exception as e:
-        traceback.print_exc()
-        return jsonify({"error": str(e)}), 500
+        return _fail(e)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -751,8 +809,7 @@ def api_league_table():
         table = tables.league_table(store.get_season_matches(league, season))
         return jsonify({"league": league, "season": season, "table": table, "cup": league in _CUP_COMPETITIONS})
     except Exception as e:
-        traceback.print_exc()
-        return jsonify({"error": str(e)}), 500
+        return _fail(e)
 
 
 @app.route("/api/team-styles")
@@ -765,8 +822,7 @@ def api_team_styles():
         from core.advanced import teams
         return jsonify({"league": league, "season": season, "metrics": teams.META, "teams": teams.team_styles(league, season)})
     except Exception as e:
-        traceback.print_exc()
-        return jsonify({"error": str(e)}), 500
+        return _fail(e)
 
 
 @app.route("/api/team-network")
@@ -778,8 +834,7 @@ def api_team_network():
         from core.advanced import teams
         return jsonify(teams.pass_network(league, season, team))
     except Exception as e:
-        traceback.print_exc()
-        return jsonify({"error": str(e)}), 500
+        return _fail(e)
 
 
 @app.route("/api/team-shots")
@@ -791,8 +846,7 @@ def api_team_shots():
         from core.advanced import teams
         return jsonify({"shots": teams.team_shots(league, season, team)})
     except Exception as e:
-        traceback.print_exc()
-        return jsonify({"error": str(e)}), 500
+        return _fail(e)
 
 
 @app.route("/api/team")
@@ -816,16 +870,15 @@ def api_team():
             return jsonify({"error": "team not found"}), 404
         return jsonify({"league": league, "season": season, "cup": league in _CUP_COMPETITIONS, **page})
     except Exception as e:
-        traceback.print_exc()
-        return jsonify({"error": str(e)}), 500
+        return _fail(e)
 
 
 @app.route("/api/linkup-teammates", methods=["POST"])
 @cached_json
 def api_linkup_teammates():
     try:
-        body      = request.get_json(force=True)
-        player_id = body["player_id"]
+        body      = _body()
+        player_id = _int(_need(body, "player_id"), "player_id")
         league    = body.get("league", "Premier League")
         season    = body.get("season", "2024-25")
 
@@ -840,17 +893,16 @@ def api_linkup_teammates():
             return jsonify({"teammates": []})
         return jsonify({"player_whoscored_id": ws_id, "teammates": teammates})
     except Exception as e:
-        traceback.print_exc()
-        return jsonify({"error": str(e)}), 500
+        return _fail(e)
 
 
 @app.route("/api/linkup-detail", methods=["POST"])
 @cached_json
 def api_linkup_detail():
     try:
-        body        = request.get_json(force=True)
-        passer_id   = int(body["passer_id"])
-        teammate_id = int(body["teammate_id"])
+        body        = _body()
+        passer_id   = _int(_need(body, "passer_id"), "passer_id")
+        teammate_id = _int(_need(body, "teammate_id"), "teammate_id")
         league      = body.get("league", "Premier League")
         season      = body.get("season", "2024-25")
 
@@ -890,8 +942,7 @@ def api_linkup_detail():
             "spec": spec,
         })
     except Exception as e:
-        traceback.print_exc()
-        return jsonify({"error": str(e)}), 500
+        return _fail(e)
 
 
 @app.route("/api/category-chart", methods=["POST"])
@@ -906,11 +957,11 @@ def api_category_chart():
     only ever affects that category's primary pitch-map chart; the
     companion charts always reflect the full, unfiltered data."""
     try:
-        body        = request.get_json(force=True)
-        player_id   = int(body["player_id"])
+        body        = _body()
+        player_id   = _int(_need(body, "player_id"), "player_id")
         league      = body.get("league", "Premier League")
         season      = body.get("season", "2024-25")
-        category    = body["category"]
+        category    = _need(body, "category")
         filt        = body.get("filter", "")
         scope       = _parse_scope(body, league)
 
@@ -1084,8 +1135,7 @@ def api_category_chart():
         _chart_cache[cache_key] = result
         return jsonify(result)
     except Exception as e:
-        traceback.print_exc()
-        return jsonify({"error": str(e)}), 500
+        return _fail(e)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1096,7 +1146,7 @@ def api_category_chart():
 @cached_json
 def api_compare_stats():
     try:
-        body = request.get_json(force=True)
+        body = _body()
         players_in = body.get("players", [])
         if not (2 <= len(players_in) <= 4):
             return jsonify({"error": "Provide 2-4 players"}), 400
@@ -1114,7 +1164,7 @@ def api_compare_stats():
 
         players = []
         for p in players_in:
-            pid = int(p["player_id"])
+            pid = _int(_need(p, "player_id"), "player_id")
             league = p.get("league", "Premier League")
             season = p.get("season", "2024-25")
             row = match_to_advanced_row(pid, league, season, df)
@@ -1134,7 +1184,7 @@ def api_compare_stats():
                 "minutes": _clean_minutes(row.get("total_minutes")),
                 # same "Limited sample" rule as the player page, so a 300-minute player is flagged here too
                 "sample": _sample_for({"id": pid, "league": league, "season": season,
-                                       "minutes": float(row.get("total_minutes") or 0)}),
+                                       "minutes": _clean_minutes(row.get("total_minutes")) or 0}),
                 "cats": cats, "composite": compute_composite(cats, row.get("position", "")),
                 # season stat line + shot map + heatmap (None until the overview tables are built)
                 "overview": ({"line": _summary.season_line(mrows), **_overview_visuals(pid, league, season)}
@@ -1158,8 +1208,7 @@ def api_compare_stats():
 
         return jsonify({"players": players, "charts": charts})
     except Exception as e:
-        traceback.print_exc()
-        return jsonify({"error": str(e)}), 500
+        return _fail(e)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1170,13 +1219,13 @@ def api_compare_stats():
 @cached_json
 def api_scout_similar():
     try:
-        body      = request.get_json(force=True)
-        player_id = int(body["player_id"])
+        body      = _body()
+        player_id = _int(_need(body, "player_id"), "player_id")
         league    = body.get("league", "Premier League")
         season    = body.get("season", "2024-25")
-        limit     = min(max(int(body.get("limit", 20)), 1), 20)
+        limit     = min(max(_int(body.get("limit", 20), "limit"), 1), 20)
         max_age   = body.get("max_age")
-        max_age   = int(max_age) if max_age not in (None, "", "none") else None
+        max_age   = _opt_int(max_age, "max_age")
         # Which seasons the candidates may come from. "recent" (the default) is the two newest seasons,
         # so a scout sees players as they are now rather than someone's best match from years ago.
         season_pool = body.get("season_pool", "recent")
@@ -1219,8 +1268,7 @@ def api_scout_similar():
             "widened": widened,
         })
     except Exception as e:
-        traceback.print_exc()
-        return jsonify({"error": str(e)}), 500
+        return _fail(e)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1231,13 +1279,13 @@ def api_scout_similar():
 @cached_json
 def api_explore():
     try:
-        body = request.get_json(force=True)
-        metric_col = body["metric"]
+        body = _body()
+        metric_col = _need(body, "metric")
         season = body.get("season", "2024-25")
         league = body.get("league", "all")
         position_group = body.get("position_group", "all")
         min_minutes = body.get("min_minutes")
-        min_minutes = int(min_minutes) if min_minutes not in (None, "", "none") else None
+        min_minutes = _opt_int(min_minutes, "min_minutes")
 
         from core.advanced.store import get_advanced_df
         from core.advanced.explore import rank_players
@@ -1252,8 +1300,7 @@ def api_explore():
         )
         return jsonify({"results": results})
     except Exception as e:
-        traceback.print_exc()
-        return jsonify({"error": str(e)}), 500
+        return _fail(e)
 
 
 @app.route("/api/explore-scatter", methods=["POST"])
@@ -1261,10 +1308,10 @@ def api_explore():
 def api_explore_scatter():
     """Two metrics against each other for every player in the filtered cohort."""
     try:
-        body = request.get_json(force=True)
-        x_col, y_col = body["x_metric"], body["y_metric"]
+        body = _body()
+        x_col, y_col = _need(body, "x_metric"), _need(body, "y_metric")
         min_minutes = body.get("min_minutes")
-        min_minutes = int(min_minutes) if min_minutes not in (None, "", "none") else None
+        min_minutes = _opt_int(min_minutes, "min_minutes")
 
         from core.advanced.store import get_advanced_df
         from core.advanced.explore import scatter_points, explorable_metrics
@@ -1284,8 +1331,7 @@ def api_explore_scatter():
                                  sub=f"{len(pts)} players. Dashed lines are the medians. Click a dot for the profile.")
         return jsonify({"spec": spec, "n": len(pts)})
     except Exception as e:
-        traceback.print_exc()
-        return jsonify({"error": str(e)}), 500
+        return _fail(e)
 
 
 @app.route("/api/explore-quadrant", methods=["POST"])
@@ -1293,9 +1339,9 @@ def api_explore_scatter():
 def api_explore_quadrant():
     """One of the curated quadrant plots (core/advanced/quadrants.py)."""
     try:
-        body = request.get_json(force=True)
+        body = _body()
         min_minutes = body.get("min_minutes")
-        min_minutes = int(min_minutes) if min_minutes not in (None, "", "none") else None
+        min_minutes = _opt_int(min_minutes, "min_minutes")
 
         from core.advanced.store import get_advanced_df
         from core.advanced.explore import explorable_metrics
@@ -1315,8 +1361,7 @@ def api_explore_quadrant():
                                                f"metrics behind it. Hover a dot to see them; click for the profile.")
         return jsonify({"spec": spec, "n": n})
     except Exception as e:
-        traceback.print_exc()
-        return jsonify({"error": str(e)}), 500
+        return _fail(e)
 
 
 if __name__ == "__main__":
