@@ -100,13 +100,16 @@ function initMainSearch() {
   const searchEl  = document.getElementById("main-search");
   const resultsEl = document.getElementById("main-results");
 
+  let searchSeq = 0;   // answers can arrive out of order: only the newest query may fill the list
   const doSearch = debounce(async (isGlobal = false) => {
+    const seq = ++searchSeq;
     const q = searchEl.value.trim();
     if (q.length < 2) { resultsEl.innerHTML = ""; resultsEl.classList.remove("active"); return; }
     try {
       const url = `/api/search?name=${encodeURIComponent(q)}&league=${primaryLeague}&season=${primarySeason}${isGlobal === true ? '&all_leagues=1' : ''}`;
       const res  = await fetch(url);
       const data = await res.json();
+      if (seq !== searchSeq) return;
       if (data.error) { showToast(data.error); return; }
       if (!data.length && !isGlobal) {
         return doSearch(true);
@@ -305,10 +308,12 @@ async function loadSeasonSwitcher(player) {
         </select>
       </label>`;
     document.getElementById("season-switch-select").addEventListener("change", async e => {
-      const [league, season] = e.target.value.split("|");
+      const want = e.target.value;
+      const [league, season] = want.split("|");
       try {
         const r = await fetch(`/api/player?id=${player.id}&league=${encodeURIComponent(league)}&season=${encodeURIComponent(season)}`);
         const d = await r.json();
+        if (e.target.value !== want || primaryPlayer !== player) return;   // a later choice, or another player, came first
         if (d.player) selectPrimaryPlayer(d.player, { scroll: false });
       } catch { showToast("Could not switch season."); }
     });
@@ -496,8 +501,12 @@ function wireScopeControl() {
 
 // Returns true when the Advanced panel is showing. On a failure the spinner's place shows an error card with a
 // retry (and for "no data" an empty-state note) instead of a toast that disappears.
+// Each call takes a number; a response that is no longer the newest (the season, scope or player
+// changed while it loaded) draws nothing and returns null, which leaves the spinner to the newer call.
+let _advToken = 0;
 async function fetchAdvancedStats(player, holdUntil) {
   if (!advancedSection) return true;
+  const mine = ++_advToken;
   const settle = card => { chartsLoading.style.display = "block"; card(chartsLoading); renderProfileScore(null); return false; };
   const retry = () => {
     chartsLoading.innerHTML = CHARTS_LOADING_HTML;
@@ -512,6 +521,7 @@ async function fetchAdvancedStats(player, holdUntil) {
       body: JSON.stringify({ player_id: player.id, league: primaryLeague, season: primarySeason, scope: statScope }),
     });
     const data = await res.json();
+    if (mine !== _advToken) return null;
     if (!res.ok || !data.categories || !data.categories.length) {
       if (res.status >= 500) return settle(h => FootIQUI.error(h, "Could not load the advanced stats.", retry));
       return settle(h => FootIQUI.empty(h, "No advanced stats for this player-season",
@@ -528,10 +538,11 @@ async function fetchAdvancedStats(player, holdUntil) {
     renderProfileScore(data.composite);
     FootIQOverview.renderInsights(data.insights);
     if (holdUntil) await holdUntil;        // reveal it after the overview has taken (or given up) its place above
-    if (primaryPlayer !== player) return true;  // the user already moved on to someone else
+    if (primaryPlayer !== player || mine !== _advToken) return null;  // the user already moved on
     advancedSection.style.display = "block";
     return true;
   } catch {
+    if (mine !== _advToken) return null;
     return settle(h => FootIQUI.error(h, "Could not load the advanced stats.", retry));
   }
 }
@@ -838,7 +849,12 @@ let linkupPasserId = null;
 let linkupActiveTeammateId = null;
 let _linkupDetailCache = {};   // teammateId -> {stats, chart}
 
+// Bumped on every player or season change, so a link-up response for the previous one is dropped
+// instead of filling the new player's table and cache.
+let _linkupGen = 0;
+
 function resetLinkupState() {
+  _linkupGen++;
   linkupTeammates = null;
   linkupLoading = false;
   linkupPasserId = null;
@@ -863,6 +879,7 @@ function renderLinkupStatCard(cat, containerId) {
 async function loadLinkupTab() {
   if (linkupTeammates !== null || linkupLoading || !primaryPlayer) return;
   linkupLoading = true;
+  const gen = _linkupGen;
   const body = document.getElementById("linkup-table-body");
   try {
     const res = await fetch("/api/linkup-teammates", {
@@ -870,6 +887,7 @@ async function loadLinkupTab() {
       body: JSON.stringify({ player_id: primaryPlayer.id, league: primaryLeague, season: primarySeason }),
     });
     const data = await res.json();
+    if (gen !== _linkupGen) return;
     // A server error is not "no teammates": throw so the catch below shows "Could not load",
     // and leave linkupTeammates null so opening the tab again retries.
     if (!res.ok || data.error) throw new Error(data.error || `HTTP ${res.status}`);
@@ -895,9 +913,9 @@ async function loadLinkupTab() {
 
     await selectLinkupTeammate(linkupTeammates[0].teammate_id);
   } catch {
-    if (body) body.innerHTML = `<tr><td colspan="2" style="color:var(--muted)">Could not load. Switch tabs and come back to retry.</td></tr>`;
+    if (gen === _linkupGen && body) body.innerHTML = `<tr><td colspan="2" style="color:var(--muted)">Could not load. Switch tabs and come back to retry.</td></tr>`;
   } finally {
-    linkupLoading = false;
+    if (gen === _linkupGen) linkupLoading = false;
   }
 }
 
@@ -918,6 +936,8 @@ async function selectLinkupTeammate(teammateId) {
   const chartEl = document.getElementById("linkup-chart");
   if (spinner) spinner.style.display = "block";
   if (chartEl) chartEl.style.display = "none";
+  const gen = _linkupGen;
+  const current = () => gen === _linkupGen && linkupActiveTeammateId === teammateId;
   try {
     const res = await fetch("/api/linkup-detail", {
       method: "POST", headers: { "Content-Type": "application/json" },
@@ -927,11 +947,11 @@ async function selectLinkupTeammate(teammateId) {
       }),
     });
     const data = await res.json();
-    if (!res.ok || !data.spec) return;
+    if (gen !== _linkupGen || !res.ok || !data.spec) return;
     _linkupDetailCache[teammateId] = data;
-    renderLinkupDetail(data);
+    if (current()) renderLinkupDetail(data);   // a quicker click on another teammate wins
   } catch { /* silent */ }
-  finally { if (spinner) spinner.style.display = "none"; }
+  finally { if (spinner && current()) spinner.style.display = "none"; }
 }
 
 function renderLinkupDetail(data) {

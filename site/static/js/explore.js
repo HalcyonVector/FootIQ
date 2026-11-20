@@ -185,7 +185,7 @@ function applyView() {
 }
 
 async function runExplore() {
-  if (!isQuadrantView() && !isScatterView()) _plotToken++;
+  const token = (!isQuadrantView() && !isScatterView()) ? ++_plotToken : null;
   if (isQuadrantView()) { await runQuadrant(); return; }
   if (isScatterView()) { await runScatter(); return; }
   document.getElementById("explore-list").style.display = "";
@@ -216,12 +216,14 @@ async function runExplore() {
       }),
     });
     const data = await res.json();
+    if (token !== _plotToken) return;    // a newer metric or filter was chosen while this loaded
     if (!res.ok || data.error) {
       FootIQUI.error(listEl, data.error || "Could not load results.", runExplore);
       return;
     }
     renderResults(data.results || []);
   } catch {
+    if (token !== _plotToken) return;
     FootIQUI.error(listEl, "Could not load results.", runExplore);
   }
 }

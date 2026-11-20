@@ -289,6 +289,61 @@ def check_season_switch(page: Page, base: str) -> None:
         print(f"  [FAIL] {name}: pass map shows {shown} passes, the server has {expected}")
 
 
+SLOW_FETCH_JS = """(() => { const real = window.fetch.bind(window);
+  window.fetch = async (url, opts) => {
+    const key = String(url) + ' ' + ((opts && opts.body) || '');
+    const res = await real(url, opts);
+    if ((window.__slow || []).some(s => key.includes(s))) await new Promise(r => setTimeout(r, 6000));
+    return res;
+  }; })();"""
+
+
+def check_slow_answers(page: Page, base: str) -> None:
+    """A slow answer for the previous choice must not draw over the newer one. The first season's
+    advanced stats (or the first competition's table) are held back 6 s inside the page while the
+    choice changes; the page must end on the newer choice. Desktop only: the logic is the same."""
+    if PHONE["on"]:
+        return
+    p = page.context.new_page()
+    try:
+        pl = PLAYERS[0]
+        p.add_init_script(SLOW_FETCH_JS + f"window.__slow = ['\"season\":\"{pl['season']}\"'];")
+        p.goto(base + "/player?" + urlencode(pl), wait_until="domcontentloaded", timeout=90_000)
+        p.wait_for_selector("#season-switch-slot select", timeout=90_000)
+        target = p.evaluate("s => [...document.querySelectorAll('#season-switch-slot select option')].map(o => o.value)"
+                            ".find(v => !v.endsWith('|' + s))", pl["season"])
+        if target:
+            p.evaluate("v => { const s = document.querySelector('#season-switch-slot select'); s.value = v;"
+                       " s.dispatchEvent(new Event('change', { bubbles: true })); }", target)
+            p.wait_for_timeout(18_000)
+            league, season = target.split("|")
+            want = p.evaluate("""async ([pid, league, season]) => { const r = await fetch('/api/advanced-stats', {method: 'POST',
+                headers: {'Content-Type': 'application/json'}, body: JSON.stringify({player_id: pid, league, season, scope: 'all'})});
+                const d = await r.json(); return d.composite ? String(d.composite.score) : ''; }""", [pl["player_id"], league, season])
+            shown = p.evaluate("() => (document.querySelector('#profile-score-slot .score-num') || {}).textContent || ''")
+            verdict(f"slow answer / player rating after switching to {league} {season}", shown == want,
+                    f"shows {shown}, the new season's rating is {want}")
+        p.add_init_script("window.__slow = ['league-table?league=Premier'];")
+        p.goto(base + "/league?" + urlencode({"league": "Premier League", "season": TEAM["season"]}),
+               wait_until="domcontentloaded", timeout=90_000)
+        p.wait_for_timeout(1500)
+        p.evaluate("() => { const s = document.getElementById('lg-league'); s.value = 'La Liga';"
+                   " s.dispatchEvent(new Event('change', { bubbles: true })); }")
+        p.wait_for_timeout(10_000)
+        title = p.evaluate("() => document.getElementById('lg-title').textContent")
+        verdict("slow answer / Teams table after switching to La Liga", title.startswith("La Liga"), f"title is '{title}'")
+    finally:
+        p.close()
+
+
+def verdict(name: str, ok: bool, detail: str) -> None:
+    if ok:
+        print(f"  [ok] {name}: {detail}")
+    else:
+        failures.append(f"{name}: {detail}")
+        print(f"  [FAIL] {name}: {detail}")
+
+
 def check_compare(page: Page, base: str) -> None:
     open_page(page, base, "/compare", COMPARE)
     tabs = page.evaluate("() => [...document.querySelectorAll('.adv-tab-btn, .cmp-tab-btn, [data-cat]')]"
@@ -392,7 +447,7 @@ def main() -> int:
                 page = ctx.new_page()
                 page.on("pageerror", lambda e, pg=page: js_errors.append(f"{pg.url}: {e}"))
                 page.on("console", lambda m, pg=page: m.type == "error" and js_errors.append(f"{pg.url}: {m.text[:300]}"))
-                for name, step in [("players", check_players), ("season switch", check_season_switch), ("compare", check_compare), ("explore", check_explore),
+                for name, step in [("players", check_players), ("season switch", check_season_switch), ("slow answers", check_slow_answers), ("compare", check_compare), ("explore", check_explore),
                                    ("teams", check_teams), ("other pages", check_other_pages)]:
                     print(f"- {pass_name}: {name}")
                     try:

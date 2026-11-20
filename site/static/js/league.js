@@ -92,14 +92,18 @@
 
   // How every team in the competition plays, ranked on one chosen measure at a time.
   let styleData = null;
+  let styleToken = 0, tableToken = 0;   // a slow answer for the previous competition must not draw over the new one
   async function loadStyles(league, season) {
+    const mine = ++styleToken;
     styleData = null;
     $("lg-style").innerHTML = '<div class="ov-empty">Loading…</div>';
     try {
       const d = await (await fetch(`/api/team-styles?${new URLSearchParams({ league, season })}`)).json();
+      if (mine !== styleToken) return;
       if (d.error || !d.teams) throw new Error(d.error || "no data");
       styleData = d;
     } catch {
+      if (mine !== styleToken) return;
       if (typeof FootIQUI !== "undefined") FootIQUI.error($("lg-style"), "Could not load the team styles.", () => loadStyles(league, season));
       return;
     }
@@ -145,6 +149,7 @@
 
   // ── League table ──────────────────────────────────────────────────────────
   async function loadTable() {
+    const mine = ++tableToken;
     const league = $("lg-league").value, season = $("lg-season").value;
     try {
       const tab = new URLSearchParams(location.search).get("tab");
@@ -152,11 +157,13 @@
     } catch { /* non-fatal */ }
     const section = $("lg-section");
     styleData = null;
+    styleToken++;                       // styles still loading for the previous competition are dropped
     if (($("lg-style-panel") && $("lg-style-panel").style.display === "block") ||
         ($("lg-map-panel") && $("lg-map-panel").style.display === "block")) loadStyles(league, season);
     let data;
     try { data = await (await fetch(`/api/league-table?${new URLSearchParams({ league, season })}`)).json(); }
     catch { return; }
+    if (mine !== tableToken) return;
     section.style.display = "block";
     const name = (window.LEAGUES.find(l => l.id === league) || {}).name || league;
     $("lg-title").textContent = `${name} · ${season}`;

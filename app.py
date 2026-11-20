@@ -1132,13 +1132,18 @@ def api_compare_stats():
                 "player_id": pid, "name": row.get("player_name"), "team": row.get("team_name"),
                 "league": league, "season": season, "position": position,
                 "minutes": _clean_minutes(row.get("total_minutes")),
+                # same "Limited sample" rule as the player page, so a 300-minute player is flagged here too
+                "sample": _sample_for({"id": pid, "league": league, "season": season,
+                                       "minutes": float(row.get("total_minutes") or 0)}),
                 "cats": cats, "composite": compute_composite(cats, row.get("position", "")),
                 # season stat line + shot map + heatmap (None until the overview tables are built)
                 "overview": ({"line": _summary.season_line(mrows), **_overview_visuals(pid, league, season)}
                              if mrows else None),
             })
 
-        cache_key = ("compare_charts", tuple(sorted((p["player_id"], p["league"], p["season"]) for p in players)))
+        # In the order given, not sorted: each player's colour follows their position, so A-then-B
+        # and B-then-A need different charts.
+        cache_key = ("compare_charts", tuple((p["player_id"], p["league"], p["season"]) for p in players))
         if cache_key in _chart_cache:
             charts = _chart_cache[cache_key]
         else:

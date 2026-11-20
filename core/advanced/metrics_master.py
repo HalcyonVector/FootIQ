@@ -14,6 +14,10 @@ INVERTED_METRICS = {
     "hu_final_dangerous_loss_pct", "hu_middle_dangerous_loss_pct", "hu_whole_dangerous_loss_pct",
     "dm_median_release_s", "tempo_median_release_s", "pr_backward_release_pct",
     "def_fouls_box_count_p90", "def_fouls_channel_count_p90",
+    # A keeper who concedes fewer goals per 90 ranks higher. It was missing here (the quadrant
+    # plots flipped it on their own), so the Goalkeeping tab ranked the keeper conceding the most
+    # at the top and listed "Goals conceded" as a strength.
+    "gk_goals_conceded_count_p90",
 }
 
 CATEGORIES = {

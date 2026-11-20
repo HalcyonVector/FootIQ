@@ -2140,3 +2140,6 @@ footer {
 /* Phone: the form charts draw on a half-width canvas (ov-narrow) with bigger labels; pass network names grow too */
 .ov-narrow .ov-axis,.ov-narrow .ov-avg-lbl{font-size:15px}
 @media (max-width:640px){.tm-node-t{font-size:34px;stroke-width:7px}}
+
+/* Compare header: the "Limited sample" chip under a player's team line */
+.cph-warn{display:inline-block;margin-top:5px;font-size:11px;padding:2px 8px}

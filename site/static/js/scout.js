@@ -95,13 +95,16 @@ function initScoutSearch() {
   const searchEl = document.getElementById("scout-search");
   const resultsEl = document.getElementById("scout-results");
 
+  let searchSeq = 0;   // answers can arrive out of order: only the newest query may fill the list
   const doSearch = debounce(async (isGlobal = false) => {
+    const seq = ++searchSeq;
     const q = searchEl.value.trim();
     if (q.length < 2) { resultsEl.innerHTML = ""; resultsEl.classList.remove("active"); return; }
     try {
       const url = `/api/search?name=${encodeURIComponent(q)}&league=${scoutLeague}&season=${scoutSeason}${isGlobal ? "&all_leagues=1" : ""}`;
       const res = await fetch(url);
       const data = await res.json();
+      if (seq !== searchSeq) return;
       if (!Array.isArray(data)) return;
       if (!data.length && !isGlobal) return doSearch(true);
       if (!data.length) {
@@ -152,8 +155,10 @@ async function selectTarget(player) {
   await runScoutSearch();
 }
 
+let _scoutToken = 0;   // a filter change while a search runs: only the newest search may draw
 async function runScoutSearch() {
   if (!scoutTarget) return;
+  const mine = ++_scoutToken;
   const listEl = document.getElementById("scout-matches-list");
   const widenedEl = document.getElementById("scout-widened-notice");
   widenedEl.style.display = "none";
@@ -173,6 +178,7 @@ async function runScoutSearch() {
       }),
     });
     const data = await res.json();
+    if (mine !== _scoutToken) return;
     if (!res.ok || data.error) {
       FootIQUI.error(listEl, data.error || "Could not find matches.", runScoutSearch);
       return;
@@ -180,6 +186,7 @@ async function runScoutSearch() {
     widenedEl.style.display = data.widened ? "block" : "none";
     renderMatches(data.matches || []);
   } catch {
+    if (mine !== _scoutToken) return;
     FootIQUI.error(listEl, "Could not load matches.", runScoutSearch);
   }
 }

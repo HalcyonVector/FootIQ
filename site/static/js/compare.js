@@ -140,13 +140,16 @@ function renderSlots() {
   container.querySelectorAll("[data-search-idx]").forEach(input => {
     const idx = +input.dataset.searchIdx;
     const resultsEl = container.querySelector(`[data-results-idx="${idx}"]`);
+    let seq = 0;   // answers can arrive out of order: only the newest query may fill the list
     const doSearch = debounce(async () => {
+      const mine = ++seq;
       const q = input.value.trim();
       if (q.length < 2) { resultsEl.innerHTML = ""; resultsEl.classList.remove("active"); return; }
       try {
         const url = `/api/search?name=${encodeURIComponent(q)}&league=${slots[idx].league}&season=${slots[idx].season}`;
         const res = await fetch(url);
         const data = await res.json();
+        if (mine !== seq) return;
         if (!Array.isArray(data) || !data.length) {
           resultsEl.innerHTML = `<div class="result-item" style="color:var(--muted);justify-content:center">No players found</div>`;
           resultsEl.classList.add("active");
@@ -261,6 +264,7 @@ function renderResults(data) {
           <div class="cph-info">
             <div class="cph-name">${p.name}</div>
             <div class="cph-meta">${p.team} · ${p.position} · ${p.league} ${p.season}</div>
+            ${p.sample && p.sample.limited ? `<span class="profile-stat-chip warn-chip cph-warn" title="${String(p.sample.note).replace(/"/g, "&quot;")}">Limited sample</span>` : ""}
           </div>
           <div class="cph-score">
             <div class="cph-score-val">${score}</div>
