@@ -368,7 +368,9 @@
           e.target.classList.add('in-view');
           revealObs.unobserve(e.target);
         });
-    }, { threshold: 0.1, rootMargin: '0px 0px -6% 0px' });
+    // threshold 0, not a fraction: a card more than ~10 screens tall (a team page on a phone, a long
+    // list) can never have 10% of itself on screen at once, so it stayed invisible while scrolling.
+    }, { threshold: 0, rootMargin: '0px 0px -6% 0px' });
 
     function obs(el) {
       if (el.dataset.scrollInit) return;
