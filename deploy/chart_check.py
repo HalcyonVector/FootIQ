@@ -17,6 +17,8 @@ clicks through every tab, every team plot and every player-type plot, and counts
 It then does the same at phone size (390px wide, touch, tabs through the phone's dropdown) for a
 winger and a goalkeeper and a sample of the plots, and also fails if a page scrolls sideways or a
 chart's text renders smaller than 8px (a desktop-sized canvas squeezed into a phone-sized box).
+In both passes it scrolls the long pages (player, compare, team, coverage) half a screen at a time and
+fails if a card stays invisible on screen (the fade-in once never fired for a card ~10 screens tall).
 
 Any of those fails the run (exit 1). Charts that say "No data" are fine: some players have no events of
 a kind. Uses the installed Google Chrome through Playwright, so no browser download is needed.
@@ -92,6 +94,13 @@ LAYOUT_JS = """([scope, minPx]) => {
   });
   return { scrollW: document.documentElement.scrollWidth, W, wide: [...new Set(wide)].slice(0, 5), tiny };
 }"""
+
+# Cards fade in (base.html) when they scroll into view. Anything still hidden while it sits well inside
+# the screen (above the bottom 10%, which is where the fade starts) after the fade had time to run is a
+# blank patch the visitor sees. A card taller than ~10 screens once stayed hidden like that for good.
+HIDDEN_JS = """() => { const H = innerHeight; return [...document.querySelectorAll('.reveal:not(.in-view)')].filter(e => {
+  const r = e.getBoundingClientRect(); return r.height > 0 && r.bottom > 0 && r.top < H * 0.9; })
+  .map(e => (e.id ? '#' + e.id : '.' + [...e.classList].join('.')) + ' (' + Math.round(e.getBoundingClientRect().height) + 'px tall)'); }"""
 
 failures: list[str] = []
 PHONE = {"on": False}            # set during the phone pass; adds the layout checks to every record()
@@ -176,6 +185,32 @@ def record(name: str, page: Page, scope: str | None = None, need_drawn: int = 1)
         failures.append(f"{name}: {', '.join(problems)}")
 
 
+def scroll_through(name: str, page: Page) -> None:
+    """Scrolls the whole page half a screen at a time and fails if a card stays invisible on screen."""
+    if PHONE["on"]:
+        name = "phone / " + name
+    page.evaluate("document.documentElement.style.scrollBehavior = 'auto'")
+    step, y, stuck, stops = page.viewport_size["height"] // 2, 0, {}, 0
+    while y < page.evaluate("document.documentElement.scrollHeight"):
+        page.evaluate(f"window.scrollTo(0, {y})")
+        page.wait_for_timeout(450)                  # the fade starts at once; give the observer a frame or two
+        hidden = page.evaluate(HIDDEN_JS)
+        if hidden:                                  # look again before blaming it: a slow frame is not a blank card
+            page.wait_for_timeout(900)
+            hidden = page.evaluate(HIDDEN_JS)
+        for el in hidden:
+            stuck[el] = stuck.get(el, 0) + 1
+        y += step
+        stops += 1
+    page.evaluate("window.scrollTo(0, 0)")
+    if stuck:
+        detail = "; ".join(f"{el} hidden at {n} of {stops} scroll positions" for el, n in stuck.items())
+        failures.append(f"{name}: blank while scrolling: {detail}")
+        print(f"  [FAIL] {name}: blank while scrolling: {detail}")
+    else:
+        print(f"  [ok] {name}: nothing stays hidden while scrolling ({stops} positions)")
+
+
 def open_page(page: Page, base: str, path: str, params: dict | None = None) -> None:
     page.goto(base + path + ("?" + urlencode(params) if params else ""), wait_until="domcontentloaded", timeout=90_000)
     settle(page, 800)
@@ -198,6 +233,8 @@ def check_players(page: Page, base: str) -> None:
         who = page.evaluate("() => (document.querySelector('.profile-name') || {}).textContent || ''").strip()
         label = f"player {who or p['player_id']}"
         record(f"{label} / season overview", page, "#overview-section")
+        if p is PLAYERS[0]:
+            scroll_through(f"{label} / scroll", page)
         tabs = page.evaluate("() => [...document.querySelectorAll('.adv-tab-btn')].map(b => [b.dataset.cat, b.textContent.trim()])")
         if not tabs:
             failures.append(f"{label}: no metric tabs appeared")
@@ -216,6 +253,7 @@ def check_compare(page: Page, base: str) -> None:
     tabs = page.evaluate("() => [...document.querySelectorAll('.adv-tab-btn, .cmp-tab-btn, [data-cat]')]"
                          ".filter(b => b.tagName === 'BUTTON').map(b => b.dataset.cat)")
     record("compare / first view", page)
+    scroll_through("compare / scroll", page)
     for key in list(dict.fromkeys(k for k in tabs if k))[:3 if PHONE["on"] else None]:
         page.evaluate("k => document.querySelector(`button[data-cat='${k}']`).click()", key)
         settle(page)
@@ -266,6 +304,7 @@ def check_teams(page: Page, base: str) -> None:
 
     open_page(page, base, "/team", TEAM)
     record(f"team page {TEAM['team']}", page, None, need_drawn=3)
+    scroll_through(f"team page {TEAM['team']} / scroll", page)
 
 
 def check_other_pages(page: Page, base: str) -> None:
@@ -273,6 +312,8 @@ def check_other_pages(page: Page, base: str) -> None:
     for path in ("/", "/scout", "/coverage"):
         open_page(page, base, path)
         record(f"page {path}", page, None, need_drawn=0)
+        if path == "/coverage":
+            scroll_through("page /coverage / scroll", page)
 
 
 PASSES = {
