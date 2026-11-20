@@ -248,6 +248,47 @@ def check_players(page: Page, base: str) -> None:
             record(f"{label} / {title}", page, f"#adv-panel-{key}")
 
 
+PASSES_SHOWN_JS = r"""() => { const st = document.querySelector('#adv-panel-passing .fc-stats');
+  const m = st && st.innerText.match(/([\d,]+)\s*Passes/); return m ? +m[1].replace(/,/g, '') : null; }"""
+
+
+def check_season_switch(page: Page, base: str) -> None:
+    """Switching season in place must redraw the charts for the new season. The browser's chart
+    cache was keyed by tab and filter only, so the Passing tab kept the previous season's (or the
+    previous player's) pass map: a 4-pass map on a player with 1,037 passes."""
+    p = PLAYERS[0]
+    open_page(page, base, "/player", p)
+    record("season switch / before", page, "#adv-panel-passing")
+    choices = page.evaluate("() => [...document.querySelectorAll('#season-switch-slot select option')].map(o => o.value)")
+    target = next((v for v in choices if v != f"{p['league']}|{p['season']}"), None)
+    if not target:
+        print("  [skip] season switch: this player has one season")
+        return
+    league, season = target.split("|")
+    expected = page.evaluate("""async ([pid, league, season]) => {
+        const r = await fetch('/api/category-chart', {method: 'POST', headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({player_id: pid, league, season, category: 'passing', filter: 'progressive', scope: 'all'})});
+        const d = await r.json(); const m = (d.charts || []).find(c => c.key === 'map');
+        const st = m && (m.spec.stats || []).find(x => x[0] === 'Passes'); return st ? st[1] : null; }""",
+        [p["player_id"], league, season])
+    page.evaluate("v => { const s = document.querySelector('#season-switch-slot select'); s.value = v;"
+                  " s.dispatchEvent(new Event('change', { bubbles: true })); }", target)
+    shown = None
+    for _ in range(50):                       # up to ~25 s for the new season's charts
+        page.wait_for_timeout(500)
+        shown = page.evaluate(PASSES_SHOWN_JS)
+        if shown == expected:
+            break
+    name = f"season switch to {league} {season}"
+    if expected is None:
+        print(f"  [skip] {name}: the server has no pass map to compare against")
+    elif shown == expected:
+        print(f"  [ok] {name}: pass map shows {shown} passes, as the server does")
+    else:
+        failures.append(f"{name}: pass map shows {shown} passes, the server has {expected}")
+        print(f"  [FAIL] {name}: pass map shows {shown} passes, the server has {expected}")
+
+
 def check_compare(page: Page, base: str) -> None:
     open_page(page, base, "/compare", COMPARE)
     tabs = page.evaluate("() => [...document.querySelectorAll('.adv-tab-btn, .cmp-tab-btn, [data-cat]')]"
@@ -351,7 +392,7 @@ def main() -> int:
                 page = ctx.new_page()
                 page.on("pageerror", lambda e, pg=page: js_errors.append(f"{pg.url}: {e}"))
                 page.on("console", lambda m, pg=page: m.type == "error" and js_errors.append(f"{pg.url}: {m.text[:300]}"))
-                for name, step in [("players", check_players), ("compare", check_compare), ("explore", check_explore),
+                for name, step in [("players", check_players), ("season switch", check_season_switch), ("compare", check_compare), ("explore", check_explore),
                                    ("teams", check_teams), ("other pages", check_other_pages)]:
                     print(f"- {pass_name}: {name}")
                     try:

@@ -19,6 +19,8 @@
   --float-bg: rgba(13,18,32,.85);
   --float-border: rgba(255,255,255,.08);
   --hub-card-bg: rgba(17,24,39,.6);
+  /* Content cards: a dark fill instead of a backdrop blur (see .glass-card) */
+  --card-fill: rgba(14,16,28,.55);
 }
 
 [data-theme="light"] {
@@ -31,6 +33,7 @@
   --float-bg: rgba(255,255,255,.88);
   --float-border: rgba(0,0,0,.08);
   --hub-card-bg: rgba(255,255,255,.75);
+  --card-fill: var(--glass);
 }
 
 html{scroll-behavior:smooth;overflow-x:hidden}
@@ -112,8 +115,13 @@ body{background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif;min-
 .container{max-width:1100px;width:100%;margin:0 auto;padding:0 24px 48px;position:relative;z-index:1;flex:1 0 auto}
 
 .glass-card{
-  background:var(--glass);border:1px solid var(--border);border-radius:var(--radius);
-  backdrop-filter:blur(16px);padding:24px;
+  /* No backdrop-filter: a blurred backdrop is redrawn every frame under the moving orbs and
+     particles, and on a card a few screens tall (the season overview, the Advanced block) Chrome
+     fell behind while scrolling and showed bare background for a moment. A dark fill hides the
+     grid and particles the blur used to soften; isolation keeps the stacking context the blur
+     created, which the dropdown z-index rules below rely on. */
+  background:var(--card-fill);border:1px solid var(--border);border-radius:var(--radius);
+  isolation:isolate;padding:24px;
   transition:border-color .25s,box-shadow .25s,background .25s;
 }
 .glass-card:hover{border-color:var(--c0);box-shadow:0 8px 40px rgba(0,0,0,.1)}
@@ -467,8 +475,8 @@ input::placeholder{color:var(--muted)}
 .scout-matches-list{display:flex;flex-direction:column;gap:12px;max-width:900px;margin:0 auto}
 .scout-match-card{
   display:flex;align-items:center;gap:18px;padding:16px 22px;
-  background:var(--glass);border:1px solid var(--border);border-radius:var(--radius);
-  backdrop-filter:blur(16px);transition:border-color .2s,transform .2s,box-shadow .2s;
+  background:var(--card-fill);border:1px solid var(--border);border-radius:var(--radius);
+  isolation:isolate;transition:border-color .2s,transform .2s,box-shadow .2s;
 }
 .scout-match-card:hover{border-color:var(--c0);transform:translateY(-2px);box-shadow:0 8px 32px rgba(0,0,0,.15)}
 .scout-match-card.top-match{border-color:rgba(236,72,153,.4)}

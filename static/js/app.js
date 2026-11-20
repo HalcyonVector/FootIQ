@@ -564,7 +564,18 @@ const CHART_FILTERS = {
   ]},
 };
 
-const _chartCache = {};        // "${catKey}:${filterStr}" -> {charts:[base64,...]}
+const _chartCache = {};        // _chartKey(...) -> {charts:[...]}
+
+// The cache key carries the player, competition, season and ranking scope, not just the tab and
+// filter. With only "${catKey}:${filterStr}" a season switch or a new player reused the charts of
+// whoever was opened before (a 4-pass map on a player with 1,037 passes), and a slow response for
+// the previous player could land in the cache under the new one's key.
+function _chartContext() {
+  return primaryPlayer ? `${primaryPlayer.id}|${primaryLeague}|${primarySeason}|${statScope}` : "";
+}
+function _chartKey(catKey, filterStr, ctx = _chartContext()) {
+  return `${ctx}|${catKey}:${filterStr}`;
+}
 const _chartFilterState = {};  // catKey -> current filter value (string for radio, array for checkbox)
 
 // Tab-order prefetch: chart generation is real server-side work (matplotlib
@@ -608,7 +619,7 @@ function _scheduleNextTabPrefetch(catKey) {
 const _chartFetchesInFlight = {};  // cacheKey -> Promise<data|null>
 
 function _fetchCategoryChartData(catKey, filterStr) {
-  const cacheKey = `${catKey}:${filterStr}`;
+  const cacheKey = _chartKey(catKey, filterStr);
   if (_chartCache[cacheKey]) return Promise.resolve(_chartCache[cacheKey]);
   if (_chartFetchesInFlight[cacheKey]) return _chartFetchesInFlight[cacheKey];
 
@@ -777,7 +788,8 @@ async function loadCategoryChart(catKey, forceReload = false) {
   }
   const filterVal = _chartFilterState[catKey];
   const filterStr = Array.isArray(filterVal) ? filterVal.join(",") : (filterVal || "");
-  const cacheKey = `${catKey}:${filterStr}`;
+  const ctx = _chartContext();
+  const cacheKey = _chartKey(catKey, filterStr, ctx);
 
   if (!forceReload && _chartCache[cacheKey]) {
     renderChartImages(catKey, _chartCache[cacheKey]);
@@ -789,6 +801,7 @@ async function loadCategoryChart(catKey, forceReload = false) {
   if (grid) grid.innerHTML = _chartGridSpinner();
 
   const data = await _fetchCategoryChartData(catKey, filterStr);
+  if (ctx !== _chartContext()) return;   // the player, season or scope changed while this was loading
   if (!data) { renderChartError(catKey); return; }
   renderChartImages(catKey, data);
 }
