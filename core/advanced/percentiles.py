@@ -13,6 +13,7 @@ import pandas as pd
 from core.advanced import config
 from core.advanced.categories.final_third import pillar_floor_scores, pillar_per_touch_scores
 from core.advanced.metrics_master import CATEGORIES, CATEGORY_ORDER, INVERTED_METRICS
+from core.advanced import stabilize
 from core.position import pos_group
 
 PILLAR_NAMES = ("shooting", "linkup", "carrying", "ballwinning")
@@ -137,8 +138,16 @@ def final_third_pillar_percentiles(row: dict, cohort: pd.DataFrame, df: pd.DataF
         cohort_floor = {p: pd.Series([pillar_floor_scores(r)[p] for r in cohort_records]) for p in PILLAR_NAMES}
         cohort_per_touch = {p: pd.Series([pillar_per_touch_scores(r)[p] for r in cohort_records]) for p in PILLAR_NAMES}
 
-    floor_pct = {p: _percentile_rank(player_floor[p], cohort_floor[p]) for p in PILLAR_NAMES}
-    per_touch_pct = {p: _percentile_rank(player_per_touch[p], cohort_per_touch[p]) for p in PILLAR_NAMES}
+    # ranked on minutes-adjusted scores, like every other stat (see stabilize.py)
+    mins, k = cohort["total_minutes"], stabilize.PILLAR_K
+    floor_pct, per_touch_pct = {}, {}
+    for p in PILLAR_NAMES:
+        ranked, centre = stabilize.adjust_series(cohort_floor[p], mins, k)
+        floor_pct[p] = _percentile_rank(stabilize.adjusted(player_floor[p], row.get("total_minutes"), centre, k)
+                                        if centre == centre else player_floor[p], ranked)
+        ranked, centre = stabilize.adjust_series(cohort_per_touch[p], mins, k)
+        per_touch_pct[p] = _percentile_rank(stabilize.adjusted(player_per_touch[p], row.get("total_minutes"), centre, k)
+                                            if centre == centre else player_per_touch[p], ranked)
     return floor_pct, per_touch_pct, player_floor, player_per_touch
 
 
@@ -172,7 +181,8 @@ def _build_final_third_stats(row: dict, cohort: pd.DataFrame, df: pd.DataFrame =
         no_data = value is None or (isinstance(value, float) and pd.isna(value))
         stats.append({
             "label": label, "value": round(float(value), 2) if not no_data else 0,
-            "percentile": _percentile_rank(value, cohort[col]) if not no_data and col in cohort.columns else 0,
+            "percentile": _percentile_rank(*reversed(stabilize.cohort_and_player(col, float(value), row.get("total_minutes"), cohort)))
+                          if not no_data and col in cohort.columns else 0,
             "unit": "", "no_data": no_data,
         })
 
@@ -188,8 +198,12 @@ def build_final_third_scatter(position: str, season: str, df: pd.DataFrame, targ
     cohort_floor, cohort_per_touch = _cohort_pillar_series(df, cohort, position, season)
     # Ranked once per pillar for the whole cohort (vectorized) instead of once
     # per player per pillar — see _percentile_rank_series's docstring.
-    floor_pct_series = {p: _percentile_rank_series(cohort_floor[p]) for p in PILLAR_NAMES}
-    per_touch_pct_series = {p: _percentile_rank_series(cohort_per_touch[p]) for p in PILLAR_NAMES}
+    # minutes-adjusted, so the scatter agrees with the stat card (see stabilize.py)
+    mins = cohort["total_minutes"]
+    floor_pct_series = {p: _percentile_rank_series(stabilize.adjust_series(cohort_floor[p], mins, stabilize.PILLAR_K)[0])
+                        for p in PILLAR_NAMES}
+    per_touch_pct_series = {p: _percentile_rank_series(stabilize.adjust_series(cohort_per_touch[p], mins, stabilize.PILLAR_K)[0])
+                            for p in PILLAR_NAMES}
 
     points = []
     for i, r in enumerate(records):
@@ -239,8 +253,17 @@ def _build_category_stats(cat_key: str, row: dict, cohort: pd.DataFrame, df: pd.
         if value is None or (isinstance(value, float) and pd.isna(value)):
             stats.append({"label": label, "key": col, "value": 0, "percentile": 0, "unit": unit, "no_data": True})
             continue
-        pct = _percentile_rank(value, cohort[col], invert=col in INVERTED_METRICS) if col in cohort.columns else 0
-        stats.append({"label": label, "key": col, "value": round(float(value), 2), "percentile": pct, "unit": unit})
+        if col in cohort.columns:
+            # ranked on minutes-adjusted values (see stabilize.py), so 46 minutes cannot top the scale
+            ranked, mine = stabilize.cohort_and_player(col, float(value), row.get("total_minutes"), cohort)
+            pct = _percentile_rank(mine, ranked, invert=col in INVERTED_METRICS)
+        else:
+            pct = 0
+        # how much of this number is the player rather than luck, at their minutes (0 to 1); the
+        # strengths list only uses stats where it is at least half
+        signal = round(stabilize.weight(row.get("total_minutes"), stabilize.minutes_for_half_signal(col)), 2)
+        stats.append({"label": label, "key": col, "value": round(float(value), 2), "percentile": pct, "unit": unit,
+                      "signal": signal})
     return stats
 
 

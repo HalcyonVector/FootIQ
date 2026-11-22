@@ -117,6 +117,11 @@ def sample_info(minutes: float, team_matches: int, floor: int = LIMITED_FLOOR_MI
             "early_season": early, "early_note": early_note}
 
 
+# A stat goes in the strengths or weaknesses list only when at least half of it is the player
+# rather than luck at their minutes (percentiles.py's "signal", from stabilize.py).
+MIN_SIGNAL = 0.5
+
+
 # Metrics where being *low* in the cohort is a real weakness (rates of doing
 # a thing well). A low count of e.g. headed shots just means "a different
 # kind of player", so it is never listed as a weakness.
@@ -136,7 +141,8 @@ def _distinct(items: list[dict], n: int) -> list[dict]:
     percentile, which is what a repeated column looks like)."""
     seen, out = set(), []
     for s in items:
-        ids = {_SAME_MEASURE.get(s.get("key"), s.get("key") or s["label"]), (s.get("value"), s["percentile"], s.get("unit"))}
+        ids = {_SAME_MEASURE.get(s.get("key"), s.get("key") or s["label"]), (s.get("value"), s["percentile"], s.get("unit")),
+               s["label"]}   # one "Shots" chip, not one from Shooting and another from Half-Spaces
         if ids & seen:
             continue
         seen |= ids
@@ -157,12 +163,17 @@ def insights(categories: list[dict], n_strengths: int = 4, n_weak: int = 3, samp
             for s in row.get("stats", []):
                 if s.get("no_data") or s.get("percentile") is None:
                     continue
+                # mostly noise at this player's minutes (a 46-minute cameo's 4 shots, or one season of
+                # tackle success): not something to call a strength or a weakness
+                if s.get("signal", 1) < MIN_SIGNAL:
+                    continue
                 scored.append({"label": s["label"], "category": cat["label"], "percentile": s["percentile"],
                                "value": s.get("value"), "unit": s.get("unit", ""), "key": s.get("key")})
     strengths = _distinct(sorted((s for s in scored if s["percentile"] >= 85), key=lambda s: -s["percentile"]), n_strengths)
     weak = _distinct(sorted((s for s in scored if s["percentile"] <= 20 and _QUALITY.search(s["label"])),
                             key=lambda s: s["percentile"]), n_weak)
-    out = {"strengths": strengths, "weaknesses": weak, "early": False}
+    out = {"strengths": strengths, "weaknesses": weak, "early": False,
+           "minutes": (sample or {}).get("minutes")}
     if sample and sample.get("limited"):
         out["early"] = True
         out["early_note"] = (f"Only {sample['minutes']} minutes, so these rest on a small sample "

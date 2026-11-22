@@ -68,7 +68,14 @@ const FootIQOverview = (() => {
   function renderInsights(insights) {
     const el = $("ov-insights");
     if (!el) return;
-    if (!insights || (!insights.strengths.length && !insights.weaknesses.length)) { el.innerHTML = ""; return; }
+    if (!insights) { el.innerHTML = ""; return; }
+    if (!insights.strengths.length && !insights.weaknesses.length) {
+      // a short spell: say why there is nothing to list instead of leaving a gap
+      el.innerHTML = insights.early
+        ? `<div class="ov-ins-note">Not enough minutes yet to call anything a strength or an area to improve: at ${esc(String(insights.minutes || "these"))} minutes every stat is still mostly luck.</div>`
+        : "";
+      return;
+    }
     const chip = (s, cls) => `<span class="ov-chip ${cls}" title="${esc(s.category)} · ${fmt(s.value, 2)}${esc(s.unit)}">
       ${esc(s.label)}<b>${Math.round(s.percentile)}</b></span>`;
     // A thin sample (the "Limited sample" chip) gets "early" headings and says why
@@ -78,7 +85,7 @@ const FootIQOverview = (() => {
         <div class="ov-chips">${insights.strengths.map(s => chip(s, "ov-chip-good")).join("")}</div></div>` : ""}
       ${insights.weaknesses.length ? `<div class="ov-ins-col"><div class="ov-ins-title ov-bad">${early ? "Early areas to improve" : "Areas to improve"}</div>
         <div class="ov-chips">${insights.weaknesses.map(s => chip(s, "ov-chip-bad")).join("")}</div></div>` : ""}
-      <div class="ov-ins-note">Number = percentile vs same-position players this season.${early && insights.early_note ? " " + esc(insights.early_note) : ""}</div>`;
+      <div class="ov-ins-note">Number = percentile vs same-position players this season, adjusted for minutes played. Only stats that are mostly the player rather than luck at these minutes are listed.${early && insights.early_note ? " " + esc(insights.early_note) : ""}</div>`;
   }
 
   // ── Form chart ────────────────────────────────────────────────────────────
