@@ -1,6 +1,6 @@
 # FootIQ: What Football Event Data Says About a Player
 
-How good is a player at the things that do not show up in a box score? FootIQ answers that from the match events themselves: every pass, carry, duel, tackle and shot in 15 competitions, with pitch coordinates, parsed into 131 metrics per player-season and ranked as percentiles against players in the same position group. Search a player and read their passing, carrying, shooting, aerial, defending, half-space, tempo and decision-making profiles, see which teammates they link up with, compare up to four players, find a statistical twin, or rank everyone in the dataset on a single metric.
+How good is a player at the things that do not show up in a box score? FootIQ answers that from the match events themselves: every pass, carry, duel, tackle and shot in 15 competitions, with pitch coordinates, parsed into 131 metrics per player-season and ranked as percentiles against players in the same position group, with each value adjusted for the minutes behind it so a short spell cannot top a scale. Search a player and read their passing, carrying, shooting, aerial, defending, half-space, tempo and decision-making profiles, see which teammates they link up with, compare up to four players, find a statistical twin, or rank everyone in the dataset on a single metric.
 
 Built with Python, pandas, pyarrow and Flask on parsed WhoScored/Opta match-event data, with client-side SVG charts and no front-end build step.
 
@@ -41,7 +41,7 @@ What the data showed, and the problems found while building it:
 
 ### Player Page
 
-- Search across 15 competitions; every metric is a percentile against same-position players in the same season. The season pickers open on the newest season that is mostly played (2025-26 at the moment), and seasons still in progress are marked as such.
+- Search across 15 competitions; every metric is a percentile against same-position players in the same season, ranked on minutes-adjusted values (see Data Source). The season pickers open on the newest season that is mostly played (2025-26 at the moment), and seasons still in progress are marked as such.
 - 12 Advanced Metrics tabs: Passing, Shooting and Footedness, Carrying, Half-Spaces, Tempo Control, Decision Making, Final Third, Aerial Duels, Defending, Hold-Up Play, Post-Recovery and Link-Up. Goalkeepers get a Goalkeeping tab instead.
 - A "Profile at a glance" radar of the player's average percentile in every category, above the tabs.
 - A switch for who the percentiles are ranked against: every competition that season (the default), the Top 5 leagues together (Premier League, La Liga, Serie A, Bundesliga, Ligue 1; offered to players in those leagues), or only the player's own competition. The bars, radar, strengths, composite rating and per-tab charts all follow it.
@@ -52,7 +52,7 @@ What the data showed, and the problems found while building it:
 
 ### Season Overview
 
-- Stat line (appearances, goals, assists, xG, xA, average rating, cards), strengths and areas to improve generated from the percentiles (headed "early" when the sample is limited), and a per-match form chart.
+- Stat line (appearances, goals, assists, xG, xA, average rating, cards), strengths and areas to improve generated from the percentiles, using only stats that are at least half signal at the player's minutes (headed "early" when the sample is limited, and replaced by a short note when nothing qualifies), and a per-match form chart.
 - A shot map sized by xG with a goal-placement view, touch and defensive-action heatmaps, and a pass map for chances created, progressive passes, passes into the box and incomplete passes.
 - A career table across every season in the dataset.
 
@@ -251,7 +251,7 @@ pip install pytest
 python -m pytest tests/
 ```
 
-181 tests cover the metric math and the data handling around it: progressive-action geometry, position-group classification, the Composite Rating's power mean, the xG model and shot data, league tables, chart specs, the player search ranking, the link-up lookup, the season-progress gates (including the European cups and that every category module that uses them imports them), the quadrant indexes, the percentile tie rule, which way each metric ranks, set-piece headers being read from the delivery before them, answers staying valid JSON when a value is missing, bad requests being answered 400, the Top 5 and percentile-scope filters, Scout's season window, the default season, the team style measures and their ranks, that every page renders, partition-preserving writes and the dataset release logic. The scraper's schedule retries and the health check's treatment of unplayed fixtures are tested against simulated failures. Two tests are skipped on machines without the raw data.
+190 tests cover the metric math and the data handling around it: progressive-action geometry, position-group classification, the Composite Rating's power mean, the xG model and shot data, league tables, chart specs, the player search ranking, the link-up lookup, the season-progress gates (including the European cups and that every category module that uses them imports them), the quadrant indexes, the percentile tie rule, which way each metric ranks, the minutes adjustment and which stats can count as strengths, release times worked back to when the passer got the ball, set-piece headers being read from the delivery before them, answers staying valid JSON when a value is missing, bad requests being answered 400, the Top 5 and percentile-scope filters, Scout's season window, the default season, the team style measures and their ranks, that every page renders, partition-preserving writes and the dataset release logic. The scraper's schedule retries and the health check's treatment of unplayed fixtures are tested against simulated failures. Two tests are skipped on machines without the raw data.
 
 ### Chart check in a headless browser
 
