@@ -1158,11 +1158,10 @@ footer{
   display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;
 }
 .footer-brand{display:flex;align-items:center;gap:8px}
-.footer-credits{font-size:12px;color:var(--muted);flex:1;min-width:0;text-align:right}
+.footer-credits{font-size:12px;color:var(--muted)}
 .footer-credits strong{color:var(--dim)}
-.footer-line{line-height:1.6;overflow-wrap:anywhere}
-.footer-credits a{color:var(--dim);text-decoration:none;border-bottom:1px dotted rgba(236,72,153,.45)}
-.footer-credits a:hover{color:var(--c0)}
+.footer-src{color:inherit;text-decoration:none}
+.footer-src:hover strong{color:var(--c0)}
 .credit-name{color:var(--c0) !important;text-decoration:none;transition:opacity .15s}
 .credit-name:hover{opacity:.8}
 .nav-credit a{color:inherit;text-decoration:none;transition:opacity .15s}
@@ -1825,6 +1824,7 @@ footer {
   .hint-btn{min-height:38px;padding-top:8px;padding-bottom:8px}
   td a, .team-link{display:inline-block;padding:9px 0}
   .credit-name{display:inline-block;padding:8px 2px}
+  .footer-credits .credit-name{padding:3px 1px}   /* the footer: keep its lines close together */
 }
 .state-card{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;padding:28px 20px;color:var(--muted)}
 .state-title{font-size:14.5px;font-weight:700;color:var(--text)}

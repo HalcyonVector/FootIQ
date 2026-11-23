@@ -303,4 +303,4 @@ GitHub: [@HalcyonVector](https://github.com/HalcyonVector)
 
 ## License
 
-No license specified yet. Contact the author for usage rights.
+The code is released under the [MIT License](LICENSE). It covers the code only: the match data is not part of this repository and is not mine to redistribute.
