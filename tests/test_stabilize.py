@@ -32,3 +32,14 @@ def test_strengths_skip_stats_that_are_mostly_luck_at_these_minutes():
         {"label": "Key passes", "key": "b", "percentile": 90, "value": 3.0, "unit": "", "signal": 0.8},
     ]}]}]
     assert [s["label"] for s in insights(cats)["strengths"]] == ["Key passes"]
+
+
+def test_explore_is_ordered_by_adjusted_value_so_a_cameo_does_not_lead():
+    from core.advanced.explore import rank_players
+    rows = [{"whoscored_player_id": i, "player_name": f"P{i}", "team_name": "T", "league": "L", "season": "2025-26",
+             "position": "FW", "_pos_group": "attacker", "age": 25, "total_minutes": 2500.0, "shots": 2.0 + i / 10}
+            for i in range(10)]
+    rows.append({**rows[0], "whoscored_player_id": 99, "player_name": "Cameo", "total_minutes": 100.0, "shots": 6.5})
+    out = rank_players(pd.DataFrame(rows), "shots", "2025-26", "all", "all", min_minutes=90, limit=11)
+    assert out[0]["name"] == "P9" and out[0]["value"] == 2.9
+    assert [r["name"] for r in out].index("Cameo") > 0

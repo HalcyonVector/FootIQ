@@ -15,6 +15,7 @@ and the four corner names.
 
 import pandas as pd
 
+from core.advanced import stabilize
 from core.advanced import config
 from core.advanced.lookup import _clean_minutes
 from core.advanced.metrics_master import INVERTED_METRICS
@@ -385,11 +386,16 @@ def public_presets() -> list[dict]:
 
 
 def _index(subset: pd.DataFrame, axis: dict) -> pd.Series:
-    """Mean percentile rank (0-100, higher is better) of the axis's metrics over the given players."""
+    """Mean percentile rank (0-100, higher is better) of the axis's metrics over the given players,
+    each ranked on minutes-adjusted values (stabilize.py) so a short spell cannot sit in a corner on
+    a lucky rate. Dot size still shows the real minutes."""
     ranks = []
     for col in axis["cols"]:
         lower_is_better = col in INVERTED_METRICS or col in axis["lower"]
-        ranks.append(subset[col].rank(pct=True, ascending=not lower_is_better) * 100)
+        vals, centre = subset[col], subset[col].median()
+        if centre == centre:
+            vals = stabilize.adjusted(vals, subset["total_minutes"], centre, stabilize.minutes_for_half_signal(col))
+        ranks.append(vals.rank(pct=True, ascending=not lower_is_better) * 100)
     return sum(ranks) / len(ranks)
 
 

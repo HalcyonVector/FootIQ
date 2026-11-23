@@ -14,6 +14,7 @@ event coverage rather than genuine statistical difference).
 import numpy as np
 import pandas as pd
 
+from core.advanced import stabilize
 from core.advanced import config
 from core.advanced.lookup import _clean_position, _clean_minutes, _clean_age
 from core.advanced.metrics_master import CATEGORIES, CATEGORY_ORDER, INVERTED_METRICS
@@ -59,7 +60,12 @@ def _percentile_matrix(cohort: pd.DataFrame, cols: list[str]) -> pd.DataFrame:
     for col in cols:
         if col not in cohort.columns:
             continue
-        ranked = cohort[col].rank(pct=True, na_option="keep") * 100
+        # minutes-adjusted first (stabilize.py), so a profile is matched on what the player
+        # reliably does, not on rates from a handful of actions
+        vals, centre = cohort[col], cohort[col].median()
+        if centre == centre:
+            vals = stabilize.adjusted(vals, cohort["total_minutes"], centre, stabilize.minutes_for_half_signal(col))
+        ranked = vals.rank(pct=True, na_option="keep") * 100
         out[col] = (100 - ranked) if col in INVERTED_METRICS else ranked
     return pd.DataFrame(out, index=cohort.index)
 

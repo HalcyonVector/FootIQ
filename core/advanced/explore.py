@@ -12,6 +12,7 @@ from core.advanced import config
 from core.advanced.lookup import _clean_age, _clean_minutes, _clean_position
 from core.advanced.metrics_master import CATEGORIES, CATEGORY_ORDER, INVERTED_METRICS
 from core.advanced.percentiles import _percentile_rank
+from core.advanced import stabilize
 from core.position import pos_group
 
 # Categories with a flat, rankable metric list. Excludes final_third (its
@@ -75,7 +76,9 @@ def rank_players(
     "starters only", or explicitly down (Explore's lowest UI option is 90,
     not 0) for surfacing a breakout player on a small sample, which a
     discovery tool should allow even though every OTHER cohort/percentile
-    view in the app stays pinned to the stricter default floor."""
+    view in the app stays pinned to the stricter default floor. Rows are
+    ordered by minutes-adjusted value (see the comment below), so a short
+    spell only rises if its rate is extreme enough to survive the adjustment."""
     subset = df[df["season"] == season]
     subset = subset[config.league_mask(subset, league)]
     if position_group and position_group != "all":
@@ -90,21 +93,30 @@ def rank_players(
         return []
 
     ascending = metric_col in INVERTED_METRICS
-    subset = subset.sort_values(metric_col, ascending=ascending)
 
-    # Percentile is computed against the same-season, same-position-group,
-    # cross-league cohort (mirrors percentiles.py's own _cohort) so the color
-    # bar means the same thing here as it does on every stat card elsewhere.
-    cohorts: dict[str, pd.Series] = {}
+    # Ranked on minutes-adjusted values (stabilize.py), the same ones the player page ranks: each
+    # value is pulled toward its position group's median by how little evidence stands behind it,
+    # so a 90-minute cameo cannot head the list on a lucky rate. The percentile is against the
+    # same-season, same-position-group, cross-league cohort, so it matches the player page too.
+    k = stabilize.minutes_for_half_signal(metric_col)
+    cohorts: dict[str, tuple] = {}      # group -> (adjusted cohort values, centre)
+    for group in subset["_pos_group"].dropna().unique():
+        mask = (df["season"] == season) & (df["_pos_group"] == group) & (df["total_minutes"] >= config.minutes_floor(df))
+        cohort = df.loc[mask, [metric_col, "total_minutes"]].dropna(subset=[metric_col])
+        centre = cohort[metric_col].median()
+        cohorts[group] = (stabilize.adjusted(cohort[metric_col], cohort["total_minutes"], centre, k)
+                          if centre == centre else cohort[metric_col], centre)
+    centres = subset["_pos_group"].map(lambda g: cohorts.get(g, (None, float("nan")))[1])
+    centres = centres.fillna(subset[metric_col].median())
+    subset = subset.assign(_adjusted=stabilize.adjusted(subset[metric_col], subset["total_minutes"], centres, k))
+    subset = subset.sort_values("_adjusted", ascending=ascending)
 
     out = []
     for rank, (_, row) in enumerate(subset.head(limit).iterrows(), start=1):
         # the stored group, not one re-derived from `position`, which is missing for some players
         group = row.get("_pos_group") or pos_group(row.get("position"))
-        if group not in cohorts:
-            cohort_mask = (df["season"] == season) & (df["_pos_group"] == group) & (df["total_minutes"] >= config.minutes_floor(df))
-            cohorts[group] = df.loc[cohort_mask, metric_col]
-        pct = _percentile_rank(row[metric_col], cohorts[group], invert=ascending)
+        ranked = cohorts.get(group, (None, None))[0]
+        pct = _percentile_rank(row["_adjusted"], ranked, invert=ascending) if ranked is not None else 0
 
         out.append({
             "rank": rank,

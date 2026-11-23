@@ -1158,8 +1158,11 @@ footer{
   display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;
 }
 .footer-brand{display:flex;align-items:center;gap:8px}
-.footer-credits{font-size:12px;color:var(--muted)}
+.footer-credits{font-size:12px;color:var(--muted);flex:1;min-width:0;text-align:right}
 .footer-credits strong{color:var(--dim)}
+.footer-line{line-height:1.6;overflow-wrap:anywhere}
+.footer-credits a{color:var(--dim);text-decoration:none;border-bottom:1px dotted rgba(236,72,153,.45)}
+.footer-credits a:hover{color:var(--c0)}
 .credit-name{color:var(--c0) !important;text-decoration:none;transition:opacity .15s}
 .credit-name:hover{opacity:.8}
 .nav-credit a{color:inherit;text-decoration:none;transition:opacity .15s}
@@ -1207,7 +1210,7 @@ footer{
   .nav-page-select{display:block}
   footer{padding:14px 20px}
   .footer-inner{flex-direction:column;gap:4px;text-align:center}
-  .footer-credits{font-size:10.5px;line-height:1.6}
+  .footer-credits{font-size:10.5px;line-height:1.6;text-align:center}
   .adv-chart-tile{min-width:0}
   .adv-stat-card{min-width:0;flex-basis:100%}
   .adv-chart-card{min-width:0;flex-basis:100%}

@@ -254,7 +254,7 @@ function renderResults(results) {
         </div>
         <div class="scout-match-score">
           <div class="scout-match-score-val" style="color:${color}">${valStr}</div>
-          <div class="scout-match-score-lbl" title="Percentile against ${r.position_group || "same-position players"} this season, so the order of the list (by the value) and the percentiles can differ">${_ordinal(r.percentile)} pct vs position</div>
+          <div class="scout-match-score-lbl" title="Percentile against ${r.position_group || "same-position players"} this season. The list is ordered by the value adjusted for minutes played, so a short spell only rises if its rate is extreme">${_ordinal(r.percentile)} pct vs position</div>
         </div>
         <a class="scout-match-cta" href="${profileUrl}">View Profile &rarr;</a>
       </div>
